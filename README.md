@@ -17,6 +17,7 @@ Current core API:
 
 - `createTalos(config)`
 - `registerAgent(agent)`
+- `listAgents()`, `hasAgent(agentId)`, and `removeAgent(agentId)`
 - `registerTool(tool)`
 - `registerPlugin(plugin)` with capability declarations (`tools`, `providers`, `hooks`)
 - `loadPluginFromPath(filePath)` and `loadPluginsFromDirectory(directoryPath)`

@@ -155,6 +155,18 @@ export function createTalos(config: TalosConfig): Talos {
     agents.register(agent);
   };
 
+  const listAgents = (): AgentDefinition[] => {
+    return agents.list();
+  };
+
+  const hasAgent = (agentId: string): boolean => {
+    return agents.has(agentId);
+  };
+
+  const removeAgent = (agentId: string): boolean => {
+    return agents.remove(agentId);
+  };
+
   const registerPlugin = async (plugin: TalosPlugin) => {
     plugins.assertNotRegistered(plugin.id);
     const capabilities = plugin.capabilities ?? ["tools", "providers", "hooks"];
@@ -537,6 +549,9 @@ export function createTalos(config: TalosConfig): Talos {
 
   return {
     registerAgent,
+    listAgents,
+    hasAgent,
+    removeAgent,
     registerTool,
     registerPlugin,
     registerModelProvider,

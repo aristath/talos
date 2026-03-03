@@ -25,4 +25,20 @@ export class AgentRegistry {
     }
     return resolved;
   }
+
+  has(id: string): boolean {
+    return this.agents.has(id.trim());
+  }
+
+  remove(id: string): boolean {
+    const normalizedId = id.trim();
+    if (!normalizedId) {
+      return false;
+    }
+    return this.agents.delete(normalizedId);
+  }
+
+  list(): AgentDefinition[] {
+    return Array.from(this.agents.values());
+  }
 }

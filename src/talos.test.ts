@@ -19,11 +19,34 @@ describe("createTalos", () => {
     });
 
     expect(typeof talos.registerAgent).toBe("function");
+    expect(typeof talos.listAgents).toBe("function");
+    expect(typeof talos.hasAgent).toBe("function");
+    expect(typeof talos.removeAgent).toBe("function");
     expect(typeof talos.registerTool).toBe("function");
     expect(typeof talos.registerPlugin).toBe("function");
     expect(typeof talos.onEvent).toBe("function");
     expect(typeof talos.seedPersonaWorkspace).toBe("function");
     expect(typeof talos.run).toBe("function");
+  });
+
+  it("manages agent lifecycle in registry", () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerAgent({ id: "main", name: "Main" });
+    expect(talos.hasAgent("main")).toBe(true);
+    expect(talos.listAgents().map((agent) => agent.id)).toContain("main");
+    expect(talos.removeAgent("main")).toBe(true);
+    expect(talos.hasAgent("main")).toBe(false);
   });
 
   it("blocks plugin operations outside declared capabilities", async () => {

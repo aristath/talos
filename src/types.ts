@@ -261,6 +261,9 @@ export type TalosPlugin = {
 
 export type Talos = {
   registerAgent: (agent: AgentDefinition) => void;
+  listAgents: () => AgentDefinition[];
+  hasAgent: (agentId: string) => boolean;
+  removeAgent: (agentId: string) => boolean;
   registerTool: (tool: ToolDefinition) => void;
   registerPlugin: (plugin: TalosPlugin) => Promise<void>;
   registerModelProvider: (provider: ModelProviderAdapter) => void;
