@@ -786,4 +786,45 @@ describe("createTalos", () => {
     expect(result.text).toBe("fallback-fast");
     expect(result.providerId).toBe("fast");
   });
+
+  it("tracks active runs and supports cancellation by runId", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+      models: {
+        requestTimeoutMs: 1_000,
+      },
+    });
+
+    talos.registerAgent({
+      id: "main",
+      model: {
+        providerId: "slow",
+        modelId: "m",
+      },
+    });
+    talos.registerModelProvider({
+      id: "slow",
+      async generate() {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return {
+          text: "late",
+          providerId: "slow",
+          modelId: "m",
+        };
+      },
+    });
+
+    const runPromise = talos.run({ agentId: "main", prompt: "hello" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const active = talos.listActiveRuns();
+    expect(active.length).toBe(1);
+    const runId = active[0]?.runId;
+    expect(runId).toBeTruthy();
+    expect(talos.cancelRun(runId ?? "")).toBe(true);
+    await expect(runPromise).rejects.toMatchObject({ code: "RUN_CANCELLED" });
+    expect(talos.listActiveRuns()).toHaveLength(0);
+  });
 });

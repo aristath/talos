@@ -240,6 +240,13 @@ export type RunLifecycleEvent =
 
 export type RunLifecycleListener = (event: RunLifecycleEvent) => void | Promise<void>;
 
+export type ActiveRun = {
+  runId: string;
+  agentId: string;
+  sessionId?: string;
+  startedAt: string;
+};
+
 export type TalosPluginApi = {
   registerTool: (tool: ToolDefinition) => void;
   registerModelProvider: (provider: ModelProviderAdapter) => void;
@@ -260,6 +267,8 @@ export type Talos = {
   onEvent: (listener: RunLifecycleListener) => void;
   listEvents: (limit?: number) => RunLifecycleEvent[];
   listRunEvents: (runId: string) => RunLifecycleEvent[];
+  listActiveRuns: () => ActiveRun[];
+  cancelRun: (runId: string) => boolean;
   seedPersonaWorkspace: (
     workspaceDir: string,
     options?: {

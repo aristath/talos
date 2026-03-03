@@ -15,5 +15,6 @@ export type {
   TalosErrorCode,
   RunLifecycleEvent,
   RunLifecycleListener,
+  ActiveRun,
   PluginCapability,
 } from "./types.js";

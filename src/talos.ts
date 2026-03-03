@@ -24,6 +24,7 @@ import type {
   ModelResponse,
   ToolExecutionInput,
   ToolResult,
+  ActiveRun,
 } from "./types.js";
 
 const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 60_000;
@@ -93,6 +94,14 @@ export function createTalos(config: TalosConfig): Talos {
   const tools = new ToolRegistry();
   const plugins = new PluginRegistry();
   const events = new LifecycleEventBus();
+  const activeRuns = new Map<
+    string,
+    {
+      meta: ActiveRun;
+      controller: AbortController;
+      detachExternalAbort?: () => void;
+    }
+  >();
   const requestTimeoutMs = parsed.data.models?.requestTimeoutMs ?? DEFAULT_MODEL_REQUEST_TIMEOUT_MS;
   const retriesPerModel = parsed.data.models?.retriesPerModel ?? DEFAULT_RETRIES_PER_MODEL;
   const retryDelayMs = parsed.data.models?.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
@@ -200,6 +209,23 @@ export function createTalos(config: TalosConfig): Talos {
     return events.listRunEvents(runId);
   };
 
+  const listActiveRuns = (): ActiveRun[] => {
+    return Array.from(activeRuns.values()).map((entry) => entry.meta);
+  };
+
+  const cancelRun = (runId: string): boolean => {
+    const normalizedRunId = runId.trim();
+    if (!normalizedRunId) {
+      return false;
+    }
+    const active = activeRuns.get(normalizedRunId);
+    if (!active) {
+      return false;
+    }
+    active.controller.abort();
+    return true;
+  };
+
   const seedPersonaWorkspaceApi = async (
     workspaceDir: string,
     options?: Parameters<typeof seedPersonaWorkspace>[1],
@@ -297,7 +323,41 @@ export function createTalos(config: TalosConfig): Talos {
 
   const run = async (input: RunInput): Promise<RunResult> => {
     const runId = randomUUID();
-    assertRunNotAborted(input.signal, runId);
+    const runAbortController = new AbortController();
+    const externalSignal = input.signal;
+    if (externalSignal?.aborted) {
+      runAbortController.abort();
+    } else if (externalSignal) {
+      const onExternalAbort = () => {
+        runAbortController.abort();
+      };
+      externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+      activeRuns.set(runId, {
+        meta: {
+          runId,
+          agentId: input.agentId,
+          ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+          startedAt: new Date().toISOString(),
+        },
+        controller: runAbortController,
+        detachExternalAbort: () => {
+          externalSignal.removeEventListener("abort", onExternalAbort);
+        },
+      });
+    }
+    if (!activeRuns.has(runId)) {
+      activeRuns.set(runId, {
+        meta: {
+          runId,
+          agentId: input.agentId,
+          ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+          startedAt: new Date().toISOString(),
+        },
+        controller: runAbortController,
+      });
+    }
+    const signal = runAbortController.signal;
+    assertRunNotAborted(signal, runId);
     await events.emit({
       type: "run.started",
       at: new Date().toISOString(),
@@ -309,9 +369,9 @@ export function createTalos(config: TalosConfig): Talos {
       },
     });
     try {
-      assertRunNotAborted(input.signal, runId);
+      assertRunNotAborted(signal, runId);
       await plugins.runBeforeRun(input);
-      assertRunNotAborted(input.signal, runId);
+      assertRunNotAborted(signal, runId);
       const agent = agents.resolve(input.agentId);
       const primaryProvider = parsed.data.providers.openaiCompatible[0];
       const primaryProviderId = agent.model?.providerId ?? primaryProvider?.id;
@@ -336,7 +396,7 @@ export function createTalos(config: TalosConfig): Talos {
       let generated: ModelResponse | null = null;
       let lastError: unknown = null;
       for (const attempt of attempts) {
-        assertRunNotAborted(input.signal, runId);
+        assertRunNotAborted(signal, runId);
         const request = await plugins.runBeforeModel(
           systemPrompt
             ? {
@@ -361,14 +421,14 @@ export function createTalos(config: TalosConfig): Talos {
           },
         });
         for (let retry = 0; retry <= retriesPerModel; retry += 1) {
-          assertRunNotAborted(input.signal, runId);
+          assertRunNotAborted(signal, runId);
           try {
             const response = await withTimeout(
               models.generate(request),
               requestTimeoutMs,
               `Model request timed out after ${requestTimeoutMs}ms (${request.providerId}/${request.modelId}).`,
             );
-            assertRunNotAborted(input.signal, runId);
+            assertRunNotAborted(signal, runId);
             generated = response;
             await plugins.runAfterModel({
               request,
@@ -468,6 +528,10 @@ export function createTalos(config: TalosConfig): Talos {
         message: "Talos run failed.",
         cause: error,
       });
+    } finally {
+      const active = activeRuns.get(runId);
+      active?.detachExternalAbort?.();
+      activeRuns.delete(runId);
     }
   };
 
@@ -479,6 +543,8 @@ export function createTalos(config: TalosConfig): Talos {
     onEvent,
     listEvents,
     listRunEvents,
+    listActiveRuns,
+    cancelRun,
     seedPersonaWorkspace: seedPersonaWorkspaceApi,
     loadPluginFromPath: loadPluginFromPathApi,
     loadPluginsFromDirectory,
