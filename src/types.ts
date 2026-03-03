@@ -19,6 +19,7 @@ export type TalosConfig = {
   tools?: {
     allow?: string[];
     deny?: string[];
+    executionTimeoutMs?: number;
   };
 };
 
@@ -47,6 +48,7 @@ export type ToolExecutionInput = {
   name: string;
   args?: Record<string, unknown>;
   context: RunContext;
+  signal?: AbortSignal;
 };
 
 export type ToolDefinition = {
@@ -111,6 +113,8 @@ export type TalosErrorCode =
   | "RUN_FAILED"
   | "RUN_CANCELLED"
   | "TOOL_FAILED"
+  | "TOOL_CANCELLED"
+  | "TOOL_TIMEOUT"
   | "TOOL_NOT_ALLOWED"
   | "MODEL_TIMEOUT"
   | "PERSONA_INVALID_WORKSPACE"
@@ -243,6 +247,17 @@ export type RunLifecycleEvent =
         sessionId?: string;
         runId?: string;
         error: TalosErrorLike;
+      };
+    }
+  | {
+      type: "tool.cancelled";
+      at: string;
+      data: {
+        name: string;
+        agentId: string;
+        sessionId?: string;
+        runId?: string;
+        reason: string;
       };
     };
 

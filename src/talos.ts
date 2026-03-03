@@ -33,6 +33,7 @@ import type {
 const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 60_000;
 const DEFAULT_RETRIES_PER_MODEL = 0;
 const DEFAULT_RETRY_DELAY_MS = 0;
+const DEFAULT_TOOL_EXECUTION_TIMEOUT_MS = 30_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -50,10 +51,21 @@ function assertRunNotAborted(signal: AbortSignal | undefined, runId: string): vo
   });
 }
 
+function assertToolNotAborted(signal: AbortSignal | undefined, toolName: string): void {
+  if (!signal?.aborted) {
+    return;
+  }
+  throw new TalosError({
+    code: "TOOL_CANCELLED",
+    message: `Tool execution was cancelled: ${toolName}`,
+  });
+}
+
 async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
   timeoutMessage: string,
+  timeoutCode: "MODEL_TIMEOUT" | "TOOL_TIMEOUT" = "MODEL_TIMEOUT",
 ): Promise<T> {
   let timeoutHandle: NodeJS.Timeout | null = null;
   try {
@@ -63,7 +75,7 @@ async function withTimeout<T>(
         timeoutHandle = setTimeout(() => {
           reject(
             new TalosError({
-              code: "MODEL_TIMEOUT",
+              code: timeoutCode,
               message: timeoutMessage,
             }),
           );
@@ -111,6 +123,8 @@ export function createTalos(config: TalosConfig): Talos {
   const requestTimeoutMs = parsed.data.models?.requestTimeoutMs ?? DEFAULT_MODEL_REQUEST_TIMEOUT_MS;
   const retriesPerModel = parsed.data.models?.retriesPerModel ?? DEFAULT_RETRIES_PER_MODEL;
   const retryDelayMs = parsed.data.models?.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
+  const toolExecutionTimeoutMs =
+    parsed.data.tools?.executionTimeoutMs ?? DEFAULT_TOOL_EXECUTION_TIMEOUT_MS;
 
   const hasCapability = (pluginCapabilities: PluginCapability[] | undefined, needed: PluginCapability) => {
     return pluginCapabilities?.includes(needed) ?? false;
@@ -386,12 +400,30 @@ export function createTalos(config: TalosConfig): Talos {
   };
 
   const executeTool = async (input: ToolExecutionInput): Promise<ToolResult> => {
+    const toolAbortController = new AbortController();
+    const externalSignal = input.signal;
+    let detachExternalAbort: (() => void) | undefined;
+    if (externalSignal?.aborted) {
+      toolAbortController.abort();
+    } else if (externalSignal) {
+      const onExternalAbort = () => {
+        toolAbortController.abort();
+      };
+      externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+      detachExternalAbort = () => {
+        externalSignal.removeEventListener("abort", onExternalAbort);
+      };
+    }
+
     const args = input.args ?? {};
     const normalizedInput: ToolExecutionInput = {
       name: input.name,
       args,
       context: input.context,
+      signal: toolAbortController.signal,
     };
+
+    assertToolNotAborted(normalizedInput.signal, normalizedInput.name);
 
     await events.emit({
       type: "tool.started",
@@ -406,8 +438,15 @@ export function createTalos(config: TalosConfig): Talos {
 
     try {
       await plugins.runBeforeTool(normalizedInput);
+      assertToolNotAborted(normalizedInput.signal, normalizedInput.name);
       assertToolAllowed(normalizedInput.name);
-      const result = await tools.execute(normalizedInput.name, args, normalizedInput.context);
+      const result = await withTimeout(
+        tools.execute(normalizedInput.name, args, normalizedInput.context),
+        toolExecutionTimeoutMs,
+        `Tool execution timed out after ${toolExecutionTimeoutMs}ms: ${normalizedInput.name}`,
+        "TOOL_TIMEOUT",
+      );
+      assertToolNotAborted(normalizedInput.signal, normalizedInput.name);
       await plugins.runAfterTool({
         input: normalizedInput,
         result,
@@ -426,6 +465,22 @@ export function createTalos(config: TalosConfig): Talos {
       });
       return result;
     } catch (error) {
+      if (error instanceof TalosError && error.code === "TOOL_CANCELLED") {
+        await events.emit({
+          type: "tool.cancelled",
+          at: new Date().toISOString(),
+          data: {
+            name: normalizedInput.name,
+            agentId: normalizedInput.context.agentId,
+            ...(normalizedInput.context.sessionId
+              ? { sessionId: normalizedInput.context.sessionId }
+              : {}),
+            ...(normalizedInput.context.runId ? { runId: normalizedInput.context.runId } : {}),
+            reason: error.message,
+          },
+        });
+        throw error;
+      }
       await events.emit({
         type: "tool.failed",
         at: new Date().toISOString(),
@@ -447,6 +502,8 @@ export function createTalos(config: TalosConfig): Talos {
         message: `Tool execution failed: ${normalizedInput.name}`,
         cause: error,
       });
+    } finally {
+      detachExternalAbort?.();
     }
   };
 
@@ -556,6 +613,7 @@ export function createTalos(config: TalosConfig): Talos {
               models.generate(request),
               requestTimeoutMs,
               `Model request timed out after ${requestTimeoutMs}ms (${request.providerId}/${request.modelId}).`,
+              "MODEL_TIMEOUT",
             );
             assertRunNotAborted(signal, runId);
             generated = response;

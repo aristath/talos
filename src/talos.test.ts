@@ -624,6 +624,80 @@ describe("createTalos", () => {
     expect(events).toContain("tool.failed");
   });
 
+  it("times out long-running tools", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+      tools: {
+        executionTimeoutMs: 10,
+      },
+    });
+
+    talos.registerTool({
+      name: "sleepy",
+      description: "sleeps",
+      async run() {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return { content: "late" };
+      },
+    });
+
+    await expect(
+      talos.executeTool({
+        name: "sleepy",
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_TIMEOUT" });
+  });
+
+  it("supports tool cancellation via AbortSignal", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerTool({
+      name: "wait",
+      description: "waits",
+      async run() {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        return { content: "done" };
+      },
+    });
+
+    const events: string[] = [];
+    talos.onEvent((event) => {
+      events.push(event.type);
+    });
+
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 10);
+
+    await expect(
+      talos.executeTool({
+        name: "wait",
+        context: { agentId: "main" },
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_CANCELLED" });
+
+    expect(events).toContain("tool.cancelled");
+  });
+
   it("loads plugins from path and directory", async () => {
     const talos = createTalos({
       providers: {

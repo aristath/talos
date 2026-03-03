@@ -23,6 +23,7 @@ export const talosConfigSchema = z.object({
     .object({
       allow: z.array(z.string().min(1)).optional(),
       deny: z.array(z.string().min(1)).optional(),
+      executionTimeoutMs: z.number().int().positive().optional(),
     })
     .optional(),
 });

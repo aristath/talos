@@ -11,6 +11,7 @@ Talos is a TypeScript library for building agent systems with:
 Model execution supports per-agent primary model configuration and ordered fallback attempts.
 Model runtime supports request timeout and retry policy (`models.requestTimeoutMs`, `models.retriesPerModel`, `models.retryDelayMs`).
 Tool execution supports config-level allow/deny policy (`tools.allow`, `tools.deny`).
+Tool runtime supports `tools.executionTimeoutMs` and `executeTool(..., signal)` cancellation.
 Plugin hooks include `beforeModel` and `afterModel` for model request/response interception.
 
 Current core API:
