@@ -2,11 +2,19 @@ import type { PersonaFileName, PersonaSnapshot } from "./persona/types.js";
 import type { PersonaBootstrapResult } from "./persona/bootstrap.js";
 
 export type TalosConfig = {
+  authProfiles?: Record<
+    string,
+    {
+      apiKey?: string;
+      headers?: Record<string, string>;
+    }
+  >;
   providers: {
     openaiCompatible: {
       id: string;
       baseUrl: string;
       apiKey?: string;
+      authProfileId?: string;
       headers?: Record<string, string>;
       defaultModel: string;
     }[];
@@ -15,11 +23,15 @@ export type TalosConfig = {
     requestTimeoutMs?: number;
     retriesPerModel?: number;
     retryDelayMs?: number;
+    toolLoopMaxSteps?: number;
   };
   tools?: {
     allow?: string[];
     deny?: string[];
     executionTimeoutMs?: number;
+  };
+  runtime?: {
+    stateFile?: string;
   };
 };
 
@@ -96,6 +108,12 @@ export type ModelResponse = {
 export type ModelProviderAdapter = {
   id: string;
   generate: (request: ModelRequest) => Promise<ModelResponse>;
+};
+
+export type AuthProfile = {
+  id: string;
+  apiKey?: string;
+  headers?: Record<string, string>;
 };
 
 export type TalosErrorCode =
@@ -329,6 +347,16 @@ export type TalosDiagnostics = {
   recentEvents: RunLifecycleEvent[];
 };
 
+export type TalosStateSnapshot = {
+  events: RunLifecycleEvent[];
+  runs: RunSummary[];
+};
+
+export type DiagnosticsResetResult = {
+  clearedEvents: number;
+  clearedRuns: number;
+};
+
 export type TalosPluginApi = {
   registerTool: (tool: ToolDefinition) => void;
   registerModelProvider: (provider: ModelProviderAdapter) => void;
@@ -365,6 +393,10 @@ export type Talos = {
   listModelProviders: () => ModelProviderAdapter[];
   hasModelProvider: (providerId: string) => boolean;
   removeModelProvider: (providerId: string) => boolean;
+  registerAuthProfile: (profile: AuthProfile) => void;
+  listAuthProfiles: () => AuthProfile[];
+  hasAuthProfile: (profileId: string) => boolean;
+  removeAuthProfile: (profileId: string) => boolean;
   onEvent: (listener: RunLifecycleListener) => RunLifecycleUnsubscribe;
   listEvents: (limit?: number) => RunLifecycleEvent[];
   queryEvents: (query?: EventQuery) => RunLifecycleEvent[];
@@ -374,6 +406,9 @@ export type Talos = {
   getRun: (runId: string) => RunSummary | undefined;
   getRunStats: () => RunStats;
   getDiagnostics: (options?: { recentEventsLimit?: number }) => TalosDiagnostics;
+  resetDiagnostics: () => DiagnosticsResetResult;
+  saveState: (filePath?: string) => Promise<string>;
+  loadState: (filePath?: string) => Promise<string>;
   listActiveRuns: () => ActiveRun[];
   cancelRun: (runId: string) => boolean;
   seedPersonaWorkspace: (

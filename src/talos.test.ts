@@ -35,6 +35,10 @@ describe("createTalos", () => {
     expect(typeof talos.listModelProviders).toBe("function");
     expect(typeof talos.hasModelProvider).toBe("function");
     expect(typeof talos.removeModelProvider).toBe("function");
+    expect(typeof talos.registerAuthProfile).toBe("function");
+    expect(typeof talos.listAuthProfiles).toBe("function");
+    expect(typeof talos.hasAuthProfile).toBe("function");
+    expect(typeof talos.removeAuthProfile).toBe("function");
     expect(typeof talos.onEvent).toBe("function");
     expect(typeof talos.seedPersonaWorkspace).toBe("function");
     expect(typeof talos.listRuns).toBe("function");
@@ -42,6 +46,7 @@ describe("createTalos", () => {
     expect(typeof talos.getRun).toBe("function");
     expect(typeof talos.getRunStats).toBe("function");
     expect(typeof talos.getDiagnostics).toBe("function");
+    expect(typeof talos.resetDiagnostics).toBe("function");
     expect(typeof talos.queryEvents).toBe("function");
     expect(typeof talos.run).toBe("function");
   });
@@ -352,6 +357,25 @@ describe("createTalos", () => {
     expect(talos.listModelProviders().map((provider) => provider.id)).toContain("provider-a");
     expect(talos.removeModelProvider("provider-a")).toBe(true);
     expect(talos.hasModelProvider("provider-a")).toBe(false);
+  });
+
+  it("manages auth profile lifecycle", () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+    });
+
+    talos.registerAuthProfile({
+      id: "work",
+      apiKey: "abc",
+      headers: { "x-org": "team-a" },
+    });
+
+    expect(talos.hasAuthProfile("work")).toBe(true);
+    expect(talos.listAuthProfiles().some((profile) => profile.id === "work")).toBe(true);
+    expect(talos.removeAuthProfile("work")).toBe(true);
+    expect(talos.hasAuthProfile("work")).toBe(false);
   });
 
   it("blocks plugin operations outside declared capabilities", async () => {
@@ -1443,6 +1467,40 @@ describe("createTalos", () => {
     expect(snapshot.runStats.total).toBeGreaterThanOrEqual(1);
   });
 
+  it("resets diagnostics history and run summaries", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+    });
+
+    talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+    talos.registerModelProvider({
+      id: "provider",
+      async generate(request) {
+        return {
+          text: "ok",
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    await talos.run({ agentId: "main", prompt: "hello" });
+
+    const before = talos.getDiagnostics();
+    expect(before.runStats.total).toBeGreaterThan(0);
+    expect(before.recentEvents.length).toBeGreaterThan(0);
+
+    const reset = talos.resetDiagnostics();
+    expect(reset.clearedRuns).toBeGreaterThan(0);
+    expect(reset.clearedEvents).toBeGreaterThan(0);
+
+    const after = talos.getDiagnostics();
+    expect(after.runStats.total).toBe(0);
+    expect(after.recentEvents).toHaveLength(0);
+  });
+
   it("queries runs by agent and status", async () => {
     const talos = createTalos({
       providers: {
@@ -1544,5 +1602,86 @@ describe("createTalos", () => {
       since: new Date(Date.now() + 60_000).toISOString(),
     });
     expect(futureRange).toHaveLength(0);
+  });
+
+  it("executes tool loop rounds when model returns JSON tool calls", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+      models: {
+        toolLoopMaxSteps: 2,
+      },
+    });
+
+    talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+    talos.registerTool({
+      name: "sum",
+      description: "sum",
+      async run(args) {
+        return { content: String(Number(args.a ?? 0) + Number(args.b ?? 0)) };
+      },
+    });
+
+    let calls = 0;
+    talos.registerModelProvider({
+      id: "provider",
+      async generate() {
+        calls += 1;
+        if (calls === 1) {
+          return {
+            text: JSON.stringify({ tool: "sum", args: { a: 2, b: 3 } }),
+            providerId: "provider",
+            modelId: "m",
+          };
+        }
+        return {
+          text: "The answer is 5.",
+          providerId: "provider",
+          modelId: "m",
+        };
+      },
+    });
+
+    const result = await talos.run({ agentId: "main", prompt: "What is 2+3?" });
+    expect(result.text).toBe("The answer is 5.");
+    expect(calls).toBe(2);
+  });
+
+  it("saves and loads state snapshots", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-state-"));
+    const statePath = path.join(stateDir, "state.json");
+    try {
+      const talosA = createTalos({
+        providers: {
+          openaiCompatible: [],
+        },
+      });
+      talosA.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      talosA.registerModelProvider({
+        id: "provider",
+        async generate(request) {
+          return {
+            text: "ok",
+            providerId: request.providerId,
+            modelId: request.modelId,
+          };
+        },
+      });
+      await talosA.run({ agentId: "main", prompt: "hello" });
+      await talosA.saveState(statePath);
+
+      const talosB = createTalos({
+        providers: {
+          openaiCompatible: [],
+        },
+      });
+      const loadedPath = await talosB.loadState(statePath);
+      expect(loadedPath.endsWith("state.json")).toBe(true);
+      expect(talosB.getRunStats().total).toBeGreaterThanOrEqual(1);
+      expect(talosB.listEvents(10).length).toBeGreaterThan(0);
+    } finally {
+      await fs.rm(stateDir, { recursive: true, force: true });
+    }
   });
 });

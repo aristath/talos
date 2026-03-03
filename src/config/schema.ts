@@ -1,12 +1,21 @@
 import { z } from "zod";
 
 export const talosConfigSchema = z.object({
+  authProfiles: z
+    .record(
+      z.object({
+        apiKey: z.string().min(1).optional(),
+        headers: z.record(z.string()).optional(),
+      }),
+    )
+    .optional(),
   providers: z.object({
     openaiCompatible: z.array(
       z.object({
         id: z.string().min(1),
         baseUrl: z.string().url(),
         apiKey: z.string().min(1).optional(),
+        authProfileId: z.string().min(1).optional(),
         headers: z.record(z.string()).optional(),
         defaultModel: z.string().min(1),
       }),
@@ -17,6 +26,7 @@ export const talosConfigSchema = z.object({
       requestTimeoutMs: z.number().int().positive().optional(),
       retriesPerModel: z.number().int().min(0).max(10).optional(),
       retryDelayMs: z.number().int().min(0).max(60_000).optional(),
+      toolLoopMaxSteps: z.number().int().min(0).max(20).optional(),
     })
     .optional(),
   tools: z
@@ -24,6 +34,11 @@ export const talosConfigSchema = z.object({
       allow: z.array(z.string().min(1)).optional(),
       deny: z.array(z.string().min(1)).optional(),
       executionTimeoutMs: z.number().int().positive().optional(),
+    })
+    .optional(),
+  runtime: z
+    .object({
+      stateFile: z.string().min(1).optional(),
     })
     .optional(),
 });

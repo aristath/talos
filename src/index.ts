@@ -11,6 +11,7 @@ export type {
   ToolDefinition,
   ToolExecutionInput,
   ToolResult,
+  AuthProfile,
   TalosPlugin,
   TalosErrorCode,
   RunLifecycleEvent,
@@ -24,5 +25,7 @@ export type {
   RunStats,
   PluginSummary,
   TalosDiagnostics,
+  TalosStateSnapshot,
+  DiagnosticsResetResult,
   PluginCapability,
 } from "./types.js";

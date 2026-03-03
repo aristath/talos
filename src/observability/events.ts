@@ -1,10 +1,12 @@
 import type {
+  DiagnosticsResetResult,
   EventQuery,
   RunLifecycleEvent,
   RunLifecycleListener,
   RunQuery,
   RunLifecycleUnsubscribe,
   RunStats,
+  TalosStateSnapshot,
   RunSummary,
 } from "../types.js";
 
@@ -242,5 +244,31 @@ export class LifecycleEventBus {
       failed,
       cancelled,
     };
+  }
+
+  reset(): DiagnosticsResetResult {
+    const clearedEvents = this.history.length;
+    const clearedRuns = this.runs.size;
+    this.history.splice(0, this.history.length);
+    this.runs.clear();
+    return {
+      clearedEvents,
+      clearedRuns,
+    };
+  }
+
+  snapshot(): TalosStateSnapshot {
+    return {
+      events: [...this.history],
+      runs: Array.from(this.runs.values()),
+    };
+  }
+
+  replace(snapshot: TalosStateSnapshot): void {
+    this.history.splice(0, this.history.length, ...snapshot.events.slice(-this.maxHistory));
+    this.runs.clear();
+    for (const run of snapshot.runs.slice(-this.maxRuns)) {
+      this.runs.set(run.runId, run);
+    }
   }
 }

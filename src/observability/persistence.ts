@@ -1,0 +1,46 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import { TalosError } from "../errors.js";
+import type { TalosStateSnapshot } from "../types.js";
+
+export async function saveStateSnapshot(filePath: string, snapshot: TalosStateSnapshot): Promise<string> {
+  const normalizedPath = filePath.trim();
+  if (!normalizedPath) {
+    throw new TalosError({
+      code: "CONFIG_INVALID",
+      message: "State file path is required.",
+    });
+  }
+  const targetPath = path.resolve(normalizedPath);
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  const payload = `${JSON.stringify(snapshot, null, 2)}\n`;
+  const tmpPath = `${targetPath}.tmp-${process.pid}-${Date.now().toString(36)}`;
+  await fs.writeFile(tmpPath, payload, "utf8");
+  await fs.rename(tmpPath, targetPath);
+  return targetPath;
+}
+
+export async function loadStateSnapshot(filePath: string): Promise<{ path: string; snapshot: TalosStateSnapshot }> {
+  const normalizedPath = filePath.trim();
+  if (!normalizedPath) {
+    throw new TalosError({
+      code: "CONFIG_INVALID",
+      message: "State file path is required.",
+    });
+  }
+  const targetPath = path.resolve(normalizedPath);
+  const raw = await fs.readFile(targetPath, "utf8");
+  const parsed = JSON.parse(raw) as {
+    events?: unknown;
+    runs?: unknown;
+  };
+  const events = Array.isArray(parsed.events) ? parsed.events : [];
+  const runs = Array.isArray(parsed.runs) ? parsed.runs : [];
+  return {
+    path: targetPath,
+    snapshot: {
+      events: events as TalosStateSnapshot["events"],
+      runs: runs as TalosStateSnapshot["runs"],
+    },
+  };
+}

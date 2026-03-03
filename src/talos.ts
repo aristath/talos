@@ -10,8 +10,10 @@ import { discoverPluginEntryPaths, loadPluginFromPath } from "./plugins/loader.j
 import { ToolRegistry } from "./tools/registry.js";
 import { TalosError, toTalosErrorLike } from "./errors.js";
 import { LifecycleEventBus } from "./observability/events.js";
+import { loadStateSnapshot, saveStateSnapshot } from "./observability/persistence.js";
 import type {
   AgentDefinition,
+  AuthProfile,
   ModelProviderAdapter,
   RunInput,
   RunResult,
@@ -32,12 +34,15 @@ import type {
   RunStats,
   TalosDiagnostics,
   PluginSummary,
+  DiagnosticsResetResult,
+  TalosStateSnapshot,
 } from "./types.js";
 
 const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 60_000;
 const DEFAULT_RETRIES_PER_MODEL = 0;
 const DEFAULT_RETRY_DELAY_MS = 0;
 const DEFAULT_TOOL_EXECUTION_TIMEOUT_MS = 30_000;
+const DEFAULT_TOOL_LOOP_MAX_STEPS = 0;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -93,6 +98,76 @@ async function withTimeout<T>(
   }
 }
 
+type ParsedToolLoopResponse = {
+  toolCalls: Array<{ name: string; args: Record<string, unknown> }>;
+  final?: string;
+};
+
+function parseToolLoopResponse(text: string): ParsedToolLoopResponse | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  const candidate = parsed as {
+    tool?: unknown;
+    args?: unknown;
+    toolCalls?: unknown;
+    final?: unknown;
+  };
+
+  const singleTool =
+    typeof candidate.tool === "string" && candidate.tool.trim()
+      ? [
+          {
+            name: candidate.tool.trim(),
+            args:
+              candidate.args && typeof candidate.args === "object" && !Array.isArray(candidate.args)
+                ? (candidate.args as Record<string, unknown>)
+                : {},
+          },
+        ]
+      : [];
+
+  const manyTools = Array.isArray(candidate.toolCalls)
+    ? candidate.toolCalls
+        .map((entry) => {
+          if (!entry || typeof entry !== "object") {
+            return null;
+          }
+          const e = entry as { name?: unknown; args?: unknown };
+          if (typeof e.name !== "string" || !e.name.trim()) {
+            return null;
+          }
+          return {
+            name: e.name.trim(),
+            args: e.args && typeof e.args === "object" && !Array.isArray(e.args)
+              ? (e.args as Record<string, unknown>)
+              : {},
+          };
+        })
+        .filter((entry): entry is { name: string; args: Record<string, unknown> } => Boolean(entry))
+    : [];
+
+  const toolCalls = manyTools.length > 0 ? manyTools : singleTool;
+  const final = typeof candidate.final === "string" && candidate.final.trim() ? candidate.final : undefined;
+  if (toolCalls.length === 0) {
+    return null;
+  }
+  return {
+    toolCalls,
+    ...(final ? { final } : {}),
+  };
+}
+
 export function createTalos(config: TalosConfig): Talos {
   const parsed = talosConfigSchema.safeParse(config);
   if (!parsed.success) {
@@ -125,11 +200,22 @@ export function createTalos(config: TalosConfig): Talos {
   const pluginOwnedProviders = new Map<string, Set<string>>();
   const pluginTeardowns = new Map<string, () => void | Promise<void>>();
   const pluginCapabilities = new Map<string, PluginCapability[]>();
+  const authProfiles = new Map<string, AuthProfile>();
   const requestTimeoutMs = parsed.data.models?.requestTimeoutMs ?? DEFAULT_MODEL_REQUEST_TIMEOUT_MS;
   const retriesPerModel = parsed.data.models?.retriesPerModel ?? DEFAULT_RETRIES_PER_MODEL;
   const retryDelayMs = parsed.data.models?.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
+  const toolLoopMaxSteps = parsed.data.models?.toolLoopMaxSteps ?? DEFAULT_TOOL_LOOP_MAX_STEPS;
   const toolExecutionTimeoutMs =
     parsed.data.tools?.executionTimeoutMs ?? DEFAULT_TOOL_EXECUTION_TIMEOUT_MS;
+  const defaultStateFile = parsed.data.runtime?.stateFile?.trim();
+
+  for (const [id, profile] of Object.entries(parsed.data.authProfiles ?? {})) {
+    authProfiles.set(id.trim(), {
+      id: id.trim(),
+      ...(profile.apiKey ? { apiKey: profile.apiKey } : {}),
+      ...(profile.headers ? { headers: profile.headers } : {}),
+    });
+  }
 
   const hasCapability = (pluginCapabilities: PluginCapability[] | undefined, needed: PluginCapability) => {
     return pluginCapabilities?.includes(needed) ?? false;
@@ -156,11 +242,16 @@ export function createTalos(config: TalosConfig): Talos {
   };
 
   for (const provider of parsed.data.providers.openaiCompatible) {
+    const profile = provider.authProfileId ? authProfiles.get(provider.authProfileId) : undefined;
+    const resolvedApiKey = provider.apiKey ?? profile?.apiKey;
+    const resolvedHeaders = provider.headers || profile?.headers
+      ? { ...(profile?.headers ?? {}), ...(provider.headers ?? {}) }
+      : undefined;
     const providerConfig = {
       id: provider.id,
       baseUrl: provider.baseUrl,
-      ...(provider.apiKey ? { apiKey: provider.apiKey } : {}),
-      ...(provider.headers ? { headers: provider.headers } : {}),
+      ...(resolvedApiKey ? { apiKey: resolvedApiKey } : {}),
+      ...(resolvedHeaders ? { headers: resolvedHeaders } : {}),
     };
     models.register(
       createOpenAICompatibleProvider(providerConfig),
@@ -181,6 +272,37 @@ export function createTalos(config: TalosConfig): Talos {
 
   const removeModelProvider = (providerId: string): boolean => {
     return models.remove(providerId);
+  };
+
+  const registerAuthProfile = (profile: AuthProfile): void => {
+    const normalizedId = profile.id.trim();
+    if (!normalizedId) {
+      throw new TalosError({
+        code: "CONFIG_INVALID",
+        message: "Auth profile id is required.",
+      });
+    }
+    authProfiles.set(normalizedId, {
+      id: normalizedId,
+      ...(profile.apiKey ? { apiKey: profile.apiKey } : {}),
+      ...(profile.headers ? { headers: profile.headers } : {}),
+    });
+  };
+
+  const listAuthProfiles = (): AuthProfile[] => {
+    return Array.from(authProfiles.values());
+  };
+
+  const hasAuthProfile = (profileId: string): boolean => {
+    return authProfiles.has(profileId.trim());
+  };
+
+  const removeAuthProfile = (profileId: string): boolean => {
+    const normalizedId = profileId.trim();
+    if (!normalizedId) {
+      return false;
+    }
+    return authProfiles.delete(normalizedId);
   };
 
   const registerTool = (tool: ToolDefinition) => {
@@ -370,6 +492,46 @@ export function createTalos(config: TalosConfig): Talos {
     return events.on(listener);
   };
 
+  const resolveStateFilePath = (filePath?: string): string => {
+    const candidate = filePath?.trim() || defaultStateFile;
+    if (!candidate) {
+      throw new TalosError({
+        code: "CONFIG_INVALID",
+        message: "State file path is not configured. Set runtime.stateFile or provide a path.",
+      });
+    }
+    return candidate;
+  };
+
+  const saveState = async (filePath?: string): Promise<string> => {
+    const target = resolveStateFilePath(filePath);
+    const snapshot = events.snapshot();
+    return await saveStateSnapshot(target, snapshot);
+  };
+
+  const loadState = async (filePath?: string): Promise<string> => {
+    const target = resolveStateFilePath(filePath);
+    const loaded = await loadStateSnapshot(target);
+    events.replace(loaded.snapshot);
+    return loaded.path;
+  };
+
+  if (defaultStateFile) {
+    void loadState(defaultStateFile).catch(() => {
+      // Missing state on first run is expected.
+    });
+    let persistQueue: Promise<void> = Promise.resolve();
+    onEvent(() => {
+      persistQueue = persistQueue
+        .then(async () => {
+          await saveState(defaultStateFile);
+        })
+        .catch(() => {
+          // Persist failures are non-fatal for runtime behavior.
+        });
+    });
+  }
+
   const listEvents = (limit?: number) => {
     return events.listEvents(limit);
   };
@@ -412,6 +574,10 @@ export function createTalos(config: TalosConfig): Talos {
       runStats: events.getRunStats(),
       recentEvents: events.listEvents(recentEventsLimit),
     };
+  };
+
+  const resetDiagnostics = (): DiagnosticsResetResult => {
+    return events.reset();
   };
 
   const listActiveRuns = (): ActiveRun[] => {
@@ -641,94 +807,141 @@ export function createTalos(config: TalosConfig): Talos {
       const systemPrompt = [agent.promptPrefix, buildPersonaSystemPrompt(persona)]
         .filter(Boolean)
         .join("\n\n");
-      let generated: ModelResponse | null = null;
-      let lastError: unknown = null;
-      for (const attempt of attempts) {
-        assertRunNotAborted(signal, runId);
-        const request = await plugins.runBeforeModel(
-          systemPrompt
-            ? {
-                providerId: attempt.providerId,
-                modelId: attempt.modelId,
-                prompt: input.prompt,
-                system: systemPrompt,
-              }
-            : {
-                providerId: attempt.providerId,
-                modelId: attempt.modelId,
-                prompt: input.prompt,
-              },
-        );
-        await events.emit({
-          type: "model.started",
-          at: new Date().toISOString(),
-          runId,
-          data: {
-            providerId: request.providerId,
-            modelId: request.modelId,
-          },
-        });
-        for (let retry = 0; retry <= retriesPerModel; retry += 1) {
+      const generateWithFallback = async (promptText: string): Promise<ModelResponse> => {
+        let generated: ModelResponse | null = null;
+        let lastError: unknown = null;
+        for (const attempt of attempts) {
           assertRunNotAborted(signal, runId);
-          try {
-            const response = await withTimeout(
-              models.generate(request),
-              requestTimeoutMs,
-              `Model request timed out after ${requestTimeoutMs}ms (${request.providerId}/${request.modelId}).`,
-              "MODEL_TIMEOUT",
-            );
+          const request = await plugins.runBeforeModel(
+            systemPrompt
+              ? {
+                  providerId: attempt.providerId,
+                  modelId: attempt.modelId,
+                  prompt: promptText,
+                  system: systemPrompt,
+                }
+              : {
+                  providerId: attempt.providerId,
+                  modelId: attempt.modelId,
+                  prompt: promptText,
+                },
+          );
+          await events.emit({
+            type: "model.started",
+            at: new Date().toISOString(),
+            runId,
+            data: {
+              providerId: request.providerId,
+              modelId: request.modelId,
+            },
+          });
+          for (let retry = 0; retry <= retriesPerModel; retry += 1) {
             assertRunNotAborted(signal, runId);
-            generated = response;
-            await plugins.runAfterModel({
-              request,
-              response: generated,
-            });
-            await events.emit({
-              type: "model.completed",
-              at: new Date().toISOString(),
-              runId,
-              data: {
-                providerId: request.providerId,
-                modelId: request.modelId,
-              },
-            });
-            break;
-          } catch (error) {
-            if (error instanceof TalosError && error.code === "RUN_CANCELLED") {
-              throw error;
+            try {
+              const response = await withTimeout(
+                models.generate(request),
+                requestTimeoutMs,
+                `Model request timed out after ${requestTimeoutMs}ms (${request.providerId}/${request.modelId}).`,
+                "MODEL_TIMEOUT",
+              );
+              assertRunNotAborted(signal, runId);
+              generated = response;
+              await plugins.runAfterModel({
+                request,
+                response: generated,
+              });
+              await events.emit({
+                type: "model.completed",
+                at: new Date().toISOString(),
+                runId,
+                data: {
+                  providerId: request.providerId,
+                  modelId: request.modelId,
+                },
+              });
+              break;
+            } catch (error) {
+              if (error instanceof TalosError && error.code === "RUN_CANCELLED") {
+                throw error;
+              }
+              lastError = error;
+              await events.emit({
+                type: "model.failed",
+                at: new Date().toISOString(),
+                runId,
+                data: {
+                  providerId: request.providerId,
+                  modelId: request.modelId,
+                  error: toTalosErrorLike(error),
+                },
+              });
+              if (retry < retriesPerModel && retryDelayMs > 0) {
+                await sleep(retryDelayMs);
+              }
             }
-            lastError = error;
-            await events.emit({
-              type: "model.failed",
-              at: new Date().toISOString(),
-              runId,
-              data: {
-                providerId: request.providerId,
-                modelId: request.modelId,
-                error: toTalosErrorLike(error),
-              },
-            });
-            if (retry < retriesPerModel && retryDelayMs > 0) {
-              await sleep(retryDelayMs);
+            if (generated) {
+              break;
             }
           }
           if (generated) {
             break;
           }
         }
-        if (generated) {
-          break;
+        if (!generated) {
+          throw new TalosError({
+            code: "RUN_FAILED",
+            message: "All configured model attempts failed.",
+            cause: lastError ?? undefined,
+            details: {
+              attempts,
+            },
+          });
         }
-      }
-      if (!generated) {
-        throw new TalosError({
-          code: "RUN_FAILED",
-          message: "All configured model attempts failed.",
-          cause: lastError ?? undefined,
-          details: {
-            attempts,
-          },
-        });
+        return generated;
+      };
+
+      let generated = await generateWithFallback(input.prompt);
+      if (toolLoopMaxSteps > 0) {
+        let toolRound = 0;
+        let workingPrompt = input.prompt;
+        while (toolRound < toolLoopMaxSteps) {
+          const parsedToolResponse = parseToolLoopResponse(generated.text);
+          if (!parsedToolResponse || parsedToolResponse.toolCalls.length === 0) {
+            break;
+          }
+          const toolOutputs: string[] = [];
+          for (const call of parsedToolResponse.toolCalls) {
+            const toolResult = await executeTool({
+              name: call.name,
+              args: call.args,
+              context: {
+                agentId: input.agentId,
+                ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+                ...(input.workspaceDir ? { workspaceDir: input.workspaceDir } : {}),
+                runId,
+              },
+              signal,
+            });
+            toolOutputs.push(`- ${call.name}: ${toolResult.content}`);
+          }
+          if (parsedToolResponse.final) {
+            generated = {
+              ...generated,
+              text: parsedToolResponse.final,
+            };
+            break;
+          }
+          toolRound += 1;
+          workingPrompt = [
+            workingPrompt,
+            "",
+            "Tool results:",
+            ...toolOutputs,
+            "",
+            "Provide the final answer for the user. If you still need tools, reply with JSON only.",
+          ].join("\n");
+          generated = await generateWithFallback(workingPrompt);
+        }
       }
 
       const result: RunResult = {
@@ -803,6 +1016,10 @@ export function createTalos(config: TalosConfig): Talos {
     listModelProviders,
     hasModelProvider,
     removeModelProvider,
+    registerAuthProfile,
+    listAuthProfiles,
+    hasAuthProfile,
+    removeAuthProfile,
     onEvent,
     listEvents,
     queryEvents,
@@ -812,6 +1029,9 @@ export function createTalos(config: TalosConfig): Talos {
     getRun,
     getRunStats,
     getDiagnostics,
+    resetDiagnostics,
+    saveState,
+    loadState,
     listActiveRuns,
     cancelRun,
     seedPersonaWorkspace: seedPersonaWorkspaceApi,
