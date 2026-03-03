@@ -23,6 +23,7 @@ Current core API:
 - `onEvent(listener)` for lifecycle events
 - `listEvents(limit?)` and `listRunEvents(runId)` for in-memory event diagnostics
 - `executeTool(input)` for direct tool execution
+- `seedPersonaWorkspace(workspaceDir, options?)` to initialize persona files
 - `run(input)`
 
 `run(input)` returns a `runId` and lifecycle events include that same `runId` for correlation.

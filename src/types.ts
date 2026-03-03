@@ -1,4 +1,5 @@
-import type { PersonaSnapshot } from "./persona/types.js";
+import type { PersonaFileName, PersonaSnapshot } from "./persona/types.js";
+import type { PersonaBootstrapResult } from "./persona/bootstrap.js";
 
 export type TalosConfig = {
   providers: {
@@ -243,6 +244,13 @@ export type Talos = {
   onEvent: (listener: RunLifecycleListener) => void;
   listEvents: (limit?: number) => RunLifecycleEvent[];
   listRunEvents: (runId: string) => RunLifecycleEvent[];
+  seedPersonaWorkspace: (
+    workspaceDir: string,
+    options?: {
+      overwrite?: boolean;
+      templates?: Partial<Record<PersonaFileName, string>>;
+    },
+  ) => Promise<PersonaBootstrapResult>;
   loadPluginFromPath: (filePath: string) => Promise<void>;
   loadPluginsFromDirectory: (directoryPath: string) => Promise<string[]>;
   executeTool: (input: ToolExecutionInput) => Promise<ToolResult>;

@@ -22,6 +22,7 @@ describe("createTalos", () => {
     expect(typeof talos.registerTool).toBe("function");
     expect(typeof talos.registerPlugin).toBe("function");
     expect(typeof talos.onEvent).toBe("function");
+    expect(typeof talos.seedPersonaWorkspace).toBe("function");
     expect(typeof talos.run).toBe("function");
   });
 

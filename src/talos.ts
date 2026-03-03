@@ -4,6 +4,7 @@ import { AgentRegistry } from "./agents/registry.js";
 import { ModelRegistry } from "./models/registry.js";
 import { createOpenAICompatibleProvider } from "./models/openai-compatible.js";
 import { loadPersonaSnapshot, buildPersonaSystemPrompt } from "./persona/loader.js";
+import { seedPersonaWorkspace } from "./persona/bootstrap.js";
 import { PluginRegistry } from "./plugins/registry.js";
 import { discoverPluginEntryPaths, loadPluginFromPath } from "./plugins/loader.js";
 import { ToolRegistry } from "./tools/registry.js";
@@ -147,6 +148,13 @@ export function createTalos(config: TalosConfig): Talos {
 
   const listRunEvents = (runId: string) => {
     return events.listRunEvents(runId);
+  };
+
+  const seedPersonaWorkspaceApi = async (
+    workspaceDir: string,
+    options?: Parameters<typeof seedPersonaWorkspace>[1],
+  ) => {
+    return await seedPersonaWorkspace(workspaceDir, options);
   };
 
   const loadPluginFromPathApi = async (filePath: string): Promise<void> => {
@@ -385,6 +393,7 @@ export function createTalos(config: TalosConfig): Talos {
     onEvent,
     listEvents,
     listRunEvents,
+    seedPersonaWorkspace: seedPersonaWorkspaceApi,
     loadPluginFromPath: loadPluginFromPathApi,
     loadPluginsFromDirectory,
     executeTool,
