@@ -161,6 +161,56 @@ describe("createTalos", () => {
     expect(talos.hasModelProvider("plugin-provider")).toBe(false);
   });
 
+  it("stops plugin hooks after plugin unload and emits unregistered event", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+    });
+
+    talos.registerAgent({
+      id: "main",
+      model: { providerId: "provider", modelId: "model" },
+    });
+    talos.registerModelProvider({
+      id: "provider",
+      async generate(request) {
+        return {
+          text: request.prompt,
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    let beforeRunCalls = 0;
+    const unregistered: string[] = [];
+    talos.onEvent((event) => {
+      if (event.type === "plugin.unregistered") {
+        unregistered.push(event.data.pluginId);
+      }
+    });
+
+    await talos.registerPlugin({
+      id: "ephemeral",
+      capabilities: ["hooks"],
+      setup(api) {
+        api.on("beforeRun", () => {
+          beforeRunCalls += 1;
+        });
+      },
+    });
+
+    await talos.run({ agentId: "main", prompt: "one" });
+    expect(beforeRunCalls).toBe(1);
+
+    expect(await talos.removePlugin("ephemeral")).toBe(true);
+    expect(unregistered).toContain("ephemeral");
+
+    await talos.run({ agentId: "main", prompt: "two" });
+    expect(beforeRunCalls).toBe(1);
+  });
+
   it("manages model provider lifecycle", () => {
     const talos = createTalos({
       providers: {
