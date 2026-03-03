@@ -19,6 +19,8 @@ import type {
   PluginCapability,
   RunLifecycleListener,
   ModelResponse,
+  ToolExecutionInput,
+  ToolResult,
 } from "./types.js";
 
 export function createTalos(config: TalosConfig): Talos {
@@ -114,6 +116,67 @@ export function createTalos(config: TalosConfig): Talos {
 
   const onEvent = (listener: RunLifecycleListener) => {
     events.on(listener);
+  };
+
+  const executeTool = async (input: ToolExecutionInput): Promise<ToolResult> => {
+    const args = input.args ?? {};
+    const normalizedInput: ToolExecutionInput = {
+      name: input.name,
+      args,
+      context: input.context,
+    };
+
+    await events.emit({
+      type: "tool.started",
+      at: new Date().toISOString(),
+      data: {
+        name: normalizedInput.name,
+        agentId: normalizedInput.context.agentId,
+        ...(normalizedInput.context.sessionId ? { sessionId: normalizedInput.context.sessionId } : {}),
+      },
+    });
+
+    try {
+      await plugins.runBeforeTool(normalizedInput);
+      const result = await tools.execute(normalizedInput.name, args, normalizedInput.context);
+      await plugins.runAfterTool({
+        input: normalizedInput,
+        result,
+      });
+      await events.emit({
+        type: "tool.completed",
+        at: new Date().toISOString(),
+        data: {
+          name: normalizedInput.name,
+          agentId: normalizedInput.context.agentId,
+          ...(normalizedInput.context.sessionId
+            ? { sessionId: normalizedInput.context.sessionId }
+            : {}),
+        },
+      });
+      return result;
+    } catch (error) {
+      await events.emit({
+        type: "tool.failed",
+        at: new Date().toISOString(),
+        data: {
+          name: normalizedInput.name,
+          agentId: normalizedInput.context.agentId,
+          ...(normalizedInput.context.sessionId
+            ? { sessionId: normalizedInput.context.sessionId }
+            : {}),
+          error: toTalosErrorLike(error),
+        },
+      });
+      if (error instanceof TalosError) {
+        throw error;
+      }
+      throw new TalosError({
+        code: "TOOL_FAILED",
+        message: `Tool execution failed: ${normalizedInput.name}`,
+        cause: error,
+      });
+    }
   };
 
   const run = async (input: RunInput): Promise<RunResult> => {
@@ -224,6 +287,7 @@ export function createTalos(config: TalosConfig): Talos {
     registerPlugin,
     registerModelProvider,
     onEvent,
+    executeTool,
     run,
   };
 }

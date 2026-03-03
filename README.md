@@ -18,6 +18,7 @@ Current core API:
 - `registerPlugin(plugin)` with capability declarations (`tools`, `providers`, `hooks`)
 - `registerModelProvider(provider)`
 - `onEvent(listener)` for lifecycle events
+- `executeTool(input)` for direct tool execution
 - `run(input)`
 
 This repository intentionally excludes channel integrations, UI apps, and CLI surfaces.

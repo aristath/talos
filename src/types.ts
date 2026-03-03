@@ -33,6 +33,12 @@ export type ToolResult = {
   data?: unknown;
 };
 
+export type ToolExecutionInput = {
+  name: string;
+  args?: Record<string, unknown>;
+  context: RunContext;
+};
+
 export type ToolDefinition = {
   name: string;
   description: string;
@@ -88,6 +94,7 @@ export type TalosErrorCode =
   | "PLUGIN_CAPABILITY_DENIED"
   | "PLUGIN_HOOK_INVALID"
   | "RUN_FAILED"
+  | "TOOL_FAILED"
   | "PERSONA_INVALID_WORKSPACE"
   | "PERSONA_FILE_UNSAFE";
 
@@ -106,6 +113,11 @@ export type PluginCapability = "tools" | "providers" | "hooks";
 export type PluginHooks = {
   beforeRun: (input: RunInput) => Promise<void> | void;
   afterRun: (result: RunResult) => Promise<void> | void;
+  beforeTool: (input: ToolExecutionInput) => Promise<void> | void;
+  afterTool: (params: {
+    input: ToolExecutionInput;
+    result: ToolResult;
+  }) => Promise<void> | void;
 };
 
 export type RunLifecycleEvent =
@@ -132,6 +144,34 @@ export type RunLifecycleEvent =
       data: {
         pluginId: string;
       };
+    }
+  | {
+      type: "tool.started";
+      at: string;
+      data: {
+        name: string;
+        agentId: string;
+        sessionId?: string;
+      };
+    }
+  | {
+      type: "tool.completed";
+      at: string;
+      data: {
+        name: string;
+        agentId: string;
+        sessionId?: string;
+      };
+    }
+  | {
+      type: "tool.failed";
+      at: string;
+      data: {
+        name: string;
+        agentId: string;
+        sessionId?: string;
+        error: TalosErrorLike;
+      };
     };
 
 export type RunLifecycleListener = (event: RunLifecycleEvent) => void | Promise<void>;
@@ -154,5 +194,6 @@ export type Talos = {
   registerPlugin: (plugin: TalosPlugin) => Promise<void>;
   registerModelProvider: (provider: ModelProviderAdapter) => void;
   onEvent: (listener: RunLifecycleListener) => void;
+  executeTool: (input: ToolExecutionInput) => Promise<ToolResult>;
   run: (input: RunInput) => Promise<RunResult>;
 };

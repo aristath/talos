@@ -5,9 +5,13 @@ export class PluginRegistry {
   private readonly hooks: {
     beforeRun: PluginHooks["beforeRun"][];
     afterRun: PluginHooks["afterRun"][];
+    beforeTool: PluginHooks["beforeTool"][];
+    afterTool: PluginHooks["afterTool"][];
   } = {
     beforeRun: [],
     afterRun: [],
+    beforeTool: [],
+    afterTool: [],
   };
 
   private readonly plugins = new Set<string>();
@@ -43,7 +47,15 @@ export class PluginRegistry {
       this.hooks.beforeRun.push(handler as PluginHooks["beforeRun"]);
       return;
     }
-    this.hooks.afterRun.push(handler as PluginHooks["afterRun"]);
+    if (name === "afterRun") {
+      this.hooks.afterRun.push(handler as PluginHooks["afterRun"]);
+      return;
+    }
+    if (name === "beforeTool") {
+      this.hooks.beforeTool.push(handler as PluginHooks["beforeTool"]);
+      return;
+    }
+    this.hooks.afterTool.push(handler as PluginHooks["afterTool"]);
   }
 
   async runBeforeRun(input: Parameters<PluginHooks["beforeRun"]>[0]): Promise<void> {
@@ -55,6 +67,18 @@ export class PluginRegistry {
   async runAfterRun(result: Parameters<PluginHooks["afterRun"]>[0]): Promise<void> {
     for (const hook of this.hooks.afterRun) {
       await hook(result);
+    }
+  }
+
+  async runBeforeTool(input: Parameters<PluginHooks["beforeTool"]>[0]): Promise<void> {
+    for (const hook of this.hooks.beforeTool) {
+      await hook(input);
+    }
+  }
+
+  async runAfterTool(input: Parameters<PluginHooks["afterTool"]>[0]): Promise<void> {
+    for (const hook of this.hooks.afterTool) {
+      await hook(input);
     }
   }
 }

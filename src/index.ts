@@ -7,6 +7,8 @@ export type {
   RunResult,
   AgentDefinition,
   ToolDefinition,
+  ToolExecutionInput,
+  ToolResult,
   TalosPlugin,
   TalosErrorCode,
   RunLifecycleEvent,

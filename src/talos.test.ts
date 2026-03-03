@@ -181,4 +181,125 @@ describe("createTalos", () => {
     expect(events).toContain("run.started");
     expect(events).toContain("run.failed");
   });
+
+  it("executes tools and emits tool lifecycle events", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerTool({
+      name: "sum",
+      description: "sum two numbers",
+      async run(args) {
+        const a = Number(args.a ?? 0);
+        const b = Number(args.b ?? 0);
+        return { content: String(a + b) };
+      },
+    });
+
+    const events: string[] = [];
+    talos.onEvent((event) => {
+      events.push(event.type);
+    });
+
+    const result = await talos.executeTool({
+      name: "sum",
+      args: { a: 2, b: 3 },
+      context: { agentId: "main" },
+    });
+
+    expect(result.content).toBe("5");
+    expect(events).toContain("tool.started");
+    expect(events).toContain("tool.completed");
+  });
+
+  it("runs plugin beforeTool and afterTool hooks", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerTool({
+      name: "echo",
+      description: "echo",
+      async run(args) {
+        return { content: String(args.value ?? "") };
+      },
+    });
+
+    const calls: string[] = [];
+    await talos.registerPlugin({
+      id: "tool-hooks",
+      capabilities: ["hooks"],
+      setup(api) {
+        api.on("beforeTool", () => {
+          calls.push("beforeTool");
+        });
+        api.on("afterTool", () => {
+          calls.push("afterTool");
+        });
+      },
+    });
+
+    const result = await talos.executeTool({
+      name: "echo",
+      args: { value: "hello" },
+      context: { agentId: "main" },
+    });
+
+    expect(result.content).toBe("hello");
+    expect(calls).toEqual(["beforeTool", "afterTool"]);
+  });
+
+  it("emits tool failed event when execution fails", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerTool({
+      name: "fail",
+      description: "fails always",
+      async run() {
+        throw new Error("boom");
+      },
+    });
+
+    const events: string[] = [];
+    talos.onEvent((event) => {
+      events.push(event.type);
+    });
+
+    await expect(
+      talos.executeTool({
+        name: "fail",
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+
+    expect(events).toContain("tool.started");
+    expect(events).toContain("tool.failed");
+  });
 });
