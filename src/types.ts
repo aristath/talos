@@ -285,6 +285,12 @@ export type RunSummary = {
   error?: TalosErrorLike;
 };
 
+export type RunQuery = {
+  status?: RunStatus;
+  agentId?: string;
+  limit?: number;
+};
+
 export type RunStats = {
   total: number;
   running: number;
@@ -344,6 +350,7 @@ export type Talos = {
   listEvents: (limit?: number) => RunLifecycleEvent[];
   listRunEvents: (runId: string) => RunLifecycleEvent[];
   listRuns: (limit?: number) => RunSummary[];
+  queryRuns: (query?: RunQuery) => RunSummary[];
   getRun: (runId: string) => RunSummary | undefined;
   getRunStats: () => RunStats;
   getDiagnostics: (options?: { recentEventsLimit?: number }) => TalosDiagnostics;

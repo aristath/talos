@@ -19,6 +19,7 @@ export type {
   ActiveRun,
   RunSummary,
   RunStatus,
+  RunQuery,
   RunStats,
   TalosDiagnostics,
   PluginCapability,

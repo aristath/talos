@@ -27,6 +27,7 @@ import type {
   ToolResult,
   ActiveRun,
   RunSummary,
+  RunQuery,
   RunStats,
   TalosDiagnostics,
 } from "./types.js";
@@ -343,6 +344,10 @@ export function createTalos(config: TalosConfig): Talos {
 
   const listRuns = (limit?: number): RunSummary[] => {
     return events.listRuns(limit);
+  };
+
+  const queryRuns = (query?: RunQuery): RunSummary[] => {
+    return events.queryRuns(query);
   };
 
   const getRun = (runId: string): RunSummary | undefined => {
@@ -760,6 +765,7 @@ export function createTalos(config: TalosConfig): Talos {
     listEvents,
     listRunEvents,
     listRuns,
+    queryRuns,
     getRun,
     getRunStats,
     getDiagnostics,

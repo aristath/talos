@@ -36,6 +36,7 @@ describe("createTalos", () => {
     expect(typeof talos.onEvent).toBe("function");
     expect(typeof talos.seedPersonaWorkspace).toBe("function");
     expect(typeof talos.listRuns).toBe("function");
+    expect(typeof talos.queryRuns).toBe("function");
     expect(typeof talos.getRun).toBe("function");
     expect(typeof talos.getRunStats).toBe("function");
     expect(typeof talos.getDiagnostics).toBe("function");
@@ -1390,5 +1391,58 @@ describe("createTalos", () => {
     expect(snapshot.counts.providers).toBe(1);
     expect(snapshot.recentEvents.length).toBeLessThanOrEqual(5);
     expect(snapshot.runStats.total).toBeGreaterThanOrEqual(1);
+  });
+
+  it("queries runs by agent and status", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+      models: {
+        requestTimeoutMs: 1_000,
+      },
+    });
+
+    talos.registerAgent({
+      id: "alpha",
+      model: { providerId: "ok", modelId: "m" },
+    });
+    talos.registerAgent({
+      id: "beta",
+      model: { providerId: "bad", modelId: "m" },
+    });
+
+    talos.registerModelProvider({
+      id: "ok",
+      async generate(request) {
+        return {
+          text: "ok",
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+    talos.registerModelProvider({
+      id: "bad",
+      async generate() {
+        throw new Error("boom");
+      },
+    });
+
+    await talos.run({ agentId: "alpha", prompt: "hello" });
+    await expect(talos.run({ agentId: "beta", prompt: "hello" })).rejects.toMatchObject({
+      code: "RUN_FAILED",
+    });
+
+    const alphaCompleted = talos.queryRuns({ agentId: "alpha", status: "completed" });
+    const betaFailed = talos.queryRuns({ agentId: "beta", status: "failed" });
+
+    expect(alphaCompleted.length).toBeGreaterThanOrEqual(1);
+    expect(alphaCompleted.every((run) => run.agentId === "alpha")).toBe(true);
+    expect(alphaCompleted.every((run) => run.status === "completed")).toBe(true);
+
+    expect(betaFailed.length).toBeGreaterThanOrEqual(1);
+    expect(betaFailed.every((run) => run.agentId === "beta")).toBe(true);
+    expect(betaFailed.every((run) => run.status === "failed")).toBe(true);
   });
 });

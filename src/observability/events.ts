@@ -1,6 +1,7 @@
 import type {
   RunLifecycleEvent,
   RunLifecycleListener,
+  RunQuery,
   RunLifecycleUnsubscribe,
   RunStats,
   RunSummary,
@@ -136,6 +137,20 @@ export class LifecycleEventBus {
     }
     const runs = Array.from(this.runs.values());
     return runs.slice(-safeLimit).reverse();
+  }
+
+  queryRuns(query?: RunQuery): RunSummary[] {
+    const safeLimit = Math.max(0, Math.floor(query?.limit ?? 100));
+    if (safeLimit === 0) {
+      return [];
+    }
+    const agentId = query?.agentId?.trim();
+    const status = query?.status;
+    const runs = Array.from(this.runs.values()).reverse();
+    return runs
+      .filter((run) => (agentId ? run.agentId === agentId : true))
+      .filter((run) => (status ? run.status === status : true))
+      .slice(0, safeLimit);
   }
 
   getRun(runId: string): RunSummary | undefined {
