@@ -247,6 +247,7 @@ export type RunLifecycleEvent =
     };
 
 export type RunLifecycleListener = (event: RunLifecycleEvent) => void | Promise<void>;
+export type RunLifecycleUnsubscribe = () => void;
 
 export type ActiveRun = {
   runId: string;
@@ -311,7 +312,7 @@ export type Talos = {
   listModelProviders: () => ModelProviderAdapter[];
   hasModelProvider: (providerId: string) => boolean;
   removeModelProvider: (providerId: string) => boolean;
-  onEvent: (listener: RunLifecycleListener) => void;
+  onEvent: (listener: RunLifecycleListener) => RunLifecycleUnsubscribe;
   listEvents: (limit?: number) => RunLifecycleEvent[];
   listRunEvents: (runId: string) => RunLifecycleEvent[];
   listRuns: (limit?: number) => RunSummary[];

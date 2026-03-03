@@ -1,4 +1,10 @@
-import type { RunLifecycleEvent, RunLifecycleListener, RunStats, RunSummary } from "../types.js";
+import type {
+  RunLifecycleEvent,
+  RunLifecycleListener,
+  RunLifecycleUnsubscribe,
+  RunStats,
+  RunSummary,
+} from "../types.js";
 
 export class LifecycleEventBus {
   private readonly listeners: RunLifecycleListener[] = [];
@@ -12,8 +18,14 @@ export class LifecycleEventBus {
     this.maxRuns = maxRuns;
   }
 
-  on(listener: RunLifecycleListener): void {
+  on(listener: RunLifecycleListener): RunLifecycleUnsubscribe {
     this.listeners.push(listener);
+    return () => {
+      const index = this.listeners.indexOf(listener);
+      if (index >= 0) {
+        this.listeners.splice(index, 1);
+      }
+    };
   }
 
   async emit(event: RunLifecycleEvent): Promise<void> {

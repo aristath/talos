@@ -360,6 +360,47 @@ describe("createTalos", () => {
     expect(events).toContain("plugin.registered");
   });
 
+  it("supports event listener unsubscribe", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    const events: string[] = [];
+    const unsubscribe = talos.onEvent((event) => {
+      events.push(event.type);
+    });
+
+    await talos.registerPlugin({
+      id: "hooker",
+      capabilities: ["hooks"],
+      setup(api) {
+        api.on("beforeRun", () => undefined);
+      },
+    });
+    expect(events).toContain("plugin.registered");
+
+    const before = events.length;
+    unsubscribe();
+
+    await talos.registerPlugin({
+      id: "hooker-2",
+      capabilities: ["hooks"],
+      setup(api) {
+        api.on("beforeRun", () => undefined);
+      },
+    });
+
+    expect(events.length).toBe(before);
+  });
+
   it("uses fallback model attempts when primary provider fails", async () => {
     const talos = createTalos({
       providers: {

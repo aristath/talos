@@ -21,6 +21,7 @@ import type {
   ToolDefinition,
   PluginCapability,
   RunLifecycleListener,
+  RunLifecycleUnsubscribe,
   ModelResponse,
   ToolExecutionInput,
   ToolResult,
@@ -313,8 +314,8 @@ export function createTalos(config: TalosConfig): Talos {
     return plugins.has(pluginId);
   };
 
-  const onEvent = (listener: RunLifecycleListener) => {
-    events.on(listener);
+  const onEvent = (listener: RunLifecycleListener): RunLifecycleUnsubscribe => {
+    return events.on(listener);
   };
 
   const listEvents = (limit?: number) => {

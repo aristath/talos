@@ -15,6 +15,7 @@ export type {
   TalosErrorCode,
   RunLifecycleEvent,
   RunLifecycleListener,
+  RunLifecycleUnsubscribe,
   ActiveRun,
   RunSummary,
   RunStatus,
