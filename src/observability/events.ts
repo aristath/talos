@@ -182,10 +182,26 @@ export class LifecycleEventBus {
     }
     const agentId = query?.agentId?.trim();
     const status = query?.status;
+    const sinceMs = query?.since ? Date.parse(query.since) : Number.NaN;
+    const untilMs = query?.until ? Date.parse(query.until) : Number.NaN;
     const runs = Array.from(this.runs.values()).reverse();
     return runs
       .filter((run) => (agentId ? run.agentId === agentId : true))
       .filter((run) => (status ? run.status === status : true))
+      .filter((run) => {
+        if (Number.isNaN(sinceMs)) {
+          return true;
+        }
+        const startedAtMs = Date.parse(run.startedAt);
+        return Number.isNaN(startedAtMs) ? false : startedAtMs >= sinceMs;
+      })
+      .filter((run) => {
+        if (Number.isNaN(untilMs)) {
+          return true;
+        }
+        const startedAtMs = Date.parse(run.startedAt);
+        return Number.isNaN(startedAtMs) ? false : startedAtMs <= untilMs;
+      })
       .slice(0, safeLimit);
   }
 

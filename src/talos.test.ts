@@ -1494,6 +1494,14 @@ describe("createTalos", () => {
     expect(betaFailed.length).toBeGreaterThanOrEqual(1);
     expect(betaFailed.every((run) => run.agentId === "beta")).toBe(true);
     expect(betaFailed.every((run) => run.status === "failed")).toBe(true);
+
+    const before = new Date(Date.now() - 1_000).toISOString();
+    const after = new Date(Date.now() + 1_000).toISOString();
+    const inWindow = talos.queryRuns({ since: before, until: after });
+    expect(inWindow.length).toBeGreaterThanOrEqual(2);
+
+    const futureOnly = talos.queryRuns({ since: new Date(Date.now() + 60_000).toISOString() });
+    expect(futureOnly).toHaveLength(0);
   });
 
   it("queries events by type and runId", async () => {

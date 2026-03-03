@@ -288,6 +288,8 @@ export type RunSummary = {
 export type RunQuery = {
   status?: RunStatus;
   agentId?: string;
+  since?: string;
+  until?: string;
   limit?: number;
 };
 
