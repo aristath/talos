@@ -20,5 +20,6 @@ export type {
   RunSummary,
   RunStatus,
   RunStats,
+  TalosDiagnostics,
   PluginCapability,
 } from "./types.js";

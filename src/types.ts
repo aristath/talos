@@ -293,6 +293,19 @@ export type RunStats = {
   cancelled: number;
 };
 
+export type TalosDiagnostics = {
+  generatedAt: string;
+  counts: {
+    agents: number;
+    tools: number;
+    plugins: number;
+    providers: number;
+    activeRuns: number;
+  };
+  runStats: RunStats;
+  recentEvents: RunLifecycleEvent[];
+};
+
 export type TalosPluginApi = {
   registerTool: (tool: ToolDefinition) => void;
   registerModelProvider: (provider: ModelProviderAdapter) => void;
@@ -333,6 +346,7 @@ export type Talos = {
   listRuns: (limit?: number) => RunSummary[];
   getRun: (runId: string) => RunSummary | undefined;
   getRunStats: () => RunStats;
+  getDiagnostics: (options?: { recentEventsLimit?: number }) => TalosDiagnostics;
   listActiveRuns: () => ActiveRun[];
   cancelRun: (runId: string) => boolean;
   seedPersonaWorkspace: (

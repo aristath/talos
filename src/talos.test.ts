@@ -38,6 +38,7 @@ describe("createTalos", () => {
     expect(typeof talos.listRuns).toBe("function");
     expect(typeof talos.getRun).toBe("function");
     expect(typeof talos.getRunStats).toBe("function");
+    expect(typeof talos.getDiagnostics).toBe("function");
     expect(typeof talos.run).toBe("function");
   });
 
@@ -1350,5 +1351,44 @@ describe("createTalos", () => {
     expect(stats.completed).toBeGreaterThanOrEqual(1);
     expect(stats.failed).toBeGreaterThanOrEqual(1);
     expect(stats.cancelled).toBeGreaterThanOrEqual(1);
+  });
+
+  it("returns diagnostics snapshot with counts and recent events", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+    });
+
+    talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+    talos.registerTool({
+      name: "echo",
+      description: "echo",
+      async run(args) {
+        return { content: String(args.value ?? "") };
+      },
+    });
+    talos.registerModelProvider({
+      id: "provider",
+      async generate(request) {
+        return {
+          text: "ok",
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    await talos.run({ agentId: "main", prompt: "hello" });
+    await talos.executeTool({ name: "echo", args: { value: "v" }, context: { agentId: "main" } });
+
+    const snapshot = talos.getDiagnostics({ recentEventsLimit: 5 });
+
+    expect(snapshot.generatedAt.length).toBeGreaterThan(0);
+    expect(snapshot.counts.agents).toBe(1);
+    expect(snapshot.counts.tools).toBe(1);
+    expect(snapshot.counts.providers).toBe(1);
+    expect(snapshot.recentEvents.length).toBeLessThanOrEqual(5);
+    expect(snapshot.runStats.total).toBeGreaterThanOrEqual(1);
   });
 });

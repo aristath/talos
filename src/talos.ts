@@ -28,6 +28,7 @@ import type {
   ActiveRun,
   RunSummary,
   RunStats,
+  TalosDiagnostics,
 } from "./types.js";
 
 const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 60_000;
@@ -350,6 +351,22 @@ export function createTalos(config: TalosConfig): Talos {
 
   const getRunStats = (): RunStats => {
     return events.getRunStats();
+  };
+
+  const getDiagnostics = (options?: { recentEventsLimit?: number }): TalosDiagnostics => {
+    const recentEventsLimit = options?.recentEventsLimit ?? 50;
+    return {
+      generatedAt: new Date().toISOString(),
+      counts: {
+        agents: agents.list().length,
+        tools: tools.list().length,
+        plugins: plugins.list().length,
+        providers: models.list().length,
+        activeRuns: activeRuns.size,
+      },
+      runStats: events.getRunStats(),
+      recentEvents: events.listEvents(recentEventsLimit),
+    };
   };
 
   const listActiveRuns = (): ActiveRun[] => {
@@ -745,6 +762,7 @@ export function createTalos(config: TalosConfig): Talos {
     listRuns,
     getRun,
     getRunStats,
+    getDiagnostics,
     listActiveRuns,
     cancelRun,
     seedPersonaWorkspace: seedPersonaWorkspaceApi,
