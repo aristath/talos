@@ -29,6 +29,7 @@ Current core API:
 - `onEvent(listener)` for lifecycle events
 - `listEvents(limit?)` and `listRunEvents(runId)` for in-memory event diagnostics
 - `listRuns(limit?)` and `getRun(runId)` for run status summaries
+- `getRunStats()` for aggregate run state metrics
 - `listActiveRuns()` and `cancelRun(runId)` for runtime run control
 - `executeTool(input)` for direct tool execution
 - `seedPersonaWorkspace(workspaceDir, options?)` to initialize persona files

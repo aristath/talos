@@ -37,6 +37,7 @@ describe("createTalos", () => {
     expect(typeof talos.seedPersonaWorkspace).toBe("function");
     expect(typeof talos.listRuns).toBe("function");
     expect(typeof talos.getRun).toBe("function");
+    expect(typeof talos.getRunStats).toBe("function");
     expect(typeof talos.run).toBe("function");
   });
 
@@ -1098,5 +1099,75 @@ describe("createTalos", () => {
     const summary = talos.getRun(runId);
     expect(summary?.status).toBe("cancelled");
     expect(summary?.finishedAt).toBeTruthy();
+  });
+
+  it("reports run status statistics", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+      models: {
+        requestTimeoutMs: 1_000,
+      },
+    });
+
+    talos.registerAgent({
+      id: "ok",
+      model: { providerId: "ok-provider", modelId: "m" },
+    });
+    talos.registerModelProvider({
+      id: "ok-provider",
+      async generate(request) {
+        return {
+          text: "ok",
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    talos.registerAgent({
+      id: "fail",
+      model: { providerId: "fail-provider", modelId: "m" },
+    });
+    talos.registerModelProvider({
+      id: "fail-provider",
+      async generate() {
+        throw new Error("boom");
+      },
+    });
+
+    talos.registerAgent({
+      id: "cancel",
+      model: { providerId: "slow-provider", modelId: "m" },
+    });
+    talos.registerModelProvider({
+      id: "slow-provider",
+      async generate() {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return {
+          text: "late",
+          providerId: "slow-provider",
+          modelId: "m",
+        };
+      },
+    });
+
+    await talos.run({ agentId: "ok", prompt: "hello" });
+    await expect(talos.run({ agentId: "fail", prompt: "hello" })).rejects.toMatchObject({
+      code: "RUN_FAILED",
+    });
+
+    const cancelPromise = talos.run({ agentId: "cancel", prompt: "hello" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const cancelRunId = talos.listActiveRuns()[0]?.runId ?? "";
+    talos.cancelRun(cancelRunId);
+    await expect(cancelPromise).rejects.toMatchObject({ code: "RUN_CANCELLED" });
+
+    const stats = talos.getRunStats();
+    expect(stats.total).toBeGreaterThanOrEqual(3);
+    expect(stats.completed).toBeGreaterThanOrEqual(1);
+    expect(stats.failed).toBeGreaterThanOrEqual(1);
+    expect(stats.cancelled).toBeGreaterThanOrEqual(1);
   });
 });

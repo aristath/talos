@@ -1,4 +1,4 @@
-import type { RunLifecycleEvent, RunLifecycleListener, RunSummary } from "../types.js";
+import type { RunLifecycleEvent, RunLifecycleListener, RunStats, RunSummary } from "../types.js";
 
 export class LifecycleEventBus {
   private readonly listeners: RunLifecycleListener[] = [];
@@ -132,5 +132,36 @@ export class LifecycleEventBus {
       return undefined;
     }
     return this.runs.get(normalizedRunId);
+  }
+
+  getRunStats(): RunStats {
+    let running = 0;
+    let completed = 0;
+    let failed = 0;
+    let cancelled = 0;
+
+    for (const run of this.runs.values()) {
+      if (run.status === "running") {
+        running += 1;
+        continue;
+      }
+      if (run.status === "completed") {
+        completed += 1;
+        continue;
+      }
+      if (run.status === "failed") {
+        failed += 1;
+        continue;
+      }
+      cancelled += 1;
+    }
+
+    return {
+      total: this.runs.size,
+      running,
+      completed,
+      failed,
+      cancelled,
+    };
   }
 }

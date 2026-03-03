@@ -18,5 +18,6 @@ export type {
   ActiveRun,
   RunSummary,
   RunStatus,
+  RunStats,
   PluginCapability,
 } from "./types.js";
