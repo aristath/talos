@@ -539,4 +539,77 @@ describe("createTalos", () => {
     expect(runIds.size).toBe(1);
     expect(runIds.has(result.runId)).toBe(true);
   });
+
+  it("lists recent events and run-specific events", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+    });
+
+    talos.registerAgent({
+      id: "main",
+      model: {
+        providerId: "provider",
+        modelId: "model",
+      },
+    });
+    talos.registerModelProvider({
+      id: "provider",
+      async generate(request) {
+        return {
+          text: "ok",
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    const result = await talos.run({ agentId: "main", prompt: "hello" });
+    const recent = talos.listEvents(5);
+    const runEvents = talos.listRunEvents(result.runId);
+
+    expect(recent.length).toBeGreaterThan(0);
+    expect(runEvents.length).toBeGreaterThan(0);
+    expect(runEvents.every((event) => "runId" in event && event.runId === result.runId)).toBe(true);
+  });
+
+  it("includes runId in tool events when provided in context", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerTool({
+      name: "echo",
+      description: "echo",
+      async run(args) {
+        return { content: String(args.value ?? "") };
+      },
+    });
+
+    const seenRunIds: string[] = [];
+    talos.onEvent((event) => {
+      if (event.type === "tool.started" || event.type === "tool.completed") {
+        if (event.data.runId) {
+          seenRunIds.push(event.data.runId);
+        }
+      }
+    });
+
+    await talos.executeTool({
+      name: "echo",
+      args: { value: "v" },
+      context: { agentId: "main", runId: "run-123" },
+    });
+
+    expect(seenRunIds).toEqual(["run-123", "run-123"]);
+  });
 });

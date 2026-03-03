@@ -141,6 +141,14 @@ export function createTalos(config: TalosConfig): Talos {
     events.on(listener);
   };
 
+  const listEvents = (limit?: number) => {
+    return events.listEvents(limit);
+  };
+
+  const listRunEvents = (runId: string) => {
+    return events.listRunEvents(runId);
+  };
+
   const loadPluginFromPathApi = async (filePath: string): Promise<void> => {
     const plugin = await loadPluginFromPath(filePath);
     await registerPlugin(plugin);
@@ -179,6 +187,7 @@ export function createTalos(config: TalosConfig): Talos {
         name: normalizedInput.name,
         agentId: normalizedInput.context.agentId,
         ...(normalizedInput.context.sessionId ? { sessionId: normalizedInput.context.sessionId } : {}),
+        ...(normalizedInput.context.runId ? { runId: normalizedInput.context.runId } : {}),
       },
     });
 
@@ -199,6 +208,7 @@ export function createTalos(config: TalosConfig): Talos {
           ...(normalizedInput.context.sessionId
             ? { sessionId: normalizedInput.context.sessionId }
             : {}),
+          ...(normalizedInput.context.runId ? { runId: normalizedInput.context.runId } : {}),
         },
       });
       return result;
@@ -212,6 +222,7 @@ export function createTalos(config: TalosConfig): Talos {
           ...(normalizedInput.context.sessionId
             ? { sessionId: normalizedInput.context.sessionId }
             : {}),
+          ...(normalizedInput.context.runId ? { runId: normalizedInput.context.runId } : {}),
           error: toTalosErrorLike(error),
         },
       });
@@ -372,6 +383,8 @@ export function createTalos(config: TalosConfig): Talos {
     registerPlugin,
     registerModelProvider,
     onEvent,
+    listEvents,
+    listRunEvents,
     loadPluginFromPath: loadPluginFromPathApi,
     loadPluginsFromDirectory,
     executeTool,

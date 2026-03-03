@@ -68,6 +68,7 @@ export type RunContext = {
   agentId: string;
   workspaceDir?: string;
   sessionId?: string;
+  runId?: string;
 };
 
 export type ModelRequest = {
@@ -195,6 +196,7 @@ export type RunLifecycleEvent =
         name: string;
         agentId: string;
         sessionId?: string;
+        runId?: string;
       };
     }
   | {
@@ -204,6 +206,7 @@ export type RunLifecycleEvent =
         name: string;
         agentId: string;
         sessionId?: string;
+        runId?: string;
       };
     }
   | {
@@ -213,6 +216,7 @@ export type RunLifecycleEvent =
         name: string;
         agentId: string;
         sessionId?: string;
+        runId?: string;
         error: TalosErrorLike;
       };
     };
@@ -237,6 +241,8 @@ export type Talos = {
   registerPlugin: (plugin: TalosPlugin) => Promise<void>;
   registerModelProvider: (provider: ModelProviderAdapter) => void;
   onEvent: (listener: RunLifecycleListener) => void;
+  listEvents: (limit?: number) => RunLifecycleEvent[];
+  listRunEvents: (runId: string) => RunLifecycleEvent[];
   loadPluginFromPath: (filePath: string) => Promise<void>;
   loadPluginsFromDirectory: (directoryPath: string) => Promise<string[]>;
   executeTool: (input: ToolExecutionInput) => Promise<ToolResult>;

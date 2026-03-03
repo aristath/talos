@@ -21,6 +21,7 @@ Current core API:
 - `loadPluginFromPath(filePath)` and `loadPluginsFromDirectory(directoryPath)`
 - `registerModelProvider(provider)`
 - `onEvent(listener)` for lifecycle events
+- `listEvents(limit?)` and `listRunEvents(runId)` for in-memory event diagnostics
 - `executeTool(input)` for direct tool execution
 - `run(input)`
 
