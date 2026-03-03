@@ -8,6 +8,8 @@ Talos is a TypeScript library for building agent systems with:
 - tool runtime
 - plugin runtime
 
+Model execution supports per-agent primary model configuration and ordered fallback attempts.
+
 Current core API:
 
 - `createTalos(config)`

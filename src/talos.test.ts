@@ -79,4 +79,106 @@ describe("createTalos", () => {
 
     expect(events).toContain("plugin.registered");
   });
+
+  it("uses fallback model attempts when primary provider fails", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+    });
+
+    talos.registerAgent({
+      id: "main",
+      model: {
+        providerId: "primary",
+        modelId: "one",
+        fallbacks: [{ providerId: "secondary", modelId: "two" }],
+      },
+    });
+
+    talos.registerModelProvider({
+      id: "primary",
+      async generate() {
+        throw new Error("primary down");
+      },
+    });
+
+    talos.registerModelProvider({
+      id: "secondary",
+      async generate(request) {
+        return {
+          text: "fallback ok",
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    const result = await talos.run({ agentId: "main", prompt: "hello" });
+
+    expect(result.text).toBe("fallback ok");
+    expect(result.providerId).toBe("secondary");
+    expect(result.modelId).toBe("two");
+  });
+
+  it("emits run started/completed events", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+    });
+    const events: string[] = [];
+    talos.onEvent((event) => {
+      events.push(event.type);
+    });
+
+    talos.registerAgent({
+      id: "main",
+      model: { providerId: "provider", modelId: "model" },
+    });
+    talos.registerModelProvider({
+      id: "provider",
+      async generate(request) {
+        return {
+          text: "ok",
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    await talos.run({ agentId: "main", prompt: "hello" });
+
+    expect(events).toContain("run.started");
+    expect(events).toContain("run.completed");
+  });
+
+  it("emits run failed event", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+    });
+    const events: string[] = [];
+    talos.onEvent((event) => {
+      events.push(event.type);
+    });
+
+    talos.registerAgent({
+      id: "main",
+      model: { providerId: "provider", modelId: "model" },
+    });
+    talos.registerModelProvider({
+      id: "provider",
+      async generate() {
+        throw new Error("down");
+      },
+    });
+
+    await expect(talos.run({ agentId: "main", prompt: "hello" })).rejects.toMatchObject({
+      code: "RUN_FAILED",
+    });
+    expect(events).toContain("run.started");
+    expect(events).toContain("run.failed");
+  });
 });

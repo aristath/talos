@@ -18,6 +18,7 @@ import type {
   ToolDefinition,
   PluginCapability,
   RunLifecycleListener,
+  ModelResponse,
 } from "./types.js";
 
 export function createTalos(config: TalosConfig): Talos {
@@ -129,32 +130,58 @@ export function createTalos(config: TalosConfig): Talos {
       await plugins.runBeforeRun(input);
       const agent = agents.resolve(input.agentId);
       const primaryProvider = parsed.data.providers.openaiCompatible[0];
-      if (!primaryProvider) {
+      const primaryProviderId = agent.model?.providerId ?? primaryProvider?.id;
+      const primaryModelId = agent.model?.modelId ?? primaryProvider?.defaultModel;
+      if (!primaryProviderId || !primaryModelId) {
         throw new TalosError({
           code: "PROVIDER_NOT_FOUND",
-          message: "No OpenAI-compatible providers are configured.",
+          message:
+            "No default provider/model could be resolved. Configure providers.openaiCompatible or set agent.model.providerId/modelId.",
         });
       }
-      const providerId = agent.model?.providerId ?? primaryProvider.id;
-      const modelId = agent.model?.modelId ?? primaryProvider.defaultModel;
+
+      const attempts: Array<{ providerId: string; modelId: string }> = [
+        { providerId: primaryProviderId, modelId: primaryModelId },
+        ...(agent.model?.fallbacks ?? []),
+      ];
+
       const persona = input.workspaceDir ? await loadPersonaSnapshot(input.workspaceDir) : undefined;
       const systemPrompt = [agent.promptPrefix, buildPersonaSystemPrompt(persona)]
         .filter(Boolean)
         .join("\n\n");
-      const generated = await models.generate(
-        systemPrompt
-          ? {
-              providerId,
-              modelId,
-              prompt: input.prompt,
-              system: systemPrompt,
-            }
-          : {
-              providerId,
-              modelId,
-              prompt: input.prompt,
-            },
-      );
+      let generated: ModelResponse | null = null;
+      let lastError: unknown = null;
+      for (const attempt of attempts) {
+        try {
+          generated = await models.generate(
+            systemPrompt
+              ? {
+                  providerId: attempt.providerId,
+                  modelId: attempt.modelId,
+                  prompt: input.prompt,
+                  system: systemPrompt,
+                }
+              : {
+                  providerId: attempt.providerId,
+                  modelId: attempt.modelId,
+                  prompt: input.prompt,
+                },
+          );
+          break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      if (!generated) {
+        throw new TalosError({
+          code: "RUN_FAILED",
+          message: "All configured model attempts failed.",
+          cause: lastError ?? undefined,
+          details: {
+            attempts,
+          },
+        });
+      }
 
       const result: RunResult = {
         text: generated.text,
