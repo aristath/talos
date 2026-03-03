@@ -40,6 +40,14 @@ export class PluginRegistry {
     this.plugins.add(pluginId.trim());
   }
 
+  has(pluginId: string): boolean {
+    return this.plugins.has(pluginId.trim());
+  }
+
+  list(): string[] {
+    return Array.from(this.plugins.values()).sort((a, b) => a.localeCompare(b));
+  }
+
   addHook<K extends keyof PluginHooks>(name: K, handler: PluginHooks[K]): void {
     if (typeof handler !== "function") {
       throw new TalosError({

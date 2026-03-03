@@ -23,7 +23,12 @@ describe("createTalos", () => {
     expect(typeof talos.hasAgent).toBe("function");
     expect(typeof talos.removeAgent).toBe("function");
     expect(typeof talos.registerTool).toBe("function");
+    expect(typeof talos.listTools).toBe("function");
+    expect(typeof talos.hasTool).toBe("function");
+    expect(typeof talos.removeTool).toBe("function");
     expect(typeof talos.registerPlugin).toBe("function");
+    expect(typeof talos.listPlugins).toBe("function");
+    expect(typeof talos.hasPlugin).toBe("function");
     expect(typeof talos.onEvent).toBe("function");
     expect(typeof talos.seedPersonaWorkspace).toBe("function");
     expect(typeof talos.run).toBe("function");
@@ -47,6 +52,58 @@ describe("createTalos", () => {
     expect(talos.listAgents().map((agent) => agent.id)).toContain("main");
     expect(talos.removeAgent("main")).toBe(true);
     expect(talos.hasAgent("main")).toBe(false);
+  });
+
+  it("manages tool lifecycle in registry", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerTool({
+      name: "echo",
+      description: "echo",
+      async run(args) {
+        return { content: String(args.value ?? "") };
+      },
+    });
+
+    expect(talos.hasTool("echo")).toBe(true);
+    expect(talos.listTools().map((tool) => tool.name)).toContain("echo");
+    expect(talos.removeTool("echo")).toBe(true);
+    expect(talos.hasTool("echo")).toBe(false);
+  });
+
+  it("lists registered plugins", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    await talos.registerPlugin({
+      id: "hooks-one",
+      capabilities: ["hooks"],
+      setup(api) {
+        api.on("beforeRun", () => undefined);
+      },
+    });
+
+    expect(talos.hasPlugin("hooks-one")).toBe(true);
+    expect(talos.listPlugins()).toContain("hooks-one");
   });
 
   it("blocks plugin operations outside declared capabilities", async () => {

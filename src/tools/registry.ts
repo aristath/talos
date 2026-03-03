@@ -15,6 +15,22 @@ export class ToolRegistry {
     this.tools.set(name, { ...tool, name });
   }
 
+  has(name: string): boolean {
+    return this.tools.has(name.trim());
+  }
+
+  remove(name: string): boolean {
+    const normalizedName = name.trim();
+    if (!normalizedName) {
+      return false;
+    }
+    return this.tools.delete(normalizedName);
+  }
+
+  list(): ToolDefinition[] {
+    return Array.from(this.tools.values());
+  }
+
   async execute(
     name: string,
     args: Record<string, unknown>,

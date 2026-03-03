@@ -151,6 +151,18 @@ export function createTalos(config: TalosConfig): Talos {
     tools.register(tool);
   };
 
+  const listTools = (): ToolDefinition[] => {
+    return tools.list();
+  };
+
+  const hasTool = (toolName: string): boolean => {
+    return tools.has(toolName);
+  };
+
+  const removeTool = (toolName: string): boolean => {
+    return tools.remove(toolName);
+  };
+
   const registerAgent = (agent: AgentDefinition) => {
     agents.register(agent);
   };
@@ -207,6 +219,14 @@ export function createTalos(config: TalosConfig): Talos {
         pluginId: plugin.id,
       },
     });
+  };
+
+  const listPlugins = (): string[] => {
+    return plugins.list();
+  };
+
+  const hasPlugin = (pluginId: string): boolean => {
+    return plugins.has(pluginId);
   };
 
   const onEvent = (listener: RunLifecycleListener) => {
@@ -553,7 +573,12 @@ export function createTalos(config: TalosConfig): Talos {
     hasAgent,
     removeAgent,
     registerTool,
+    listTools,
+    hasTool,
+    removeTool,
     registerPlugin,
+    listPlugins,
+    hasPlugin,
     registerModelProvider,
     onEvent,
     listEvents,

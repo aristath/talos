@@ -19,7 +19,9 @@ Current core API:
 - `registerAgent(agent)`
 - `listAgents()`, `hasAgent(agentId)`, and `removeAgent(agentId)`
 - `registerTool(tool)`
+- `listTools()`, `hasTool(toolName)`, and `removeTool(toolName)`
 - `registerPlugin(plugin)` with capability declarations (`tools`, `providers`, `hooks`)
+- `listPlugins()` and `hasPlugin(pluginId)`
 - `loadPluginFromPath(filePath)` and `loadPluginsFromDirectory(directoryPath)`
 - `registerModelProvider(provider)`
 - `onEvent(listener)` for lifecycle events
