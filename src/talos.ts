@@ -103,6 +103,8 @@ export function createTalos(config: TalosConfig): Talos {
       detachExternalAbort?: () => void;
     }
   >();
+  const pluginOwnedTools = new Map<string, Set<string>>();
+  const pluginOwnedProviders = new Map<string, Set<string>>();
   const requestTimeoutMs = parsed.data.models?.requestTimeoutMs ?? DEFAULT_MODEL_REQUEST_TIMEOUT_MS;
   const retriesPerModel = parsed.data.models?.retriesPerModel ?? DEFAULT_RETRIES_PER_MODEL;
   const retryDelayMs = parsed.data.models?.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
@@ -194,7 +196,10 @@ export function createTalos(config: TalosConfig): Talos {
 
   const registerPlugin = async (plugin: TalosPlugin) => {
     plugins.assertNotRegistered(plugin.id);
+    const normalizedPluginId = plugin.id.trim();
     const capabilities = plugin.capabilities ?? ["tools", "providers", "hooks"];
+    const ownedTools = new Set<string>();
+    const ownedProviders = new Set<string>();
     await plugin.setup({
       registerTool: (tool) => {
         if (!hasCapability(capabilities, "tools")) {
@@ -204,6 +209,7 @@ export function createTalos(config: TalosConfig): Talos {
           });
         }
         registerTool(tool);
+        ownedTools.add(tool.name.trim());
       },
       registerModelProvider: (provider) => {
         if (!hasCapability(capabilities, "providers")) {
@@ -213,6 +219,7 @@ export function createTalos(config: TalosConfig): Talos {
           });
         }
         registerModelProvider(provider);
+        ownedProviders.add(provider.id.trim());
       },
       on: (name, handler) => {
         if (!hasCapability(capabilities, "hooks")) {
@@ -221,17 +228,55 @@ export function createTalos(config: TalosConfig): Talos {
             message: `Plugin ${plugin.id} is not allowed to register hooks.`,
           });
         }
-        plugins.addHook(name, handler);
+        plugins.addHook(normalizedPluginId, name, handler);
       },
     });
-    plugins.markRegistered(plugin.id);
+    plugins.markRegistered(normalizedPluginId);
+    pluginOwnedTools.set(normalizedPluginId, ownedTools);
+    pluginOwnedProviders.set(normalizedPluginId, ownedProviders);
     await events.emit({
       type: "plugin.registered",
       at: new Date().toISOString(),
       data: {
-        pluginId: plugin.id,
+        pluginId: normalizedPluginId,
       },
     });
+  };
+
+  const removePlugin = async (pluginId: string): Promise<boolean> => {
+    const normalizedPluginId = pluginId.trim();
+    if (!normalizedPluginId) {
+      return false;
+    }
+    const removed = plugins.remove(normalizedPluginId);
+    if (!removed) {
+      return false;
+    }
+
+    const ownedTools = pluginOwnedTools.get(normalizedPluginId);
+    if (ownedTools) {
+      for (const toolName of ownedTools) {
+        tools.remove(toolName);
+      }
+      pluginOwnedTools.delete(normalizedPluginId);
+    }
+
+    const ownedProviders = pluginOwnedProviders.get(normalizedPluginId);
+    if (ownedProviders) {
+      for (const providerId of ownedProviders) {
+        models.remove(providerId);
+      }
+      pluginOwnedProviders.delete(normalizedPluginId);
+    }
+
+    await events.emit({
+      type: "plugin.unregistered",
+      at: new Date().toISOString(),
+      data: {
+        pluginId: normalizedPluginId,
+      },
+    });
+    return true;
   };
 
   const listPlugins = (): string[] => {
@@ -598,6 +643,7 @@ export function createTalos(config: TalosConfig): Talos {
     hasTool,
     removeTool,
     registerPlugin,
+    removePlugin,
     listPlugins,
     hasPlugin,
     registerModelProvider,

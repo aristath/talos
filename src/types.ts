@@ -179,6 +179,13 @@ export type RunLifecycleEvent =
       };
     }
   | {
+      type: "plugin.unregistered";
+      at: string;
+      data: {
+        pluginId: string;
+      };
+    }
+  | {
       type: "model.started";
       at: string;
       data: {
@@ -283,6 +290,7 @@ export type Talos = {
   hasTool: (toolName: string) => boolean;
   removeTool: (toolName: string) => boolean;
   registerPlugin: (plugin: TalosPlugin) => Promise<void>;
+  removePlugin: (pluginId: string) => Promise<boolean>;
   listPlugins: () => string[];
   hasPlugin: (pluginId: string) => boolean;
   registerModelProvider: (provider: ModelProviderAdapter) => void;

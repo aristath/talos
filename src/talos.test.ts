@@ -27,6 +27,7 @@ describe("createTalos", () => {
     expect(typeof talos.hasTool).toBe("function");
     expect(typeof talos.removeTool).toBe("function");
     expect(typeof talos.registerPlugin).toBe("function");
+    expect(typeof talos.removePlugin).toBe("function");
     expect(typeof talos.listPlugins).toBe("function");
     expect(typeof talos.hasPlugin).toBe("function");
     expect(typeof talos.listModelProviders).toBe("function");
@@ -109,6 +110,55 @@ describe("createTalos", () => {
 
     expect(talos.hasPlugin("hooks-one")).toBe(true);
     expect(talos.listPlugins()).toContain("hooks-one");
+  });
+
+  it("unregisters plugins and cleans plugin-owned resources", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    await talos.registerPlugin({
+      id: "plugin-resources",
+      capabilities: ["tools", "providers", "hooks"],
+      setup(api) {
+        api.registerTool({
+          name: "plugin-tool",
+          description: "plugin tool",
+          async run() {
+            return { content: "ok" };
+          },
+        });
+        api.registerModelProvider({
+          id: "plugin-provider",
+          async generate(request) {
+            return {
+              text: "ok",
+              providerId: request.providerId,
+              modelId: request.modelId,
+            };
+          },
+        });
+        api.on("beforeRun", () => undefined);
+      },
+    });
+
+    expect(talos.hasPlugin("plugin-resources")).toBe(true);
+    expect(talos.hasTool("plugin-tool")).toBe(true);
+    expect(talos.hasModelProvider("plugin-provider")).toBe(true);
+
+    const removed = await talos.removePlugin("plugin-resources");
+    expect(removed).toBe(true);
+    expect(talos.hasPlugin("plugin-resources")).toBe(false);
+    expect(talos.hasTool("plugin-tool")).toBe(false);
+    expect(talos.hasModelProvider("plugin-provider")).toBe(false);
   });
 
   it("manages model provider lifecycle", () => {
