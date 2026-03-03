@@ -30,6 +30,7 @@ Current core API:
 - `listModelProviders()`, `hasModelProvider(providerId)`, and `removeModelProvider(providerId)`
 - `onEvent(listener)` for lifecycle events (returns unsubscribe function)
 - `listEvents(limit?)` and `listRunEvents(runId)` for in-memory event diagnostics
+- `queryEvents({ type?, runId?, limit? })` for event filtering
 - `listRuns(limit?)` and `getRun(runId)` for run status summaries
 - `queryRuns({ status?, agentId?, limit? })` for filtered run queries
 - `getRunStats()` for aggregate run state metrics

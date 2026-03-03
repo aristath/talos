@@ -291,6 +291,12 @@ export type RunQuery = {
   limit?: number;
 };
 
+export type EventQuery = {
+  type?: RunLifecycleEvent["type"];
+  runId?: string;
+  limit?: number;
+};
+
 export type RunStats = {
   total: number;
   running: number;
@@ -348,6 +354,7 @@ export type Talos = {
   removeModelProvider: (providerId: string) => boolean;
   onEvent: (listener: RunLifecycleListener) => RunLifecycleUnsubscribe;
   listEvents: (limit?: number) => RunLifecycleEvent[];
+  queryEvents: (query?: EventQuery) => RunLifecycleEvent[];
   listRunEvents: (runId: string) => RunLifecycleEvent[];
   listRuns: (limit?: number) => RunSummary[];
   queryRuns: (query?: RunQuery) => RunSummary[];

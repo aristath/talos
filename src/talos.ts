@@ -28,6 +28,7 @@ import type {
   ActiveRun,
   RunSummary,
   RunQuery,
+  EventQuery,
   RunStats,
   TalosDiagnostics,
 } from "./types.js";
@@ -336,6 +337,10 @@ export function createTalos(config: TalosConfig): Talos {
 
   const listEvents = (limit?: number) => {
     return events.listEvents(limit);
+  };
+
+  const queryEvents = (query?: EventQuery) => {
+    return events.queryEvents(query);
   };
 
   const listRunEvents = (runId: string) => {
@@ -763,6 +768,7 @@ export function createTalos(config: TalosConfig): Talos {
     removeModelProvider,
     onEvent,
     listEvents,
+    queryEvents,
     listRunEvents,
     listRuns,
     queryRuns,

@@ -40,6 +40,7 @@ describe("createTalos", () => {
     expect(typeof talos.getRun).toBe("function");
     expect(typeof talos.getRunStats).toBe("function");
     expect(typeof talos.getDiagnostics).toBe("function");
+    expect(typeof talos.queryEvents).toBe("function");
     expect(typeof talos.run).toBe("function");
   });
 
@@ -1444,5 +1445,36 @@ describe("createTalos", () => {
     expect(betaFailed.length).toBeGreaterThanOrEqual(1);
     expect(betaFailed.every((run) => run.agentId === "beta")).toBe(true);
     expect(betaFailed.every((run) => run.status === "failed")).toBe(true);
+  });
+
+  it("queries events by type and runId", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+    });
+
+    talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+    talos.registerModelProvider({
+      id: "provider",
+      async generate(request) {
+        return {
+          text: "ok",
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    const result = await talos.run({ agentId: "main", prompt: "hello" });
+
+    const completed = talos.queryEvents({ type: "run.completed" });
+    expect(completed.length).toBeGreaterThanOrEqual(1);
+
+    const byRun = talos.queryEvents({ runId: result.runId });
+    expect(byRun.length).toBeGreaterThan(0);
+    expect(byRun.every((event) => ("runId" in event ? event.runId === result.runId : true))).toBe(
+      true,
+    );
   });
 });

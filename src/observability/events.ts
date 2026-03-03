@@ -1,4 +1,5 @@
 import type {
+  EventQuery,
   RunLifecycleEvent,
   RunLifecycleListener,
   RunQuery,
@@ -120,6 +121,25 @@ export class LifecycleEventBus {
       return [];
     }
     return this.history.slice(-safeLimit);
+  }
+
+  queryEvents(query?: EventQuery): RunLifecycleEvent[] {
+    const safeLimit = Math.max(0, Math.floor(query?.limit ?? 100));
+    if (safeLimit === 0) {
+      return [];
+    }
+    const type = query?.type;
+    const runId = query?.runId?.trim();
+
+    return this.history
+      .filter((event) => (type ? event.type === type : true))
+      .filter((event) => {
+        if (!runId) {
+          return true;
+        }
+        return "runId" in event && event.runId === runId;
+      })
+      .slice(-safeLimit);
   }
 
   listRunEvents(runId: string): RunLifecycleEvent[] {
