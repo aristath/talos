@@ -60,6 +60,7 @@ export type RunInput = {
   prompt: string;
   workspaceDir?: string;
   sessionId?: string;
+  signal?: AbortSignal;
 };
 
 export type RunResult = {
@@ -107,6 +108,7 @@ export type TalosErrorCode =
   | "PLUGIN_CAPABILITY_DENIED"
   | "PLUGIN_HOOK_INVALID"
   | "RUN_FAILED"
+  | "RUN_CANCELLED"
   | "TOOL_FAILED"
   | "TOOL_NOT_ALLOWED"
   | "MODEL_TIMEOUT"
@@ -158,6 +160,14 @@ export type RunLifecycleEvent =
       at: string;
       data: {
         error: TalosErrorLike;
+      };
+      runId: string;
+    }
+  | {
+      type: "run.cancelled";
+      at: string;
+      data: {
+        reason: string;
       };
       runId: string;
     }

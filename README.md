@@ -28,5 +28,6 @@ Current core API:
 - `run(input)`
 
 `run(input)` returns a `runId` and lifecycle events include that same `runId` for correlation.
+`run(input)` also supports cancellation via `AbortSignal` (`input.signal`).
 
 This repository intentionally excludes channel integrations, UI apps, and CLI surfaces.

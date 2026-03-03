@@ -614,6 +614,91 @@ describe("createTalos", () => {
     expect(seenRunIds).toEqual(["run-123", "run-123"]);
   });
 
+  it("cancels run before model execution when signal already aborted", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+    });
+
+    talos.registerAgent({
+      id: "main",
+      model: {
+        providerId: "provider",
+        modelId: "model",
+      },
+    });
+    talos.registerModelProvider({
+      id: "provider",
+      async generate(request) {
+        return {
+          text: "ok",
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      talos.run({
+        agentId: "main",
+        prompt: "hello",
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ code: "RUN_CANCELLED" });
+  });
+
+  it("emits run.cancelled when a run is aborted", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+      models: {
+        requestTimeoutMs: 500,
+      },
+    });
+
+    talos.registerAgent({
+      id: "main",
+      model: {
+        providerId: "slow",
+        modelId: "model",
+      },
+    });
+    talos.registerModelProvider({
+      id: "slow",
+      async generate() {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return {
+          text: "late",
+          providerId: "slow",
+          modelId: "model",
+        };
+      },
+    });
+
+    const events: string[] = [];
+    talos.onEvent((event) => {
+      events.push(event.type);
+    });
+
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 10);
+
+    await expect(
+      talos.run({
+        agentId: "main",
+        prompt: "hello",
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ code: "RUN_CANCELLED" });
+
+    expect(events).toContain("run.cancelled");
+  });
+
   it("retries model requests before failing over", async () => {
     let primaryCalls = 0;
     const talos = createTalos({

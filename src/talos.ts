@@ -36,6 +36,16 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
+function assertRunNotAborted(signal: AbortSignal | undefined, runId: string): void {
+  if (!signal?.aborted) {
+    return;
+  }
+  throw new TalosError({
+    code: "RUN_CANCELLED",
+    message: `Run ${runId} was cancelled.`,
+  });
+}
+
 async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
@@ -287,6 +297,7 @@ export function createTalos(config: TalosConfig): Talos {
 
   const run = async (input: RunInput): Promise<RunResult> => {
     const runId = randomUUID();
+    assertRunNotAborted(input.signal, runId);
     await events.emit({
       type: "run.started",
       at: new Date().toISOString(),
@@ -298,7 +309,9 @@ export function createTalos(config: TalosConfig): Talos {
       },
     });
     try {
+      assertRunNotAborted(input.signal, runId);
       await plugins.runBeforeRun(input);
+      assertRunNotAborted(input.signal, runId);
       const agent = agents.resolve(input.agentId);
       const primaryProvider = parsed.data.providers.openaiCompatible[0];
       const primaryProviderId = agent.model?.providerId ?? primaryProvider?.id;
@@ -323,6 +336,7 @@ export function createTalos(config: TalosConfig): Talos {
       let generated: ModelResponse | null = null;
       let lastError: unknown = null;
       for (const attempt of attempts) {
+        assertRunNotAborted(input.signal, runId);
         const request = await plugins.runBeforeModel(
           systemPrompt
             ? {
@@ -347,12 +361,15 @@ export function createTalos(config: TalosConfig): Talos {
           },
         });
         for (let retry = 0; retry <= retriesPerModel; retry += 1) {
+          assertRunNotAborted(input.signal, runId);
           try {
-            generated = await withTimeout(
+            const response = await withTimeout(
               models.generate(request),
               requestTimeoutMs,
               `Model request timed out after ${requestTimeoutMs}ms (${request.providerId}/${request.modelId}).`,
             );
+            assertRunNotAborted(input.signal, runId);
+            generated = response;
             await plugins.runAfterModel({
               request,
               response: generated,
@@ -368,6 +385,9 @@ export function createTalos(config: TalosConfig): Talos {
             });
             break;
           } catch (error) {
+            if (error instanceof TalosError && error.code === "RUN_CANCELLED") {
+              throw error;
+            }
             lastError = error;
             await events.emit({
               type: "model.failed",
@@ -421,6 +441,17 @@ export function createTalos(config: TalosConfig): Talos {
       });
       return result;
     } catch (error) {
+      if (error instanceof TalosError && error.code === "RUN_CANCELLED") {
+        await events.emit({
+          type: "run.cancelled",
+          at: new Date().toISOString(),
+          runId,
+          data: {
+            reason: error.message,
+          },
+        });
+        throw error;
+      }
       await events.emit({
         type: "run.failed",
         at: new Date().toISOString(),
