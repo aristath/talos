@@ -12,6 +12,13 @@ export const talosConfigSchema = z.object({
       }),
     ),
   }),
+  models: z
+    .object({
+      requestTimeoutMs: z.number().int().positive().optional(),
+      retriesPerModel: z.number().int().min(0).max(10).optional(),
+      retryDelayMs: z.number().int().min(0).max(60_000).optional(),
+    })
+    .optional(),
   tools: z
     .object({
       allow: z.array(z.string().min(1)).optional(),

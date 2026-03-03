@@ -26,6 +26,43 @@ import type {
   ToolResult,
 } from "./types.js";
 
+const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 60_000;
+const DEFAULT_RETRIES_PER_MODEL = 0;
+const DEFAULT_RETRY_DELAY_MS = 0;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<T> {
+  let timeoutHandle: NodeJS.Timeout | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(
+            new TalosError({
+              code: "MODEL_TIMEOUT",
+              message: timeoutMessage,
+            }),
+          );
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
+
 export function createTalos(config: TalosConfig): Talos {
   const parsed = talosConfigSchema.safeParse(config);
   if (!parsed.success) {
@@ -46,6 +83,9 @@ export function createTalos(config: TalosConfig): Talos {
   const tools = new ToolRegistry();
   const plugins = new PluginRegistry();
   const events = new LifecycleEventBus();
+  const requestTimeoutMs = parsed.data.models?.requestTimeoutMs ?? DEFAULT_MODEL_REQUEST_TIMEOUT_MS;
+  const retriesPerModel = parsed.data.models?.retriesPerModel ?? DEFAULT_RETRIES_PER_MODEL;
+  const retryDelayMs = parsed.data.models?.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
 
   const hasCapability = (pluginCapabilities: PluginCapability[] | undefined, needed: PluginCapability) => {
     return pluginCapabilities?.includes(needed) ?? false;
@@ -306,34 +346,49 @@ export function createTalos(config: TalosConfig): Talos {
             modelId: request.modelId,
           },
         });
-        try {
-          generated = await models.generate(request);
-          await plugins.runAfterModel({
-            request,
-            response: generated,
-          });
-          await events.emit({
-            type: "model.completed",
-            at: new Date().toISOString(),
-            runId,
-            data: {
-              providerId: request.providerId,
-              modelId: request.modelId,
-            },
-          });
+        for (let retry = 0; retry <= retriesPerModel; retry += 1) {
+          try {
+            generated = await withTimeout(
+              models.generate(request),
+              requestTimeoutMs,
+              `Model request timed out after ${requestTimeoutMs}ms (${request.providerId}/${request.modelId}).`,
+            );
+            await plugins.runAfterModel({
+              request,
+              response: generated,
+            });
+            await events.emit({
+              type: "model.completed",
+              at: new Date().toISOString(),
+              runId,
+              data: {
+                providerId: request.providerId,
+                modelId: request.modelId,
+              },
+            });
+            break;
+          } catch (error) {
+            lastError = error;
+            await events.emit({
+              type: "model.failed",
+              at: new Date().toISOString(),
+              runId,
+              data: {
+                providerId: request.providerId,
+                modelId: request.modelId,
+                error: toTalosErrorLike(error),
+              },
+            });
+            if (retry < retriesPerModel && retryDelayMs > 0) {
+              await sleep(retryDelayMs);
+            }
+          }
+          if (generated) {
+            break;
+          }
+        }
+        if (generated) {
           break;
-        } catch (error) {
-          lastError = error;
-          await events.emit({
-            type: "model.failed",
-            at: new Date().toISOString(),
-            runId,
-            data: {
-              providerId: request.providerId,
-              modelId: request.modelId,
-              error: toTalosErrorLike(error),
-            },
-          });
         }
       }
       if (!generated) {

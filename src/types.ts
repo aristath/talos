@@ -11,6 +11,11 @@ export type TalosConfig = {
       defaultModel: string;
     }[];
   };
+  models?: {
+    requestTimeoutMs?: number;
+    retriesPerModel?: number;
+    retryDelayMs?: number;
+  };
   tools?: {
     allow?: string[];
     deny?: string[];
@@ -104,6 +109,7 @@ export type TalosErrorCode =
   | "RUN_FAILED"
   | "TOOL_FAILED"
   | "TOOL_NOT_ALLOWED"
+  | "MODEL_TIMEOUT"
   | "PERSONA_INVALID_WORKSPACE"
   | "PERSONA_FILE_UNSAFE";
 

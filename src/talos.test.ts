@@ -613,4 +613,92 @@ describe("createTalos", () => {
 
     expect(seenRunIds).toEqual(["run-123", "run-123"]);
   });
+
+  it("retries model requests before failing over", async () => {
+    let primaryCalls = 0;
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+      models: {
+        retriesPerModel: 1,
+      },
+    });
+
+    talos.registerAgent({
+      id: "main",
+      model: {
+        providerId: "primary",
+        modelId: "one",
+      },
+    });
+
+    talos.registerModelProvider({
+      id: "primary",
+      async generate(request) {
+        primaryCalls += 1;
+        if (primaryCalls === 1) {
+          throw new Error("transient");
+        }
+        return {
+          text: "ok-after-retry",
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    const result = await talos.run({ agentId: "main", prompt: "hello" });
+
+    expect(primaryCalls).toBe(2);
+    expect(result.text).toBe("ok-after-retry");
+  });
+
+  it("times out slow models and falls back", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+      models: {
+        requestTimeoutMs: 10,
+      },
+    });
+
+    talos.registerAgent({
+      id: "main",
+      model: {
+        providerId: "slow",
+        modelId: "one",
+        fallbacks: [{ providerId: "fast", modelId: "two" }],
+      },
+    });
+
+    talos.registerModelProvider({
+      id: "slow",
+      async generate() {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return {
+          text: "late",
+          providerId: "slow",
+          modelId: "one",
+        };
+      },
+    });
+
+    talos.registerModelProvider({
+      id: "fast",
+      async generate(request) {
+        return {
+          text: "fallback-fast",
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    const result = await talos.run({ agentId: "main", prompt: "hello" });
+
+    expect(result.text).toBe("fallback-fast");
+    expect(result.providerId).toBe("fast");
+  });
 });
