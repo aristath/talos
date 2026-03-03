@@ -1525,5 +1525,16 @@ describe("createTalos", () => {
     expect(byRun.every((event) => ("runId" in event ? event.runId === result.runId : true))).toBe(
       true,
     );
+
+    const before = new Date(Date.now() - 1_000).toISOString();
+    const after = new Date(Date.now() + 1_000).toISOString();
+    const inRange = talos.queryEvents({ runId: result.runId, since: before, until: after });
+    expect(inRange.length).toBeGreaterThan(0);
+
+    const futureRange = talos.queryEvents({
+      runId: result.runId,
+      since: new Date(Date.now() + 60_000).toISOString(),
+    });
+    expect(futureRange).toHaveLength(0);
   });
 });

@@ -130,6 +130,8 @@ export class LifecycleEventBus {
     }
     const type = query?.type;
     const runId = query?.runId?.trim();
+    const sinceMs = query?.since ? Date.parse(query.since) : Number.NaN;
+    const untilMs = query?.until ? Date.parse(query.until) : Number.NaN;
 
     return this.history
       .filter((event) => (type ? event.type === type : true))
@@ -138,6 +140,20 @@ export class LifecycleEventBus {
           return true;
         }
         return "runId" in event && event.runId === runId;
+      })
+      .filter((event) => {
+        if (Number.isNaN(sinceMs)) {
+          return true;
+        }
+        const eventMs = Date.parse(event.at);
+        return Number.isNaN(eventMs) ? false : eventMs >= sinceMs;
+      })
+      .filter((event) => {
+        if (Number.isNaN(untilMs)) {
+          return true;
+        }
+        const eventMs = Date.parse(event.at);
+        return Number.isNaN(eventMs) ? false : eventMs <= untilMs;
       })
       .slice(-safeLimit);
   }

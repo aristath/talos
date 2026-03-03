@@ -294,6 +294,8 @@ export type RunQuery = {
 export type EventQuery = {
   type?: RunLifecycleEvent["type"];
   runId?: string;
+  since?: string;
+  until?: string;
   limit?: number;
 };
 
