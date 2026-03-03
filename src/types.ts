@@ -91,6 +91,7 @@ export type TalosErrorCode =
   | "PROVIDER_NOT_FOUND"
   | "PLUGIN_INVALID"
   | "PLUGIN_DUPLICATE"
+  | "PLUGIN_LOAD_FAILED"
   | "PLUGIN_CAPABILITY_DENIED"
   | "PLUGIN_HOOK_INVALID"
   | "RUN_FAILED"
@@ -194,6 +195,8 @@ export type Talos = {
   registerPlugin: (plugin: TalosPlugin) => Promise<void>;
   registerModelProvider: (provider: ModelProviderAdapter) => void;
   onEvent: (listener: RunLifecycleListener) => void;
+  loadPluginFromPath: (filePath: string) => Promise<void>;
+  loadPluginsFromDirectory: (directoryPath: string) => Promise<string[]>;
   executeTool: (input: ToolExecutionInput) => Promise<ToolResult>;
   run: (input: RunInput) => Promise<RunResult>;
 };

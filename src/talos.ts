@@ -4,6 +4,7 @@ import { ModelRegistry } from "./models/registry.js";
 import { createOpenAICompatibleProvider } from "./models/openai-compatible.js";
 import { loadPersonaSnapshot, buildPersonaSystemPrompt } from "./persona/loader.js";
 import { PluginRegistry } from "./plugins/registry.js";
+import { discoverPluginEntryPaths, loadPluginFromPath } from "./plugins/loader.js";
 import { ToolRegistry } from "./tools/registry.js";
 import { TalosError, toTalosErrorLike } from "./errors.js";
 import { LifecycleEventBus } from "./observability/events.js";
@@ -116,6 +117,29 @@ export function createTalos(config: TalosConfig): Talos {
 
   const onEvent = (listener: RunLifecycleListener) => {
     events.on(listener);
+  };
+
+  const loadPluginFromPathApi = async (filePath: string): Promise<void> => {
+    const plugin = await loadPluginFromPath(filePath);
+    await registerPlugin(plugin);
+  };
+
+  const loadPluginsFromDirectory = async (directoryPath: string): Promise<string[]> => {
+    const pluginPaths = await discoverPluginEntryPaths(directoryPath);
+    const loadedPluginIds: string[] = [];
+    for (const pluginPath of pluginPaths) {
+      const plugin = await loadPluginFromPath(pluginPath);
+      try {
+        await registerPlugin(plugin);
+        loadedPluginIds.push(plugin.id);
+      } catch (error) {
+        if (error instanceof TalosError && error.code === "PLUGIN_DUPLICATE") {
+          continue;
+        }
+        throw error;
+      }
+    }
+    return loadedPluginIds;
   };
 
   const executeTool = async (input: ToolExecutionInput): Promise<ToolResult> => {
@@ -287,6 +311,8 @@ export function createTalos(config: TalosConfig): Talos {
     registerPlugin,
     registerModelProvider,
     onEvent,
+    loadPluginFromPath: loadPluginFromPathApi,
+    loadPluginsFromDirectory,
     executeTool,
     run,
   };

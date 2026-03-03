@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { createTalos } from "./talos.js";
 
 describe("createTalos", () => {
@@ -301,5 +304,52 @@ describe("createTalos", () => {
 
     expect(events).toContain("tool.started");
     expect(events).toContain("tool.failed");
+  });
+
+  it("loads plugins from path and directory", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-load-plugins-"));
+    try {
+      const pluginAPath = path.join(tempDir, "plugin-a.mjs");
+      const pluginBPath = path.join(tempDir, "plugin-b.mjs");
+      await fs.writeFile(
+        pluginAPath,
+        "export default { id: 'loaded-a', capabilities: ['hooks'], async setup(api) { api.on('beforeRun', () => undefined); } };",
+        "utf8",
+      );
+      await fs.writeFile(
+        pluginBPath,
+        "export default { id: 'loaded-b', capabilities: ['hooks'], async setup(api) { api.on('afterRun', () => undefined); } };",
+        "utf8",
+      );
+
+      const events: string[] = [];
+      talos.onEvent((event) => {
+        if (event.type === "plugin.registered") {
+          events.push(event.data.pluginId);
+        }
+      });
+
+      await talos.loadPluginFromPath(pluginAPath);
+      const loaded = await talos.loadPluginsFromDirectory(tempDir);
+
+      expect(events).toContain("loaded-a");
+      expect(events).toContain("loaded-b");
+      expect(loaded).toContain("loaded-b");
+      expect(loaded).not.toContain("loaded-a");
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
   });
 });

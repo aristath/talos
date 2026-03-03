@@ -16,6 +16,7 @@ Current core API:
 - `registerAgent(agent)`
 - `registerTool(tool)`
 - `registerPlugin(plugin)` with capability declarations (`tools`, `providers`, `hooks`)
+- `loadPluginFromPath(filePath)` and `loadPluginsFromDirectory(directoryPath)`
 - `registerModelProvider(provider)`
 - `onEvent(listener)` for lifecycle events
 - `executeTool(input)` for direct tool execution
