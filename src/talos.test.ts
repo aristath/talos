@@ -495,4 +495,48 @@ describe("createTalos", () => {
     expect(events).toContain("model.started");
     expect(events).toContain("model.completed");
   });
+
+  it("returns runId and includes it in run/model events", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+    });
+
+    talos.registerAgent({
+      id: "main",
+      model: {
+        providerId: "provider",
+        modelId: "model",
+      },
+    });
+    talos.registerModelProvider({
+      id: "provider",
+      async generate(request) {
+        return {
+          text: "ok",
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    const runIds = new Set<string>();
+    talos.onEvent((event) => {
+      if (
+        event.type === "run.started" ||
+        event.type === "model.started" ||
+        event.type === "model.completed" ||
+        event.type === "run.completed"
+      ) {
+        runIds.add(event.runId);
+      }
+    });
+
+    const result = await talos.run({ agentId: "main", prompt: "hello" });
+
+    expect(result.runId.length).toBeGreaterThan(0);
+    expect(runIds.size).toBe(1);
+    expect(runIds.has(result.runId)).toBe(true);
+  });
 });

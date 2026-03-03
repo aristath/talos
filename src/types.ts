@@ -57,6 +57,7 @@ export type RunInput = {
 };
 
 export type RunResult = {
+  runId: string;
   text: string;
   providerId: string;
   modelId: string;
@@ -136,11 +137,13 @@ export type RunLifecycleEvent =
       type: "run.started";
       at: string;
       data: Pick<RunInput, "agentId" | "sessionId" | "workspaceDir">;
+      runId: string;
     }
   | {
       type: "run.completed";
       at: string;
       data: Pick<RunResult, "providerId" | "modelId">;
+      runId: string;
     }
   | {
       type: "run.failed";
@@ -148,6 +151,7 @@ export type RunLifecycleEvent =
       data: {
         error: TalosErrorLike;
       };
+      runId: string;
     }
   | {
       type: "plugin.registered";
@@ -163,6 +167,7 @@ export type RunLifecycleEvent =
         providerId: string;
         modelId: string;
       };
+      runId: string;
     }
   | {
       type: "model.completed";
@@ -171,6 +176,7 @@ export type RunLifecycleEvent =
         providerId: string;
         modelId: string;
       };
+      runId: string;
     }
   | {
       type: "model.failed";
@@ -180,6 +186,7 @@ export type RunLifecycleEvent =
         modelId: string;
         error: TalosErrorLike;
       };
+      runId: string;
     }
   | {
       type: "tool.started";

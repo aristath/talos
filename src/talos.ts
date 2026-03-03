@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { talosConfigSchema } from "./config/schema.js";
 import { AgentRegistry } from "./agents/registry.js";
 import { ModelRegistry } from "./models/registry.js";
@@ -226,9 +227,11 @@ export function createTalos(config: TalosConfig): Talos {
   };
 
   const run = async (input: RunInput): Promise<RunResult> => {
+    const runId = randomUUID();
     await events.emit({
       type: "run.started",
       at: new Date().toISOString(),
+      runId,
       data: {
         agentId: input.agentId,
         ...(input.sessionId ? { sessionId: input.sessionId } : {}),
@@ -278,6 +281,7 @@ export function createTalos(config: TalosConfig): Talos {
         await events.emit({
           type: "model.started",
           at: new Date().toISOString(),
+          runId,
           data: {
             providerId: request.providerId,
             modelId: request.modelId,
@@ -292,6 +296,7 @@ export function createTalos(config: TalosConfig): Talos {
           await events.emit({
             type: "model.completed",
             at: new Date().toISOString(),
+            runId,
             data: {
               providerId: request.providerId,
               modelId: request.modelId,
@@ -303,6 +308,7 @@ export function createTalos(config: TalosConfig): Talos {
           await events.emit({
             type: "model.failed",
             at: new Date().toISOString(),
+            runId,
             data: {
               providerId: request.providerId,
               modelId: request.modelId,
@@ -323,6 +329,7 @@ export function createTalos(config: TalosConfig): Talos {
       }
 
       const result: RunResult = {
+        runId,
         text: generated.text,
         providerId: generated.providerId,
         modelId: generated.modelId,
@@ -332,6 +339,7 @@ export function createTalos(config: TalosConfig): Talos {
       await events.emit({
         type: "run.completed",
         at: new Date().toISOString(),
+        runId,
         data: {
           providerId: result.providerId,
           modelId: result.modelId,
@@ -342,6 +350,7 @@ export function createTalos(config: TalosConfig): Talos {
       await events.emit({
         type: "run.failed",
         at: new Date().toISOString(),
+        runId,
         data: {
           error: toTalosErrorLike(error),
         },

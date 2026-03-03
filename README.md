@@ -24,4 +24,6 @@ Current core API:
 - `executeTool(input)` for direct tool execution
 - `run(input)`
 
+`run(input)` returns a `runId` and lifecycle events include that same `runId` for correlation.
+
 This repository intentionally excludes channel integrations, UI apps, and CLI surfaces.
