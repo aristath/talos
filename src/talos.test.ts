@@ -29,6 +29,8 @@ describe("createTalos", () => {
     expect(typeof talos.registerPlugin).toBe("function");
     expect(typeof talos.removePlugin).toBe("function");
     expect(typeof talos.listPlugins).toBe("function");
+    expect(typeof talos.listPluginSummaries).toBe("function");
+    expect(typeof talos.getPluginSummary).toBe("function");
     expect(typeof talos.hasPlugin).toBe("function");
     expect(typeof talos.listModelProviders).toBe("function");
     expect(typeof talos.hasModelProvider).toBe("function");
@@ -114,6 +116,53 @@ describe("createTalos", () => {
 
     expect(talos.hasPlugin("hooks-one")).toBe(true);
     expect(talos.listPlugins()).toContain("hooks-one");
+  });
+
+  it("returns plugin summaries", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    await talos.registerPlugin({
+      id: "summary-plugin",
+      capabilities: ["tools", "providers", "hooks"],
+      setup(api) {
+        api.registerTool({
+          name: "summary-tool",
+          description: "tool",
+          async run() {
+            return { content: "ok" };
+          },
+        });
+        api.registerModelProvider({
+          id: "summary-provider",
+          async generate(request) {
+            return {
+              text: "ok",
+              providerId: request.providerId,
+              modelId: request.modelId,
+            };
+          },
+        });
+        api.on("beforeRun", () => undefined);
+      },
+    });
+
+    const summaries = talos.listPluginSummaries();
+    const summary = talos.getPluginSummary("summary-plugin");
+
+    expect(summaries.some((entry) => entry.id === "summary-plugin")).toBe(true);
+    expect(summary?.toolCount).toBe(1);
+    expect(summary?.providerCount).toBe(1);
+    expect(summary?.capabilities).toContain("hooks");
   });
 
   it("unregisters plugins and cleans plugin-owned resources", async () => {

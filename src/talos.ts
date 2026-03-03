@@ -31,6 +31,7 @@ import type {
   EventQuery,
   RunStats,
   TalosDiagnostics,
+  PluginSummary,
 } from "./types.js";
 
 const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 60_000;
@@ -123,6 +124,7 @@ export function createTalos(config: TalosConfig): Talos {
   const pluginOwnedTools = new Map<string, Set<string>>();
   const pluginOwnedProviders = new Map<string, Set<string>>();
   const pluginTeardowns = new Map<string, () => void | Promise<void>>();
+  const pluginCapabilities = new Map<string, PluginCapability[]>();
   const requestTimeoutMs = parsed.data.models?.requestTimeoutMs ?? DEFAULT_MODEL_REQUEST_TIMEOUT_MS;
   const retriesPerModel = parsed.data.models?.retriesPerModel ?? DEFAULT_RETRIES_PER_MODEL;
   const retryDelayMs = parsed.data.models?.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
@@ -254,6 +256,7 @@ export function createTalos(config: TalosConfig): Talos {
     plugins.markRegistered(normalizedPluginId);
     pluginOwnedTools.set(normalizedPluginId, ownedTools);
     pluginOwnedProviders.set(normalizedPluginId, ownedProviders);
+    pluginCapabilities.set(normalizedPluginId, [...capabilities]);
     if (typeof teardown === "function") {
       pluginTeardowns.set(normalizedPluginId, teardown);
     }
@@ -304,6 +307,8 @@ export function createTalos(config: TalosConfig): Talos {
       pluginOwnedProviders.delete(normalizedPluginId);
     }
 
+    pluginCapabilities.delete(normalizedPluginId);
+
     await events.emit({
       type: "plugin.unregistered",
       at: new Date().toISOString(),
@@ -325,6 +330,36 @@ export function createTalos(config: TalosConfig): Talos {
 
   const listPlugins = (): string[] => {
     return plugins.list();
+  };
+
+  const listPluginSummaries = (): PluginSummary[] => {
+    return plugins.list().map((pluginId) => {
+      const capabilities = pluginCapabilities.get(pluginId) ?? [];
+      const tools = pluginOwnedTools.get(pluginId);
+      const providers = pluginOwnedProviders.get(pluginId);
+      return {
+        id: pluginId,
+        capabilities,
+        toolCount: tools?.size ?? 0,
+        providerCount: providers?.size ?? 0,
+      };
+    });
+  };
+
+  const getPluginSummary = (pluginId: string): PluginSummary | undefined => {
+    const normalizedPluginId = pluginId.trim();
+    if (!normalizedPluginId || !plugins.has(normalizedPluginId)) {
+      return undefined;
+    }
+    const capabilities = pluginCapabilities.get(normalizedPluginId) ?? [];
+    const tools = pluginOwnedTools.get(normalizedPluginId);
+    const providers = pluginOwnedProviders.get(normalizedPluginId);
+    return {
+      id: normalizedPluginId,
+      capabilities,
+      toolCount: tools?.size ?? 0,
+      providerCount: providers?.size ?? 0,
+    };
   };
 
   const hasPlugin = (pluginId: string): boolean => {
@@ -761,6 +796,8 @@ export function createTalos(config: TalosConfig): Talos {
     registerPlugin,
     removePlugin,
     listPlugins,
+    listPluginSummaries,
+    getPluginSummary,
     hasPlugin,
     registerModelProvider,
     listModelProviders,

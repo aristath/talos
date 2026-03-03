@@ -22,6 +22,7 @@ export type {
   RunQuery,
   EventQuery,
   RunStats,
+  PluginSummary,
   TalosDiagnostics,
   PluginCapability,
 } from "./types.js";

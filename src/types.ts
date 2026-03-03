@@ -305,6 +305,13 @@ export type RunStats = {
   cancelled: number;
 };
 
+export type PluginSummary = {
+  id: string;
+  capabilities: PluginCapability[];
+  toolCount: number;
+  providerCount: number;
+};
+
 export type TalosDiagnostics = {
   generatedAt: string;
   counts: {
@@ -347,6 +354,8 @@ export type Talos = {
   registerPlugin: (plugin: TalosPlugin) => Promise<void>;
   removePlugin: (pluginId: string) => Promise<boolean>;
   listPlugins: () => string[];
+  listPluginSummaries: () => PluginSummary[];
+  getPluginSummary: (pluginId: string) => PluginSummary | undefined;
   hasPlugin: (pluginId: string) => boolean;
   registerModelProvider: (provider: ModelProviderAdapter) => void;
   listModelProviders: () => ModelProviderAdapter[];
