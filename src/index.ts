@@ -16,5 +16,7 @@ export type {
   RunLifecycleEvent,
   RunLifecycleListener,
   ActiveRun,
+  RunSummary,
+  RunStatus,
   PluginCapability,
 } from "./types.js";

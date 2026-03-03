@@ -247,6 +247,20 @@ export type ActiveRun = {
   startedAt: string;
 };
 
+export type RunStatus = "running" | "completed" | "failed" | "cancelled";
+
+export type RunSummary = {
+  runId: string;
+  agentId: string;
+  sessionId?: string;
+  status: RunStatus;
+  startedAt: string;
+  finishedAt?: string;
+  providerId?: string;
+  modelId?: string;
+  error?: TalosErrorLike;
+};
+
 export type TalosPluginApi = {
   registerTool: (tool: ToolDefinition) => void;
   registerModelProvider: (provider: ModelProviderAdapter) => void;
@@ -278,6 +292,8 @@ export type Talos = {
   onEvent: (listener: RunLifecycleListener) => void;
   listEvents: (limit?: number) => RunLifecycleEvent[];
   listRunEvents: (runId: string) => RunLifecycleEvent[];
+  listRuns: (limit?: number) => RunSummary[];
+  getRun: (runId: string) => RunSummary | undefined;
   listActiveRuns: () => ActiveRun[];
   cancelRun: (runId: string) => boolean;
   seedPersonaWorkspace: (

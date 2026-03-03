@@ -25,6 +25,7 @@ import type {
   ToolExecutionInput,
   ToolResult,
   ActiveRun,
+  RunSummary,
 } from "./types.js";
 
 const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 60_000;
@@ -251,6 +252,14 @@ export function createTalos(config: TalosConfig): Talos {
 
   const listRunEvents = (runId: string) => {
     return events.listRunEvents(runId);
+  };
+
+  const listRuns = (limit?: number): RunSummary[] => {
+    return events.listRuns(limit);
+  };
+
+  const getRun = (runId: string): RunSummary | undefined => {
+    return events.getRun(runId);
   };
 
   const listActiveRuns = (): ActiveRun[] => {
@@ -598,6 +607,8 @@ export function createTalos(config: TalosConfig): Talos {
     onEvent,
     listEvents,
     listRunEvents,
+    listRuns,
+    getRun,
     listActiveRuns,
     cancelRun,
     seedPersonaWorkspace: seedPersonaWorkspaceApi,
