@@ -29,6 +29,9 @@ describe("createTalos", () => {
     expect(typeof talos.registerPlugin).toBe("function");
     expect(typeof talos.listPlugins).toBe("function");
     expect(typeof talos.hasPlugin).toBe("function");
+    expect(typeof talos.listModelProviders).toBe("function");
+    expect(typeof talos.hasModelProvider).toBe("function");
+    expect(typeof talos.removeModelProvider).toBe("function");
     expect(typeof talos.onEvent).toBe("function");
     expect(typeof talos.seedPersonaWorkspace).toBe("function");
     expect(typeof talos.run).toBe("function");
@@ -104,6 +107,30 @@ describe("createTalos", () => {
 
     expect(talos.hasPlugin("hooks-one")).toBe(true);
     expect(talos.listPlugins()).toContain("hooks-one");
+  });
+
+  it("manages model provider lifecycle", () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+    });
+
+    talos.registerModelProvider({
+      id: "provider-a",
+      async generate(request) {
+        return {
+          text: "ok",
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    expect(talos.hasModelProvider("provider-a")).toBe(true);
+    expect(talos.listModelProviders().map((provider) => provider.id)).toContain("provider-a");
+    expect(talos.removeModelProvider("provider-a")).toBe(true);
+    expect(talos.hasModelProvider("provider-a")).toBe(false);
   });
 
   it("blocks plugin operations outside declared capabilities", async () => {

@@ -24,6 +24,7 @@ Current core API:
 - `listPlugins()` and `hasPlugin(pluginId)`
 - `loadPluginFromPath(filePath)` and `loadPluginsFromDirectory(directoryPath)`
 - `registerModelProvider(provider)`
+- `listModelProviders()`, `hasModelProvider(providerId)`, and `removeModelProvider(providerId)`
 - `onEvent(listener)` for lifecycle events
 - `listEvents(limit?)` and `listRunEvents(runId)` for in-memory event diagnostics
 - `listActiveRuns()` and `cancelRun(runId)` for runtime run control

@@ -146,6 +146,18 @@ export function createTalos(config: TalosConfig): Talos {
     models.register(provider);
   };
 
+  const listModelProviders = (): ModelProviderAdapter[] => {
+    return models.list();
+  };
+
+  const hasModelProvider = (providerId: string): boolean => {
+    return models.has(providerId);
+  };
+
+  const removeModelProvider = (providerId: string): boolean => {
+    return models.remove(providerId);
+  };
+
   const registerTool = (tool: ToolDefinition) => {
     assertToolAllowed(tool.name);
     tools.register(tool);
@@ -580,6 +592,9 @@ export function createTalos(config: TalosConfig): Talos {
     listPlugins,
     hasPlugin,
     registerModelProvider,
+    listModelProviders,
+    hasModelProvider,
+    removeModelProvider,
     onEvent,
     listEvents,
     listRunEvents,

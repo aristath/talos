@@ -15,6 +15,22 @@ export class ModelRegistry {
     this.providers.set(id, provider);
   }
 
+  has(providerId: string): boolean {
+    return this.providers.has(providerId.trim());
+  }
+
+  remove(providerId: string): boolean {
+    const normalizedId = providerId.trim();
+    if (!normalizedId) {
+      return false;
+    }
+    return this.providers.delete(normalizedId);
+  }
+
+  list(): ModelProviderAdapter[] {
+    return Array.from(this.providers.values());
+  }
+
   async generate(request: ModelRequest): Promise<ModelResponse> {
     const provider = this.providers.get(request.providerId);
     if (!provider) {
