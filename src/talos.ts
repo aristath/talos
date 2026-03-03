@@ -49,6 +49,26 @@ export function createTalos(config: TalosConfig): Talos {
     return pluginCapabilities?.includes(needed) ?? false;
   };
 
+  const normalizeToolName = (name: string) => name.trim().toLowerCase();
+  const toolAllowlist = new Set((parsed.data.tools?.allow ?? []).map(normalizeToolName));
+  const toolDenylist = new Set((parsed.data.tools?.deny ?? []).map(normalizeToolName));
+
+  const assertToolAllowed = (name: string) => {
+    const normalized = normalizeToolName(name);
+    if (toolDenylist.has(normalized)) {
+      throw new TalosError({
+        code: "TOOL_NOT_ALLOWED",
+        message: `Tool is denied by configuration: ${name}`,
+      });
+    }
+    if (toolAllowlist.size > 0 && !toolAllowlist.has(normalized)) {
+      throw new TalosError({
+        code: "TOOL_NOT_ALLOWED",
+        message: `Tool is not in allowlist: ${name}`,
+      });
+    }
+  };
+
   for (const provider of parsed.data.providers.openaiCompatible) {
     const providerConfig = {
       id: provider.id,
@@ -66,6 +86,7 @@ export function createTalos(config: TalosConfig): Talos {
   };
 
   const registerTool = (tool: ToolDefinition) => {
+    assertToolAllowed(tool.name);
     tools.register(tool);
   };
 
@@ -162,6 +183,7 @@ export function createTalos(config: TalosConfig): Talos {
 
     try {
       await plugins.runBeforeTool(normalizedInput);
+      assertToolAllowed(normalizedInput.name);
       const result = await tools.execute(normalizedInput.name, args, normalizedInput.context);
       await plugins.runAfterTool({
         input: normalizedInput,

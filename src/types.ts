@@ -10,6 +10,10 @@ export type TalosConfig = {
       defaultModel: string;
     }[];
   };
+  tools?: {
+    allow?: string[];
+    deny?: string[];
+  };
 };
 
 export type AgentDefinition = {
@@ -96,6 +100,7 @@ export type TalosErrorCode =
   | "PLUGIN_HOOK_INVALID"
   | "RUN_FAILED"
   | "TOOL_FAILED"
+  | "TOOL_NOT_ALLOWED"
   | "PERSONA_INVALID_WORKSPACE"
   | "PERSONA_FILE_UNSAFE";
 

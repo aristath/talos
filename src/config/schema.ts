@@ -12,6 +12,12 @@ export const talosConfigSchema = z.object({
       }),
     ),
   }),
+  tools: z
+    .object({
+      allow: z.array(z.string().min(1)).optional(),
+      deny: z.array(z.string().min(1)).optional(),
+    })
+    .optional(),
 });
 
 export type TalosConfigSchema = z.infer<typeof talosConfigSchema>;

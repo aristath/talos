@@ -352,4 +352,58 @@ describe("createTalos", () => {
       await fs.rm(tempDir, { recursive: true, force: true });
     }
   });
+
+  it("enforces tool denylist", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+      tools: {
+        deny: ["dangerous"],
+      },
+    });
+
+    expect(() =>
+      talos.registerTool({
+        name: "dangerous",
+        description: "blocked",
+        async run() {
+          return { content: "x" };
+        },
+      }),
+    ).toThrowError(/Tool is denied by configuration/);
+  });
+
+  it("enforces tool allowlist", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+      tools: {
+        allow: ["safe"],
+      },
+    });
+
+    expect(() =>
+      talos.registerTool({
+        name: "other",
+        description: "blocked",
+        async run() {
+          return { content: "x" };
+        },
+      }),
+    ).toThrowError(/Tool is not in allowlist/);
+  });
 });
