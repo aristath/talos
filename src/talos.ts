@@ -261,24 +261,54 @@ export function createTalos(config: TalosConfig): Talos {
       let generated: ModelResponse | null = null;
       let lastError: unknown = null;
       for (const attempt of attempts) {
+        const request = await plugins.runBeforeModel(
+          systemPrompt
+            ? {
+                providerId: attempt.providerId,
+                modelId: attempt.modelId,
+                prompt: input.prompt,
+                system: systemPrompt,
+              }
+            : {
+                providerId: attempt.providerId,
+                modelId: attempt.modelId,
+                prompt: input.prompt,
+              },
+        );
+        await events.emit({
+          type: "model.started",
+          at: new Date().toISOString(),
+          data: {
+            providerId: request.providerId,
+            modelId: request.modelId,
+          },
+        });
         try {
-          generated = await models.generate(
-            systemPrompt
-              ? {
-                  providerId: attempt.providerId,
-                  modelId: attempt.modelId,
-                  prompt: input.prompt,
-                  system: systemPrompt,
-                }
-              : {
-                  providerId: attempt.providerId,
-                  modelId: attempt.modelId,
-                  prompt: input.prompt,
-                },
-          );
+          generated = await models.generate(request);
+          await plugins.runAfterModel({
+            request,
+            response: generated,
+          });
+          await events.emit({
+            type: "model.completed",
+            at: new Date().toISOString(),
+            data: {
+              providerId: request.providerId,
+              modelId: request.modelId,
+            },
+          });
           break;
         } catch (error) {
           lastError = error;
+          await events.emit({
+            type: "model.failed",
+            at: new Date().toISOString(),
+            data: {
+              providerId: request.providerId,
+              modelId: request.modelId,
+              error: toTalosErrorLike(error),
+            },
+          });
         }
       }
       if (!generated) {

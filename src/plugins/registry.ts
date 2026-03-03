@@ -5,11 +5,15 @@ export class PluginRegistry {
   private readonly hooks: {
     beforeRun: PluginHooks["beforeRun"][];
     afterRun: PluginHooks["afterRun"][];
+    beforeModel: PluginHooks["beforeModel"][];
+    afterModel: PluginHooks["afterModel"][];
     beforeTool: PluginHooks["beforeTool"][];
     afterTool: PluginHooks["afterTool"][];
   } = {
     beforeRun: [],
     afterRun: [],
+    beforeModel: [],
+    afterModel: [],
     beforeTool: [],
     afterTool: [],
   };
@@ -55,7 +59,22 @@ export class PluginRegistry {
       this.hooks.beforeTool.push(handler as PluginHooks["beforeTool"]);
       return;
     }
-    this.hooks.afterTool.push(handler as PluginHooks["afterTool"]);
+    if (name === "afterTool") {
+      this.hooks.afterTool.push(handler as PluginHooks["afterTool"]);
+      return;
+    }
+    if (name === "beforeModel") {
+      this.hooks.beforeModel.push(handler as PluginHooks["beforeModel"]);
+      return;
+    }
+    if (name === "afterModel") {
+      this.hooks.afterModel.push(handler as PluginHooks["afterModel"]);
+      return;
+    }
+    throw new TalosError({
+      code: "PLUGIN_HOOK_INVALID",
+      message: `Unsupported hook: ${String(name)}`,
+    });
   }
 
   async runBeforeRun(input: Parameters<PluginHooks["beforeRun"]>[0]): Promise<void> {
@@ -78,6 +97,25 @@ export class PluginRegistry {
 
   async runAfterTool(input: Parameters<PluginHooks["afterTool"]>[0]): Promise<void> {
     for (const hook of this.hooks.afterTool) {
+      await hook(input);
+    }
+  }
+
+  async runBeforeModel(
+    request: Parameters<PluginHooks["beforeModel"]>[0],
+  ): Promise<Parameters<PluginHooks["beforeModel"]>[0]> {
+    let current = request;
+    for (const hook of this.hooks.beforeModel) {
+      const next = await hook(current);
+      if (next) {
+        current = next;
+      }
+    }
+    return current;
+  }
+
+  async runAfterModel(input: Parameters<PluginHooks["afterModel"]>[0]): Promise<void> {
+    for (const hook of this.hooks.afterModel) {
       await hook(input);
     }
   }

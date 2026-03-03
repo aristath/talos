@@ -406,4 +406,93 @@ describe("createTalos", () => {
       }),
     ).toThrowError(/Tool is not in allowlist/);
   });
+
+  it("applies beforeModel hook overrides", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+    });
+
+    talos.registerAgent({
+      id: "main",
+      model: {
+        providerId: "provider-a",
+        modelId: "model-a",
+      },
+    });
+
+    talos.registerModelProvider({
+      id: "provider-a",
+      async generate() {
+        throw new Error("should be overridden");
+      },
+    });
+
+    talos.registerModelProvider({
+      id: "provider-b",
+      async generate(request) {
+        return {
+          text: `from-${request.providerId}-${request.modelId}`,
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    await talos.registerPlugin({
+      id: "model-override",
+      capabilities: ["hooks"],
+      setup(api) {
+        api.on("beforeModel", (request) => ({
+          ...request,
+          providerId: "provider-b",
+          modelId: "model-b",
+        }));
+      },
+    });
+
+    const result = await talos.run({ agentId: "main", prompt: "hello" });
+
+    expect(result.text).toBe("from-provider-b-model-b");
+    expect(result.providerId).toBe("provider-b");
+    expect(result.modelId).toBe("model-b");
+  });
+
+  it("emits model lifecycle events", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+    });
+
+    talos.registerAgent({
+      id: "main",
+      model: {
+        providerId: "provider",
+        modelId: "model",
+      },
+    });
+
+    talos.registerModelProvider({
+      id: "provider",
+      async generate(request) {
+        return {
+          text: "ok",
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+
+    const events: string[] = [];
+    talos.onEvent((event) => {
+      events.push(event.type);
+    });
+
+    await talos.run({ agentId: "main", prompt: "hello" });
+
+    expect(events).toContain("model.started");
+    expect(events).toContain("model.completed");
+  });
 });

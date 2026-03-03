@@ -119,6 +119,11 @@ export type PluginCapability = "tools" | "providers" | "hooks";
 export type PluginHooks = {
   beforeRun: (input: RunInput) => Promise<void> | void;
   afterRun: (result: RunResult) => Promise<void> | void;
+  beforeModel: (request: ModelRequest) => Promise<ModelRequest | void> | ModelRequest | void;
+  afterModel: (params: {
+    request: ModelRequest;
+    response: ModelResponse;
+  }) => Promise<void> | void;
   beforeTool: (input: ToolExecutionInput) => Promise<void> | void;
   afterTool: (params: {
     input: ToolExecutionInput;
@@ -149,6 +154,31 @@ export type RunLifecycleEvent =
       at: string;
       data: {
         pluginId: string;
+      };
+    }
+  | {
+      type: "model.started";
+      at: string;
+      data: {
+        providerId: string;
+        modelId: string;
+      };
+    }
+  | {
+      type: "model.completed";
+      at: string;
+      data: {
+        providerId: string;
+        modelId: string;
+      };
+    }
+  | {
+      type: "model.failed";
+      at: string;
+      data: {
+        providerId: string;
+        modelId: string;
+        error: TalosErrorLike;
       };
     }
   | {
