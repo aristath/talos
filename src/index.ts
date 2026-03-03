@@ -1,4 +1,5 @@
 export { createTalos } from "./talos.js";
+export { TalosError } from "./errors.js";
 export type {
   Talos,
   TalosConfig,
@@ -7,4 +8,8 @@ export type {
   AgentDefinition,
   ToolDefinition,
   TalosPlugin,
+  TalosErrorCode,
+  RunLifecycleEvent,
+  RunLifecycleListener,
+  PluginCapability,
 } from "./types.js";
