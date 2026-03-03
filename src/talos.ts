@@ -106,6 +106,7 @@ export function createTalos(config: TalosConfig): Talos {
   >();
   const pluginOwnedTools = new Map<string, Set<string>>();
   const pluginOwnedProviders = new Map<string, Set<string>>();
+  const pluginTeardowns = new Map<string, () => void | Promise<void>>();
   const requestTimeoutMs = parsed.data.models?.requestTimeoutMs ?? DEFAULT_MODEL_REQUEST_TIMEOUT_MS;
   const retriesPerModel = parsed.data.models?.retriesPerModel ?? DEFAULT_RETRIES_PER_MODEL;
   const retryDelayMs = parsed.data.models?.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
@@ -201,7 +202,7 @@ export function createTalos(config: TalosConfig): Talos {
     const capabilities = plugin.capabilities ?? ["tools", "providers", "hooks"];
     const ownedTools = new Set<string>();
     const ownedProviders = new Set<string>();
-    await plugin.setup({
+    const teardown = await plugin.setup({
       registerTool: (tool) => {
         if (!hasCapability(capabilities, "tools")) {
           throw new TalosError({
@@ -235,6 +236,9 @@ export function createTalos(config: TalosConfig): Talos {
     plugins.markRegistered(normalizedPluginId);
     pluginOwnedTools.set(normalizedPluginId, ownedTools);
     pluginOwnedProviders.set(normalizedPluginId, ownedProviders);
+    if (typeof teardown === "function") {
+      pluginTeardowns.set(normalizedPluginId, teardown);
+    }
     await events.emit({
       type: "plugin.registered",
       at: new Date().toISOString(),
@@ -252,6 +256,18 @@ export function createTalos(config: TalosConfig): Talos {
     const removed = plugins.remove(normalizedPluginId);
     if (!removed) {
       return false;
+    }
+
+    let teardownError: unknown = null;
+    const teardown = pluginTeardowns.get(normalizedPluginId);
+    if (teardown) {
+      try {
+        await teardown();
+      } catch (error) {
+        teardownError = error;
+      } finally {
+        pluginTeardowns.delete(normalizedPluginId);
+      }
     }
 
     const ownedTools = pluginOwnedTools.get(normalizedPluginId);
@@ -277,6 +293,15 @@ export function createTalos(config: TalosConfig): Talos {
         pluginId: normalizedPluginId,
       },
     });
+
+    if (teardownError) {
+      throw new TalosError({
+        code: "PLUGIN_UNLOAD_FAILED",
+        message: `Plugin teardown failed: ${normalizedPluginId}`,
+        cause: teardownError,
+      });
+    }
+
     return true;
   };
 

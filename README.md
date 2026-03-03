@@ -22,6 +22,7 @@ Current core API:
 - `listTools()`, `hasTool(toolName)`, and `removeTool(toolName)`
 - `registerPlugin(plugin)` with capability declarations (`tools`, `providers`, `hooks`)
 - `removePlugin(pluginId)` to unload a registered plugin
+- plugin `setup()` may return a teardown function executed during `removePlugin`
 - `listPlugins()` and `hasPlugin(pluginId)`
 - `loadPluginFromPath(filePath)` and `loadPluginsFromDirectory(directoryPath)`
 - `registerModelProvider(provider)`

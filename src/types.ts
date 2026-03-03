@@ -105,6 +105,7 @@ export type TalosErrorCode =
   | "PLUGIN_INVALID"
   | "PLUGIN_DUPLICATE"
   | "PLUGIN_LOAD_FAILED"
+  | "PLUGIN_UNLOAD_FAILED"
   | "PLUGIN_CAPABILITY_DENIED"
   | "PLUGIN_HOOK_INVALID"
   | "RUN_FAILED"
@@ -285,7 +286,12 @@ export type TalosPluginApi = {
 export type TalosPlugin = {
   id: string;
   capabilities?: PluginCapability[];
-  setup: (api: TalosPluginApi) => void | Promise<void>;
+  setup: (
+    api: TalosPluginApi,
+  ) =>
+    | void
+    | (() => void | Promise<void>)
+    | Promise<void | (() => void | Promise<void>)>;
 };
 
 export type Talos = {

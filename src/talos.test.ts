@@ -212,6 +212,72 @@ describe("createTalos", () => {
     expect(beforeRunCalls).toBe(1);
   });
 
+  it("runs plugin teardown during unload", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    let teardownCalls = 0;
+    await talos.registerPlugin({
+      id: "cleanup-plugin",
+      capabilities: ["hooks"],
+      setup(api) {
+        api.on("beforeRun", () => undefined);
+        return () => {
+          teardownCalls += 1;
+        };
+      },
+    });
+
+    expect(await talos.removePlugin("cleanup-plugin")).toBe(true);
+    expect(teardownCalls).toBe(1);
+  });
+
+  it("surfaces plugin teardown failures while still unloading plugin resources", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    await talos.registerPlugin({
+      id: "broken-cleanup",
+      capabilities: ["tools"],
+      setup(api) {
+        api.registerTool({
+          name: "broken-tool",
+          description: "temporary",
+          async run() {
+            return { content: "ok" };
+          },
+        });
+        return () => {
+          throw new Error("teardown failed");
+        };
+      },
+    });
+
+    await expect(talos.removePlugin("broken-cleanup")).rejects.toMatchObject({
+      code: "PLUGIN_UNLOAD_FAILED",
+    });
+    expect(talos.hasPlugin("broken-cleanup")).toBe(false);
+    expect(talos.hasTool("broken-tool")).toBe(false);
+  });
+
   it("manages model provider lifecycle", () => {
     const talos = createTalos({
       providers: {
