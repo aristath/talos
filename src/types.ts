@@ -113,6 +113,97 @@ export type ExecToolOptions = {
   maxOutputBytes?: number;
 };
 
+export type WebSearchResultItem = {
+  title: string;
+  url: string;
+  snippet?: string;
+};
+
+export type WebSearchToolOptions = {
+  name?: string;
+  description?: string;
+  search: (params: { query: string; count: number }) => Promise<WebSearchResultItem[]>;
+};
+
+export type WebFetchToolOptions = {
+  name?: string;
+  description?: string;
+  fetchContent?: (params: {
+    url: string;
+    extractMode: "markdown" | "text";
+    maxChars: number;
+  }) => Promise<{ content: string; title?: string }>;
+  defaultMaxChars?: number;
+};
+
+export type MediaUnderstandToolOptions = {
+  name?: string;
+  description?: string;
+  analyze: (params: {
+    input: string;
+    prompt?: string;
+    context: RunContext;
+  }) => Promise<{ text: string; data?: unknown }>;
+};
+
+export type SessionMessage = {
+  role: "user" | "assistant";
+  text: string;
+  at: string;
+  runId?: string;
+};
+
+export type SessionRecord = {
+  sessionId: string;
+  agentId: string;
+  kind: PersonaSessionKind;
+  createdAt: string;
+  updatedAt: string;
+  lastRunId?: string;
+  messages: SessionMessage[];
+};
+
+export type SessionToolsCallbacks = {
+  listSessions: () => SessionRecord[];
+  getHistory: (sessionId: string, limit: number) => SessionMessage[];
+  sendToSession: (params: {
+    sessionId: string;
+    message: string;
+    requesterAgentId: string;
+    workspaceDir?: string;
+  }) => Promise<{ runId: string; text: string; providerId: string; modelId: string }>;
+  spawnSession: (params: {
+    task: string;
+    agentId: string;
+    workspaceDir?: string;
+    requesterSessionId?: string;
+  }) => Promise<{ sessionId: string; runId: string; text: string; providerId: string; modelId: string }>;
+  getStatus: (sessionId: string) => SessionRecord | undefined;
+};
+
+export type SessionToolsOptions = {
+  names?: {
+    list?: string;
+    history?: string;
+    send?: string;
+    spawn?: string;
+    status?: string;
+  };
+  callbacks: SessionToolsCallbacks;
+};
+
+export type LlmTaskToolOptions = {
+  name?: string;
+  description?: string;
+  generate: (params: {
+    prompt: string;
+    providerId?: string;
+    modelId?: string;
+    context: RunContext;
+  }) => Promise<string>;
+  validateJson?: (value: unknown, schema?: unknown) => { ok: boolean; errors?: string[] };
+};
+
 export type RunInput = {
   agentId: string;
   prompt: string;
@@ -452,6 +543,20 @@ export type Talos = {
   removeAgent: (agentId: string) => boolean;
   registerTool: (tool: ToolDefinition) => void;
   registerExecTool: (options?: ExecToolOptions) => void;
+  registerWebTools: (options: {
+    search: WebSearchToolOptions;
+    fetch?: WebFetchToolOptions;
+  }) => void;
+  registerMediaTools: (options: {
+    image: MediaUnderstandToolOptions;
+    pdf: MediaUnderstandToolOptions;
+  }) => void;
+  registerSessionTools: () => void;
+  registerLlmTaskTool: (options?: {
+    name?: string;
+    description?: string;
+    validateJson?: LlmTaskToolOptions["validateJson"];
+  }) => void;
   listTools: () => ToolDefinition[];
   hasTool: (toolName: string) => boolean;
   removeTool: (toolName: string) => boolean;

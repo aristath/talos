@@ -26,6 +26,10 @@ Current core API:
 - `listAgents()`, `hasAgent(agentId)`, and `removeAgent(agentId)`
 - `registerTool(tool)`
 - `registerExecTool(options?)` to register built-in command execution tool
+- `registerWebTools({ search, fetch? })` to register `web_search` and `web_fetch`
+- `registerMediaTools({ image, pdf })` to register media understanding tools
+- `registerSessionTools()` to register session orchestration tools
+- `registerLlmTaskTool(options?)` to register JSON-only `llm_task`
 - `listTools()`, `hasTool(toolName)`, and `removeTool(toolName)`
 - `registerPlugin(plugin)` with capability declarations (`tools`, `providers`, `hooks`)
 - plugins can declare `apiVersion` (current supported version: `1`)

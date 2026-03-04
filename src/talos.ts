@@ -16,6 +16,10 @@ import { discoverPluginEntryPaths, loadPluginFromPath } from "./plugins/loader.j
 import { TALOS_PLUGIN_API_VERSION, assertPluginCompatibility } from "./plugin-sdk.js";
 import { ToolRegistry } from "./tools/registry.js";
 import { createExecTool } from "./tools/builtins/exec.js";
+import { createWebFetchTool, createWebSearchTool } from "./tools/builtins/web.js";
+import { createImageTool, createPdfTool } from "./tools/builtins/media.js";
+import { createSessionTools } from "./tools/builtins/sessions.js";
+import { createLlmTaskTool } from "./tools/builtins/llm-task.js";
 import { TalosError, toTalosErrorLike } from "./errors.js";
 import { LifecycleEventBus } from "./observability/events.js";
 import { loadStateSnapshot, saveStateSnapshot } from "./observability/persistence.js";
@@ -36,6 +40,7 @@ import type {
   ToolExecutionInput,
   ToolResult,
   ExecToolOptions,
+  SessionRecord,
   ActiveRun,
   RunSummary,
   RunQuery,
@@ -230,6 +235,7 @@ export function createTalos(config: TalosConfig): Talos {
   const pluginOwnedTools = new Map<string, Set<string>>();
   const pluginOwnedProviders = new Map<string, Set<string>>();
   const personaSnapshotCache = new Map<string, PersonaSnapshot>();
+  const sessions = new Map<string, SessionRecord>();
   const pluginTeardowns = new Map<string, () => void | Promise<void>>();
   const pluginCapabilities = new Map<string, PluginCapability[]>();
   const pluginApiVersions = new Map<string, number>();
@@ -410,6 +416,131 @@ export function createTalos(config: TalosConfig): Talos {
         ...(options?.defaultCwd ? { defaultCwd: options.defaultCwd } : {}),
         timeoutMs,
         ...(typeof maxOutputBytes === "number" ? { maxOutputBytes } : {}),
+      }),
+    );
+  };
+
+  const registerWebTools = (options: {
+    search: Parameters<typeof createWebSearchTool>[0];
+    fetch?: Parameters<typeof createWebFetchTool>[0];
+  }) => {
+    registerTool(createWebSearchTool(options.search));
+    registerTool(createWebFetchTool(options.fetch));
+  };
+
+  const registerMediaTools = (options: {
+    image: Parameters<typeof createImageTool>[0];
+    pdf: Parameters<typeof createPdfTool>[0];
+  }) => {
+    registerTool(createImageTool(options.image));
+    registerTool(createPdfTool(options.pdf));
+  };
+
+  const listSessionsSnapshot = (): SessionRecord[] => {
+    return Array.from(sessions.values()).map((session) => ({
+      ...session,
+      messages: [...session.messages],
+    }));
+  };
+
+  const registerSessionTools = () => {
+    const sessionTools = createSessionTools({
+      callbacks: {
+        listSessions: () => listSessionsSnapshot(),
+        getHistory: (sessionId, limit) => {
+          const session = sessions.get(sessionId.trim());
+          if (!session) {
+            return [];
+          }
+          return session.messages.slice(-Math.max(1, limit));
+        },
+        sendToSession: async (params) => {
+          const target = sessions.get(params.sessionId.trim());
+          if (!target) {
+            throw new TalosError({
+              code: "TOOL_FAILED",
+              message: `Unknown session: ${params.sessionId}`,
+            });
+          }
+          const result = await run({
+            agentId: target.agentId,
+            prompt: params.message,
+            sessionId: target.sessionId,
+            sessionKind: target.kind,
+            ...(params.workspaceDir ? { workspaceDir: params.workspaceDir } : {}),
+          });
+          return {
+            runId: result.runId,
+            text: result.text,
+            providerId: result.providerId,
+            modelId: result.modelId,
+          };
+        },
+        spawnSession: async (params) => {
+          const sessionId = `agent:${params.agentId}:subagent:${randomUUID().slice(0, 8)}`;
+          const result = await run({
+            agentId: params.agentId,
+            prompt: params.task,
+            sessionId,
+            sessionKind: "subagent",
+            ...(params.workspaceDir ? { workspaceDir: params.workspaceDir } : {}),
+          });
+          return {
+            sessionId,
+            runId: result.runId,
+            text: result.text,
+            providerId: result.providerId,
+            modelId: result.modelId,
+          };
+        },
+        getStatus: (sessionId) => {
+          const record = sessions.get(sessionId.trim());
+          if (!record) {
+            return undefined;
+          }
+          return {
+            ...record,
+            messages: [...record.messages],
+          };
+        },
+      },
+    });
+    for (const tool of sessionTools) {
+      registerTool(tool);
+    }
+  };
+
+  const registerLlmTaskTool = (options?: {
+    name?: string;
+    description?: string;
+    validateJson?: Parameters<typeof createLlmTaskTool>[0]["validateJson"];
+  }) => {
+    registerTool(
+      createLlmTaskTool({
+        ...(options?.name ? { name: options.name } : {}),
+        ...(options?.description ? { description: options.description } : {}),
+        ...(options?.validateJson ? { validateJson: options.validateJson } : {}),
+        generate: async (params) => {
+          const providerId = params.providerId ?? parsed.data.providers.openaiCompatible[0]?.id;
+          const modelId = params.modelId ?? parsed.data.providers.openaiCompatible[0]?.defaultModel;
+          if (!providerId || !modelId) {
+            throw new TalosError({
+              code: "PROVIDER_NOT_FOUND",
+              message: "llm_task could not resolve provider/model.",
+            });
+          }
+          const response = await withTimeout(
+            models.generate({
+              providerId,
+              modelId,
+              prompt: params.prompt,
+            }),
+            requestTimeoutMs,
+            `llm_task request timed out after ${requestTimeoutMs}ms (${providerId}/${modelId}).`,
+            "MODEL_TIMEOUT",
+          );
+          return response.text;
+        },
       }),
     );
   };
@@ -934,6 +1065,32 @@ export function createTalos(config: TalosConfig): Talos {
         ...(input.sessionKind ? { sessionKind: input.sessionKind } : {}),
         ...(input.sessionId ? { sessionId: input.sessionId } : {}),
       });
+      if (input.sessionId?.trim()) {
+        const sessionId = input.sessionId.trim();
+        const now = new Date().toISOString();
+        const existing = sessions.get(sessionId);
+        const base: SessionRecord = existing
+          ? {
+              ...existing,
+              updatedAt: now,
+              agentId: input.agentId,
+              kind: resolvedSessionKind,
+            }
+          : {
+              sessionId,
+              agentId: input.agentId,
+              kind: resolvedSessionKind,
+              createdAt: now,
+              updatedAt: now,
+              messages: [],
+            };
+        base.messages.push({
+          role: "user",
+          text: input.prompt,
+          at: now,
+        });
+        sessions.set(sessionId, base);
+      }
       const personaCacheKey =
         input.sessionId && input.sessionId.trim()
           ? input.sessionId.trim().toLowerCase()
@@ -1136,6 +1293,22 @@ export function createTalos(config: TalosConfig): Talos {
         modelId: generated.modelId,
         ...(persona ? { persona } : {}),
       };
+      if (input.sessionId?.trim()) {
+        const sessionId = input.sessionId.trim();
+        const existing = sessions.get(sessionId);
+        if (existing) {
+          const now = new Date().toISOString();
+          existing.updatedAt = now;
+          existing.lastRunId = runId;
+          existing.messages.push({
+            role: "assistant",
+            text: result.text,
+            at: now,
+            runId,
+          });
+          sessions.set(sessionId, existing);
+        }
+      }
       await plugins.runAfterRun(result);
       await events.emit({
         type: "run.completed",
@@ -1189,6 +1362,10 @@ export function createTalos(config: TalosConfig): Talos {
     removeAgent,
     registerTool,
     registerExecTool,
+    registerWebTools,
+    registerMediaTools,
+    registerSessionTools,
+    registerLlmTaskTool,
     listTools,
     hasTool,
     removeTool,
