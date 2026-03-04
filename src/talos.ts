@@ -361,10 +361,14 @@ export function createTalos(config: TalosConfig): Talos {
     const mode = options?.mode ?? parsed.data.tools?.executionMode ?? "host";
     const sandbox = options?.sandbox ?? parsed.data.tools?.sandbox;
     const timeoutMs = options?.timeoutMs ?? toolExecutionTimeoutMs;
+    const maxOutputBytes = options?.maxOutputBytes ?? parsed.data.tools?.maxOutputBytes;
     const normalizedSandbox = sandbox
       ? {
           ...(sandbox.allowedCommands ? { allowedCommands: sandbox.allowedCommands } : {}),
           ...(sandbox.allowedPaths ? { allowedPaths: sandbox.allowedPaths } : {}),
+          ...(typeof sandbox.requireCwdInAllowedPaths === "boolean"
+            ? { requireCwdInAllowedPaths: sandbox.requireCwdInAllowedPaths }
+            : {}),
         }
       : undefined;
     registerTool(
@@ -375,6 +379,7 @@ export function createTalos(config: TalosConfig): Talos {
         ...(normalizedSandbox ? { sandbox: normalizedSandbox } : {}),
         ...(options?.defaultCwd ? { defaultCwd: options.defaultCwd } : {}),
         timeoutMs,
+        ...(typeof maxOutputBytes === "number" ? { maxOutputBytes } : {}),
       }),
     );
   };

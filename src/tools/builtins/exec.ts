@@ -4,6 +4,7 @@ import { TalosError } from "../../errors.js";
 import type { ExecToolOptions, ToolDefinition, ToolResult } from "../../types.js";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_OUTPUT_BYTES = 1024 * 1024;
 
 function normalize(value: string): string {
   return value.trim();
@@ -35,7 +36,11 @@ function parseExecArgs(input: Record<string, unknown>): {
 
 function assertSandboxAllowed(
   parsed: { command: string; cwd?: string },
-  sandbox?: { allowedCommands?: string[]; allowedPaths?: string[] },
+  sandbox?: {
+    allowedCommands?: string[];
+    allowedPaths?: string[];
+    requireCwdInAllowedPaths?: boolean;
+  },
 ): void {
   const commands = new Set((sandbox?.allowedCommands ?? []).map((value) => value.trim()).filter(Boolean));
   if (commands.size > 0 && !commands.has(parsed.command)) {
@@ -47,6 +52,13 @@ function assertSandboxAllowed(
 
   const paths = (sandbox?.allowedPaths ?? []).map((value) => path.resolve(value));
   const cwd = parsed.cwd;
+  const requireCwd = sandbox?.requireCwdInAllowedPaths ?? true;
+  if (paths.length > 0 && !cwd && requireCwd) {
+    throw new TalosError({
+      code: "TOOL_NOT_ALLOWED",
+      message: "Sandbox mode requires explicit cwd when allowedPaths are configured.",
+    });
+  }
   if (paths.length > 0 && cwd) {
     const allowed = paths.some((allowedPath) => {
       return cwd === allowedPath || cwd.startsWith(`${allowedPath}${path.sep}`);
@@ -65,8 +77,25 @@ async function runProcess(params: {
   args: string[];
   cwd?: string;
   timeoutMs: number;
+  maxOutputBytes: number;
 }): Promise<ToolResult> {
   return await new Promise((resolve, reject) => {
+    let settled = false;
+    const safeResolve = (value: ToolResult) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(value);
+    };
+    const safeReject = (error: unknown) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      reject(error);
+    };
+
     const child = spawn(params.command, params.args, {
       cwd: params.cwd,
       stdio: ["ignore", "pipe", "pipe"],
@@ -75,16 +104,39 @@ async function runProcess(params: {
 
     let stdout = "";
     let stderr = "";
+    let totalOutputBytes = 0;
+    const appendChunk = (target: "stdout" | "stderr", chunk: Buffer | string) => {
+      const text = chunk.toString();
+      totalOutputBytes += Buffer.byteLength(text);
+      if (totalOutputBytes > params.maxOutputBytes) {
+        child.kill("SIGKILL");
+        safeReject(
+          new TalosError({
+            code: "TOOL_OUTPUT_LIMIT",
+            message: `exec tool exceeded max output bytes (${params.maxOutputBytes}).`,
+            details: {
+              maxOutputBytes: params.maxOutputBytes,
+            },
+          }),
+        );
+        return;
+      }
+      if (target === "stdout") {
+        stdout += text;
+      } else {
+        stderr += text;
+      }
+    };
     child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
+      appendChunk("stdout", chunk);
     });
     child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
+      appendChunk("stderr", chunk);
     });
 
     const timeout = setTimeout(() => {
       child.kill("SIGKILL");
-      reject(
+      safeReject(
         new TalosError({
           code: "TOOL_TIMEOUT",
           message: `exec tool timed out after ${params.timeoutMs}ms`,
@@ -94,7 +146,7 @@ async function runProcess(params: {
 
     child.on("error", (error) => {
       clearTimeout(timeout);
-      reject(
+      safeReject(
         new TalosError({
           code: "TOOL_FAILED",
           message: `Failed to spawn process: ${params.command}`,
@@ -106,7 +158,7 @@ async function runProcess(params: {
     child.on("exit", (code) => {
       clearTimeout(timeout);
       if (code === 0) {
-        resolve({
+        safeResolve({
           content: stdout.trim(),
           data: {
             stdout,
@@ -116,7 +168,7 @@ async function runProcess(params: {
         });
         return;
       }
-      reject(
+      safeReject(
         new TalosError({
           code: "TOOL_FAILED",
           message: `Process exited with code ${String(code)}: ${params.command}`,
@@ -134,6 +186,7 @@ async function runProcess(params: {
 export function createExecTool(options?: ExecToolOptions): ToolDefinition {
   const mode = options?.mode ?? "host";
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const maxOutputBytes = options?.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
   return {
     name: options?.name ?? "exec",
     description: options?.description ?? "Execute a shell command",
@@ -154,6 +207,7 @@ export function createExecTool(options?: ExecToolOptions): ToolDefinition {
         args: parsed.args,
         ...(cwd ? { cwd } : {}),
         timeoutMs,
+        maxOutputBytes,
       });
     },
   };

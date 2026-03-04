@@ -56,4 +56,41 @@ describe("createExecTool", () => {
       ),
     ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
   });
+
+  it("requires cwd when allowedPaths are configured in sandbox mode", async () => {
+    const tool = createExecTool({
+      mode: "sandbox",
+      sandbox: {
+        allowedCommands: [process.execPath],
+        allowedPaths: [process.cwd()],
+      },
+    });
+
+    await expect(
+      tool.run(
+        {
+          command: process.execPath,
+          args: ["-e", "console.log('x')"],
+        },
+        { agentId: "main" },
+      ),
+    ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
+  });
+
+  it("fails when process output exceeds maxOutputBytes", async () => {
+    const tool = createExecTool({
+      maxOutputBytes: 64,
+      timeoutMs: 5_000,
+    });
+
+    await expect(
+      tool.run(
+        {
+          command: process.execPath,
+          args: ["-e", "console.log('x'.repeat(1024))"],
+        },
+        { agentId: "main" },
+      ),
+    ).rejects.toMatchObject({ code: "TOOL_OUTPUT_LIMIT" });
+  });
 });

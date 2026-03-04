@@ -29,10 +29,12 @@ export type TalosConfig = {
     allow?: string[];
     deny?: string[];
     executionTimeoutMs?: number;
+    maxOutputBytes?: number;
     executionMode?: "host" | "sandbox";
     sandbox?: {
       allowedCommands?: string[];
       allowedPaths?: string[];
+      requireCwdInAllowedPaths?: boolean;
     };
   };
   runtime?: {
@@ -92,9 +94,11 @@ export type ExecToolOptions = {
   sandbox?: {
     allowedCommands?: string[];
     allowedPaths?: string[];
+    requireCwdInAllowedPaths?: boolean;
   };
   defaultCwd?: string;
   timeoutMs?: number;
+  maxOutputBytes?: number;
 };
 
 export type RunInput = {
@@ -166,6 +170,7 @@ export type TalosErrorCode =
   | "TOOL_FAILED"
   | "TOOL_CANCELLED"
   | "TOOL_TIMEOUT"
+  | "TOOL_OUTPUT_LIMIT"
   | "TOOL_NOT_ALLOWED"
   | "MODEL_TIMEOUT"
   | "PERSONA_INVALID_WORKSPACE"
