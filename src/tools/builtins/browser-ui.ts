@@ -271,11 +271,43 @@ function readBrowserActRequest(args: Record<string, unknown>): Record<string, un
   return request;
 }
 
+function normalizeBrowserActionArgs(action: string, args: Record<string, unknown>): Record<string, unknown> {
+  if (action === "open" || action === "navigate") {
+    const targetUrl = typeof args.targetUrl === "string" ? args.targetUrl.trim() : "";
+    if (!args.url && targetUrl) {
+      return {
+        ...args,
+        url: targetUrl,
+      };
+    }
+  }
+  if (action === "focus" || action === "close") {
+    const tabId = typeof args.tabId === "string" ? args.tabId.trim() : "";
+    if (!args.targetId && tabId) {
+      return {
+        ...args,
+        targetId: tabId,
+      };
+    }
+  }
+  return args;
+}
+
 function assertBrowserActionParams(action: string, args: Record<string, unknown>): void {
   switch (action) {
     case "open":
     case "navigate":
-      requireActionParam(args, "url", "browser", action);
+      {
+        const url =
+          (typeof args.url === "string" ? args.url.trim() : "") ||
+          (typeof args.targetUrl === "string" ? args.targetUrl.trim() : "");
+        if (!url) {
+          throw new TalosError({
+            code: "TOOL_FAILED",
+            message: `browser action '${action}' requires a non-empty 'url' string.`,
+          });
+        }
+      }
       return;
     case "focus":
     case "close": {
@@ -455,14 +487,15 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
       assertAllowedAction(action, BROWSER_ACTIONS, "browser");
       assertBrowserActionParams(action, args);
       const actRequest = action === "act" ? readBrowserActRequest(args) : undefined;
+      const actionArgs = normalizeBrowserActionArgs(action, args);
       const normalizedArgs =
         action === "act" && actRequest
           ? {
-              ...args,
+              ...actionArgs,
               ...actRequest,
               request: actRequest,
             }
-          : args;
+          : actionArgs;
       const profile = typeof args.profile === "string" && args.profile.trim() ? args.profile.trim() : undefined;
       const target = normalizeTarget(args.target);
       const node = typeof args.node === "string" && args.node.trim() ? args.node.trim() : undefined;
@@ -472,7 +505,7 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
           message: 'browser parameter "node" requires target="node" when target is provided.',
         });
       }
-      const resolvedTarget = target ?? (node ? "node" : undefined);
+      const resolvedTarget = target ?? (node ? "node" : profile === "chrome" ? "host" : undefined);
       const output = await options.execute({ action, args: normalizedArgs, context });
       return {
         content: output.content,
