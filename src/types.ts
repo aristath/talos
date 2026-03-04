@@ -146,9 +146,12 @@ export type WebFetchToolOptions = {
   }) => Promise<{
     content: string;
     title?: string;
+    finalUrl?: string;
     sourceUrl?: string;
     statusCode?: number;
     contentType?: string;
+    extractor?: string;
+    warning?: string;
     rawLength?: number;
     wrappedLength?: number;
     truncated?: boolean;
@@ -161,7 +164,10 @@ export type WebFetchToolOptions = {
   }) => Promise<{
     content: string;
     title?: string;
+    finalUrl?: string;
     sourceUrl?: string;
+    extractor?: string;
+    warning?: string;
     rawLength?: number;
     wrappedLength?: number;
     truncated?: boolean;

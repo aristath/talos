@@ -449,7 +449,17 @@ async function defaultFirecrawlFallback(params: {
   extractMode: "markdown" | "text";
   maxChars: number;
   timeoutMs: number;
-}): Promise<{ content: string; title?: string; sourceUrl?: string; rawLength?: number; wrappedLength?: number; truncated?: boolean }> {
+}): Promise<{
+  content: string;
+  title?: string;
+  finalUrl?: string;
+  sourceUrl?: string;
+  extractor?: string;
+  warning?: string;
+  rawLength?: number;
+  wrappedLength?: number;
+  truncated?: boolean;
+}> {
   const apiKey = process.env.FIRECRAWL_API_KEY?.trim();
   if (!apiKey) {
     throw new TalosError({
@@ -496,7 +506,9 @@ async function defaultFirecrawlFallback(params: {
     return {
       content: truncated ? `${wrapped}\n\n[TRUNCATED]` : wrapped,
       ...(payload.data?.metadata?.title?.trim() ? { title: payload.data.metadata.title.trim() } : {}),
+      finalUrl: params.url,
       sourceUrl: params.url,
+      extractor: "firecrawl",
       rawLength: markdown.length,
       wrappedLength: content.length,
       truncated,
@@ -518,9 +530,12 @@ async function defaultFetchContent(params: {
 }): Promise<{
   content: string;
   title?: string;
+  finalUrl?: string;
   sourceUrl?: string;
   statusCode?: number;
   contentType?: string;
+  extractor?: string;
+  warning?: string;
   rawLength?: number;
   wrappedLength?: number;
   truncated?: boolean;
@@ -601,9 +616,12 @@ async function defaultFetchContent(params: {
       return {
         content: truncated ? `${capped}\n\n[TRUNCATED]` : capped,
         ...(title ? { title } : {}),
+        finalUrl: currentUrl,
         sourceUrl: currentUrl,
         statusCode: response.status,
         ...(contentType ? { contentType } : {}),
+        extractor: "readability",
+        ...(responseTruncated ? { warning: `Response body truncated after ${params.maxResponseBytes} bytes.` } : {}),
         rawLength: html.length,
         wrappedLength: text.length,
         truncated,
@@ -721,9 +739,12 @@ export function createWebFetchTool(options?: WebFetchToolOptions): ToolDefinitio
     data: {
       content: string;
       title?: string;
+      finalUrl?: string;
       sourceUrl?: string;
       statusCode?: number;
       contentType?: string;
+      extractor?: string;
+      warning?: string;
       rawLength?: number;
       wrappedLength?: number;
       truncated?: boolean;
@@ -780,11 +801,14 @@ export function createWebFetchTool(options?: WebFetchToolOptions): ToolDefinitio
         content: resolved.title ? `${resolved.title}\n\n${content}` : content,
         data: {
           url,
+          finalUrl: resolved.finalUrl ?? resolved.sourceUrl ?? url,
           extractMode,
           maxChars,
           cached: Boolean(cached && cached.expiresAt > now),
           usedFallback,
           truncated: contentTruncated,
+          ...(resolved.extractor ? { extractor: resolved.extractor } : {}),
+          ...(resolved.warning ? { warning: resolved.warning } : {}),
           ...(resolved.sourceUrl ? { sourceUrl: resolved.sourceUrl } : {}),
           ...(typeof resolved.statusCode === "number" ? { statusCode: resolved.statusCode } : {}),
           ...(resolved.contentType ? { contentType: resolved.contentType } : {}),
@@ -803,6 +827,9 @@ export function createWebFetchTool(options?: WebFetchToolOptions): ToolDefinitio
             cached: Boolean(cached && cached.expiresAt > now),
             usedFallback,
             truncated: contentTruncated,
+            finalUrl: resolved.finalUrl ?? resolved.sourceUrl ?? url,
+            extractor: resolved.extractor,
+            warning: resolved.warning,
             sourceUrl: resolved.sourceUrl,
             statusCode: resolved.statusCode,
             contentType: resolved.contentType,

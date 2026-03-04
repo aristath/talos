@@ -117,9 +117,12 @@ describe("web builtins", () => {
       fetchContent: async () => ({
         content: "payload",
         title: "Title",
+        finalUrl: "https://example.com/final",
         sourceUrl: "https://example.com/final",
         statusCode: 200,
         contentType: "text/html",
+        extractor: "readability",
+        warning: "warn",
         rawLength: 1234,
         wrappedLength: 456,
         truncated: false,
@@ -129,8 +132,11 @@ describe("web builtins", () => {
     const result = await tool.run({ url: "https://example.com" }, { agentId: "main" });
     const data = result.data as {
       sourceUrl?: string;
+      finalUrl?: string;
       statusCode?: number;
       contentType?: string;
+      extractor?: string;
+      warning?: string;
       rawLength?: number;
       wrappedLength?: number;
       externalContent?: { source?: string; wrapped?: boolean };
@@ -141,8 +147,11 @@ describe("web builtins", () => {
       };
     };
     expect(data.sourceUrl).toBe("https://example.com/final");
+    expect(data.finalUrl).toBe("https://example.com/final");
     expect(data.statusCode).toBe(200);
     expect(data.contentType).toBe("text/html");
+    expect(data.extractor).toBe("readability");
+    expect(data.warning).toBe("warn");
     expect(data.rawLength).toBe(1234);
     expect(data.wrappedLength).toBe(456);
     expect(data.externalContent?.source).toBe("web_fetch");
