@@ -248,6 +248,170 @@ function extractReadableHtml(input: string): string {
   return input;
 }
 
+function decodeHtmlEntities(input: string): string {
+  return input
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+async function defaultWebSearch(params: {
+  query: string;
+  count: number;
+  provider?: "brave" | "perplexity" | "gemini" | "grok" | "kimi";
+  providerApiKey?: string;
+  country?: string;
+  searchLang?: string;
+  uiLang?: string;
+  freshness?: string;
+}): Promise<WebSearchResultItem[]> {
+  const provider = params.provider ?? "brave";
+  if (provider === "brave") {
+    if (!params.providerApiKey) {
+      throw new TalosError({
+        code: "TOOL_FAILED",
+        message: "web_search provider 'brave' requires BRAVE_API_KEY (or providerApiKeys.brave).",
+      });
+    }
+    const url = new URL("https://api.search.brave.com/res/v1/web/search");
+    url.searchParams.set("q", params.query);
+    url.searchParams.set("count", String(params.count));
+    if (params.country) {
+      url.searchParams.set("country", params.country);
+    }
+    if (params.searchLang) {
+      url.searchParams.set("search_lang", params.searchLang);
+    }
+    if (params.uiLang) {
+      url.searchParams.set("ui_lang", params.uiLang);
+    }
+    if (params.freshness) {
+      url.searchParams.set("freshness", params.freshness);
+    }
+    const response = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "X-Subscription-Token": params.providerApiKey,
+      },
+    });
+    if (!response.ok) {
+      throw new TalosError({
+        code: "TOOL_FAILED",
+        message: `Brave web_search failed (${response.status}).`,
+      });
+    }
+    const payload = (await response.json()) as {
+      web?: { results?: Array<{ title?: string; url?: string; description?: string }> };
+    };
+    const results = payload.web?.results ?? [];
+    return results
+      .map((entry) => {
+        const title = entry.title?.trim();
+        const url = entry.url?.trim();
+        if (!title || !url) {
+          return null;
+        }
+        return {
+          title,
+          url,
+          ...(entry.description?.trim() ? { snippet: entry.description.trim() } : {}),
+        };
+      })
+      .filter((entry): entry is WebSearchResultItem => Boolean(entry));
+  }
+
+  const fallbackUrl = new URL("https://duckduckgo.com/html/");
+  fallbackUrl.searchParams.set("q", params.query);
+  const response = await fetch(fallbackUrl.toString(), {
+    headers: {
+      Accept: "text/html",
+      "User-Agent": DEFAULT_WEB_USER_AGENT,
+    },
+  });
+  if (!response.ok) {
+    throw new TalosError({
+      code: "TOOL_FAILED",
+      message: `${provider} web_search fallback failed (${response.status}).`,
+    });
+  }
+  const html = await response.text();
+  const rows = Array.from(
+    html.matchAll(/<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi),
+  )
+    .slice(0, params.count)
+    .map((match) => {
+      const url = decodeHtmlEntities((match[1] ?? "").trim());
+      const title = decodeHtmlEntities((match[2] ?? "").replace(/<[^>]+>/g, " ").trim());
+      if (!url || !title) {
+        return null;
+      }
+      return {
+        title,
+        url,
+      };
+    })
+    .filter((entry): entry is WebSearchResultItem => Boolean(entry));
+  return rows;
+}
+
+async function defaultFirecrawlFallback(params: {
+  url: string;
+  extractMode: "markdown" | "text";
+  maxChars: number;
+  timeoutMs: number;
+}): Promise<{ content: string; title?: string }> {
+  const apiKey = process.env.FIRECRAWL_API_KEY?.trim();
+  if (!apiKey) {
+    throw new TalosError({
+      code: "TOOL_FAILED",
+      message: "FIRECRAWL_API_KEY is required for web_fetch Firecrawl fallback.",
+    });
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), params.timeoutMs);
+  try {
+    const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        url: params.url,
+        formats: [params.extractMode === "text" ? "markdown" : "markdown"],
+      }),
+    });
+    if (!response.ok) {
+      throw new TalosError({
+        code: "TOOL_FAILED",
+        message: `Firecrawl fallback failed (${response.status}).`,
+      });
+    }
+    const payload = (await response.json()) as {
+      success?: boolean;
+      data?: { markdown?: string; metadata?: { title?: string } };
+    };
+    const markdown = payload.data?.markdown?.trim() ?? "";
+    if (!markdown) {
+      throw new TalosError({
+        code: "TOOL_FAILED",
+        message: "Firecrawl fallback returned empty content.",
+      });
+    }
+    const content = params.extractMode === "text" ? htmlToText(markdown) : markdown;
+    return {
+      content: content.slice(0, Math.max(1, params.maxChars)),
+      ...(payload.data?.metadata?.title?.trim() ? { title: payload.data.metadata.title.trim() } : {}),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function defaultFetchContent(params: {
   url: string;
   extractMode: "markdown" | "text";
@@ -347,6 +511,7 @@ async function defaultFetchContent(params: {
 }
 
 export function createWebSearchTool(options: WebSearchToolOptions): ToolDefinition {
+  const searchImpl = options.search ?? defaultWebSearch;
   const cache = new Map<string, { expiresAt: number; data: WebSearchResultItem[] }>();
   const cacheTtlMs = options.cacheTtlMs ?? 15 * 60_000;
   return {
@@ -367,8 +532,8 @@ export function createWebSearchTool(options: WebSearchToolOptions): ToolDefiniti
       const results =
         cached && cached.expiresAt > now
           ? cached.data
-          : normalizeSearchResults(
-              await options.search({
+           : normalizeSearchResults(
+              await searchImpl({
                 query,
                 count,
                 ...(provider ? { provider } : {}),
@@ -431,7 +596,7 @@ export function createWebFetchTool(options?: WebFetchToolOptions): ToolDefinitio
   const cacheTtlMs = options?.cacheTtlMs ?? 15 * 60_000;
   const allowPrivateNetwork = options?.allowPrivateNetwork === true;
   const cache = new Map<string, { expiresAt: number; data: { content: string; title?: string } }>();
-  const firecrawlFallback = options?.firecrawlFallback;
+  const firecrawlFallback = options?.firecrawlFallback ?? (process.env.FIRECRAWL_API_KEY?.trim() ? defaultFirecrawlFallback : undefined);
   return {
     name: options?.name ?? "web_fetch",
     description: options?.description ?? "Fetch and extract content from a URL",

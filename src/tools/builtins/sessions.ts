@@ -140,6 +140,7 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
         return {
           content: content || "No sessions.",
           data: {
+            count: filtered.length,
             sessions: filtered.map((session) => ({
               ...session,
               ...(messageLimit > 0
@@ -151,6 +152,13 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
                   }
                 : { messages: undefined }),
             })),
+            details: {
+              count: filtered.length,
+              limit,
+              activeMinutes,
+              messageLimit,
+              kinds: kinds ? Array.from(kinds) : undefined,
+            },
           },
         };
       },
@@ -189,9 +197,16 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
               .map((entry) => `[${entry.at}] ${entry.role}: ${entry.text}`)
               .join("\n") || "No history.",
           data: {
+            count: limitedMessages.length,
             sessionId,
             messages: limitedMessages,
             includeTools: Boolean(args.includeTools),
+            details: {
+              sessionId,
+              count: limitedMessages.length,
+              includeTools: Boolean(args.includeTools),
+              limit,
+            },
           },
         };
       },
@@ -256,6 +271,23 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
         const runtime = args.runtime === "acp" ? "acp" : "subagent";
         const mode = args.mode === "run" || args.mode === "session" ? args.mode : undefined;
         const label = typeof args.label === "string" && args.label.trim() ? args.label.trim() : undefined;
+        if (options.canAccessSession && context.sessionId) {
+          const requester = options.callbacks.getStatus(context.sessionId);
+          if (
+            requester &&
+            !options.canAccessSession({
+              action: "spawn",
+              requesterAgentId: context.agentId,
+              requesterSessionId: context.sessionId,
+              session: requester,
+            })
+          ) {
+            throw new TalosError({
+              code: "TOOL_NOT_ALLOWED",
+              message: `Access denied for sessions_spawn from ${context.sessionId}`,
+            });
+          }
+        }
         const spawned = await options.callbacks.spawnSession({
           task,
           agentId,

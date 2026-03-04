@@ -1,0 +1,89 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createWebFetchTool, createWebSearchTool } from "./web.js";
+
+describe("web builtins", () => {
+  const originalFirecrawl = process.env.FIRECRAWL_API_KEY;
+  const originalBrave = process.env.BRAVE_API_KEY;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    if (typeof originalFirecrawl === "string") {
+      process.env.FIRECRAWL_API_KEY = originalFirecrawl;
+    } else {
+      delete process.env.FIRECRAWL_API_KEY;
+    }
+    if (typeof originalBrave === "string") {
+      process.env.BRAVE_API_KEY = originalBrave;
+    } else {
+      delete process.env.BRAVE_API_KEY;
+    }
+  });
+
+  it("uses built-in fallback search for non-brave providers", async () => {
+    const fetchMock = vi.fn(async () => {
+      return {
+        ok: true,
+        async text() {
+          return '<a class="result__a" href="https://example.com/a">Example A</a>';
+        },
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const tool = createWebSearchTool({
+      defaultProvider: "gemini",
+    });
+
+    const result = await tool.run({ query: "talos", provider: "gemini" }, { agentId: "main" });
+    const urls = (result.data as { results: Array<{ url: string }> }).results.map((entry) => entry.url);
+    expect(urls).toContain("https://example.com/a");
+  });
+
+  it("requires key for brave provider in built-in search", async () => {
+    delete process.env.BRAVE_API_KEY;
+    const tool = createWebSearchTool({
+      defaultProvider: "brave",
+    });
+
+    await expect(tool.run({ query: "talos" }, { agentId: "main" })).rejects.toMatchObject({
+      code: "TOOL_FAILED",
+    });
+  });
+
+  it("auto-uses firecrawl fallback when configured env key exists", async () => {
+    process.env.FIRECRAWL_API_KEY = "firecrawl-key";
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("api.firecrawl.dev")) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              success: true,
+              data: {
+                markdown: "long fallback content from firecrawl",
+                metadata: {
+                  title: "Firecrawl",
+                },
+              },
+            };
+          },
+        };
+      }
+      return {
+        ok: true,
+        async text() {
+          return "<html></html>";
+        },
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const tool = createWebFetchTool({
+      fetchContent: async () => ({ content: "short" }),
+    });
+
+    const result = await tool.run({ url: "https://example.com" }, { agentId: "main" });
+    expect(result.content).toContain("long fallback content from firecrawl");
+    expect((result.data as { usedFallback?: boolean }).usedFallback).toBe(true);
+  });
+});

@@ -118,7 +118,7 @@ export type WebSearchToolOptions = {
   description?: string;
   defaultProvider?: "brave" | "perplexity" | "gemini" | "grok" | "kimi";
   providerApiKeys?: Partial<Record<"brave" | "perplexity" | "gemini" | "grok" | "kimi", string>>;
-  search: (params: {
+  search?: (params: {
     query: string;
     count: number;
     provider?: "brave" | "perplexity" | "gemini" | "grok" | "kimi";
@@ -623,7 +623,7 @@ export type Talos = {
   removeAgent: (agentId: string) => boolean;
   registerTool: (tool: ToolDefinition) => void;
   registerWebTools: (options: {
-    search: WebSearchToolOptions;
+    search?: WebSearchToolOptions;
     fetch?: WebFetchToolOptions;
   }) => void;
   registerMediaTools: (options: {

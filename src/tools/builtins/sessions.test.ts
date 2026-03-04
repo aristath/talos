@@ -45,6 +45,7 @@ describe("createSessionTools", () => {
     const listMessages = (listResult.data as { sessions: Array<{ messages?: Array<{ role: string }> }> }).sessions[0]
       ?.messages;
     expect(listMessages?.some((entry) => entry.role === "tool")).toBe(false);
+    expect((listResult.data as { count?: number }).count).toBe(1);
 
     const historyResult = await historyTool!.run(
       { sessionId: "agent:main:subagent:abc" },
@@ -52,6 +53,7 @@ describe("createSessionTools", () => {
     );
     const historyMessages = (historyResult.data as { messages: Array<{ role: string }> }).messages;
     expect(historyMessages.some((entry) => entry.role === "tool")).toBe(false);
+    expect((historyResult.data as { count?: number }).count).toBe(2);
 
     const historyWithTools = await historyTool!.run(
       { sessionId: "agent:main:subagent:abc", includeTools: true },
@@ -168,8 +170,9 @@ describe("createSessionTools", () => {
     const listTool = tools.find((tool) => tool.name === "sessions_list");
     const historyTool = tools.find((tool) => tool.name === "sessions_history");
     const sendTool = tools.find((tool) => tool.name === "sessions_send");
+    const spawnTool = tools.find((tool) => tool.name === "sessions_spawn");
     const statusTool = tools.find((tool) => tool.name === "session_status");
-    expect(listTool && historyTool && sendTool && statusTool).toBeTruthy();
+    expect(listTool && historyTool && sendTool && spawnTool && statusTool).toBeTruthy();
 
     const listed = await listTool!.run({}, { agentId: "main", sessionId: "agent:main:main" });
     const sessions = (listed.data as { sessions: Array<{ sessionId: string }> }).sessions;
@@ -184,6 +187,12 @@ describe("createSessionTools", () => {
     ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
     await expect(
       statusTool!.run({ sessionId: "agent:main:subagent:blocked" }, { agentId: "main" }),
+    ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
+    await expect(
+      spawnTool!.run(
+        { task: "spawn" },
+        { agentId: "main", sessionId: "agent:main:subagent:blocked" },
+      ),
     ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
   });
 });

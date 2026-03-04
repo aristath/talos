@@ -390,11 +390,11 @@ export function createTalos(config: TalosConfig): Talos {
   };
 
   const registerWebTools = (options: {
-    search: Parameters<typeof createWebSearchTool>[0];
+    search?: Parameters<typeof createWebSearchTool>[0];
     fetch?: Parameters<typeof createWebFetchTool>[0];
   }) => {
     const search: Parameters<typeof createWebSearchTool>[0] = {
-      ...options.search,
+      ...(options.search ?? {}),
     };
     if (typeof search.cacheTtlMs !== "number" && typeof parsed.data.tools?.web?.search?.cacheTtlMs === "number") {
       search.cacheTtlMs = parsed.data.tools.web.search.cacheTtlMs;
