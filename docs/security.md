@@ -16,7 +16,7 @@ Talos uses a trusted-operator model.
 - Tool policy stack (global, agent, run)
 - Tool timeout and cancellation
 - Model timeout/retry/fallback
-- Persona file boundary checks
+- Persona file boundary checks (symlink, hardlink, max-size, and open-time identity guards)
 - Optional state redaction (`security.redactKeys`) on persisted diagnostics
 
 ## Operational guidance
