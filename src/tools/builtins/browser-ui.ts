@@ -51,6 +51,7 @@ const BROWSER_ACTIONS = new Set([
   "set_device",
   "set_viewport",
   "upload",
+  "dialog",
   "pdf",
   "trace_start",
   "trace_stop",
@@ -65,6 +66,46 @@ const CANVAS_ACTIONS = new Set([
   "a2ui_push",
   "a2ui_reset",
 ]);
+
+const BROWSER_ACT_KINDS = new Set([
+  "click",
+  "type",
+  "press",
+  "hover",
+  "drag",
+  "select",
+  "fill",
+  "resize",
+  "wait",
+  "evaluate",
+  "close",
+]);
+
+const LEGACY_BROWSER_ACT_REQUEST_KEYS = [
+  "targetId",
+  "ref",
+  "doubleClick",
+  "button",
+  "modifiers",
+  "text",
+  "submit",
+  "slowly",
+  "key",
+  "delayMs",
+  "startRef",
+  "endRef",
+  "values",
+  "fields",
+  "width",
+  "height",
+  "timeMs",
+  "textGone",
+  "selector",
+  "url",
+  "loadState",
+  "fn",
+  "timeoutMs",
+] as const;
 
 function normalizeBrowserAction(action: string): string {
   if (action === "tab.new") {
@@ -212,6 +253,24 @@ function requireActionParam(args: Record<string, unknown>, field: string, toolNa
   });
 }
 
+function readBrowserActRequest(args: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (typeof args.request === "object" && args.request && !Array.isArray(args.request)) {
+    return args.request as Record<string, unknown>;
+  }
+  const kind = typeof args.kind === "string" ? args.kind.trim() : "";
+  if (!kind) {
+    return undefined;
+  }
+  const request: Record<string, unknown> = { kind };
+  for (const key of LEGACY_BROWSER_ACT_REQUEST_KEYS) {
+    if (!Object.hasOwn(args, key)) {
+      continue;
+    }
+    request[key] = args[key];
+  }
+  return request;
+}
+
 function assertBrowserActionParams(action: string, args: Record<string, unknown>): void {
   switch (action) {
     case "open":
@@ -242,8 +301,41 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
       return;
     }
     case "act":
-      requireActionParam(args, "kind", "browser", action);
+      {
+        const request = readBrowserActRequest(args);
+        const kind = typeof request?.kind === "string" ? request.kind.trim() : "";
+        if (!kind) {
+          throw new TalosError({
+            code: "TOOL_FAILED",
+            message: "browser action 'act' requires request.kind or kind.",
+          });
+        }
+        if (!BROWSER_ACT_KINDS.has(kind)) {
+          throw new TalosError({
+            code: "TOOL_FAILED",
+            message: `browser action 'act' has unsupported request.kind: ${kind}`,
+            details: {
+              allowedKinds: Array.from(BROWSER_ACT_KINDS),
+            },
+          });
+        }
+      }
       return;
+    case "dialog": {
+      if (Object.hasOwn(args, "accept") && typeof args.accept !== "boolean") {
+        throw new TalosError({
+          code: "TOOL_FAILED",
+          message: "browser action 'dialog' requires boolean 'accept' when provided.",
+        });
+      }
+      if (Object.hasOwn(args, "promptText") && typeof args.promptText !== "string") {
+        throw new TalosError({
+          code: "TOOL_FAILED",
+          message: "browser action 'dialog' requires string 'promptText' when provided.",
+        });
+      }
+      return;
+    }
     case "click":
     case "type":
     case "hover":
@@ -349,9 +441,25 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
       const action = normalizeBrowserAction(requiredAction(args));
       assertAllowedAction(action, BROWSER_ACTIONS, "browser");
       assertBrowserActionParams(action, args);
+      const actRequest = action === "act" ? readBrowserActRequest(args) : undefined;
+      const normalizedArgs =
+        action === "act" && actRequest
+          ? {
+              ...args,
+              ...actRequest,
+              request: actRequest,
+            }
+          : args;
       const profile = typeof args.profile === "string" && args.profile.trim() ? args.profile.trim() : undefined;
       const target = normalizeTarget(args.target);
-      const output = await options.execute({ action, args, context });
+      const node = typeof args.node === "string" && args.node.trim() ? args.node.trim() : undefined;
+      if (node && target && target !== "node") {
+        throw new TalosError({
+          code: "TOOL_FAILED",
+          message: 'browser parameter "node" requires target="node" when target is provided.',
+        });
+      }
+      const output = await options.execute({ action, args: normalizedArgs, context });
       return {
         content: output.content,
         data:
@@ -360,21 +468,25 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
                 action,
                 ...(profile ? { profile } : {}),
                 ...(target ? { target } : {}),
+                ...(node ? { node } : {}),
                 result: output.data,
                 details: {
                   action,
                   profile,
                   target,
+                  node,
                 },
               }
             : {
                 action,
                 ...(profile ? { profile } : {}),
                 ...(target ? { target } : {}),
+                ...(node ? { node } : {}),
                 details: {
                   action,
                   profile,
                   target,
+                  node,
                 },
               },
       };
