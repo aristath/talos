@@ -55,6 +55,8 @@ Current core API:
 - `executeTool(input)` for direct tool execution
 - `seedPersonaWorkspace(workspaceDir, options?)` to initialize persona files
 - `run(input)`
+- `createOpenAICompatibleProxy(options)` for Fetch-compatible OpenAI proxy handling
+- `createOpenAICompatibleProxyServer(options)` for Node HTTP server adapter
 
 `run(input)` returns a `runId` and lifecycle events include that same `runId` for correlation.
 `run(input)` also supports cancellation via `AbortSignal` (`input.signal`).
@@ -64,6 +66,45 @@ Persona context can also include extra bootstrap files via `persona.extraFiles` 
 Persona context mode supports OpenClaw-style lightweight runs (`contextMode: "lightweight"` + `runKind`).
 
 This repository intentionally excludes channel integrations, UI apps, and CLI surfaces.
+
+## OpenAI-Compatible Persona Proxy
+
+Talos can run as a middleware/proxy in front of OpenAI-compatible providers.
+
+- Endpoints: `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/completions`, `GET /v1/models`
+- Agent persona files are loaded from `agents/<agentId>/`.
+- Required per-agent file: `SOUL.md`
+- Optional per-agent files: `STYLE.md`, `RULES.md`
+- Optional per-agent config: `agent.json` for upstream routing/model/auth headers
+
+Minimal `agent.json` example:
+
+```json
+{
+  "upstream": {
+    "providerId": "openrouter",
+    "baseURL": "https://openrouter.ai/api/v1",
+    "auth": {
+      "type": "static",
+      "apiKey": "sk-hardcoded-key"
+    },
+    "headers": {
+      "HTTP-Referer": "https://agency.example",
+      "X-Title": "Agency App"
+    }
+  },
+  "model": {
+    "default": "openai/gpt-4.1"
+  }
+}
+```
+
+Agent selection supports:
+
+- `X-Agent-Id` request header
+- `model: "agent:<agentId>"` alias
+
+When `inboundAuth` is configured, bearer tokens are mapped to allowed agent ids and access is enforced.
 
 Further docs:
 
