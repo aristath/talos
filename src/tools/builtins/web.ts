@@ -664,6 +664,11 @@ export function createWebSearchTool(options: WebSearchToolOptions): ToolDefiniti
           return entry.snippet ? `${prefix}\n${entry.snippet}` : prefix;
         })
         .join("\n\n");
+      const synthesizedContent = results
+        .map((entry) => (entry.snippet ? `${entry.title}: ${entry.snippet}` : entry.title))
+        .filter(Boolean)
+        .join("\n");
+      const citations = results.map((entry) => entry.url);
       return {
         content: content || "No web results.",
         data: {
@@ -676,6 +681,13 @@ export function createWebSearchTool(options: WebSearchToolOptions): ToolDefiniti
           ...(freshness ? { freshness } : {}),
           cached: Boolean(cached && cached.expiresAt > now),
           results,
+          ...(provider !== "brave" ? { content: synthesizedContent || "No response", citations } : {}),
+          externalContent: {
+            untrusted: true,
+            source: "web_search",
+            provider,
+            wrapped: false,
+          },
           details: {
             query,
             count,
@@ -686,6 +698,7 @@ export function createWebSearchTool(options: WebSearchToolOptions): ToolDefiniti
             freshness,
             cached: Boolean(cached && cached.expiresAt > now),
             resultCount: results.length,
+            ...(provider !== "brave" ? { citationsCount: citations.length } : {}),
           },
         },
       };

@@ -50,6 +50,8 @@ describe("web builtins", () => {
     const result = await tool.run({ query: "talos", provider: "gemini" }, { agentId: "main" });
     const urls = (result.data as { results: Array<{ url: string }> }).results.map((entry) => entry.url);
     expect(urls).toContain("https://example.com/a");
+    expect((result.data as { citations?: string[] }).citations).toContain("https://example.com/a");
+    expect(typeof (result.data as { content?: string }).content).toBe("string");
   });
 
   it("requires key for non-brave providers", async () => {
