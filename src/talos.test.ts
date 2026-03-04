@@ -541,6 +541,44 @@ describe("createTalos", () => {
     expect(result.content).toContain('"ok": true');
   });
 
+  it("supports provider/model aliases in llm_task args", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+    talos.registerModelProvider({
+      id: "openai",
+      async generate(request) {
+        return {
+          text: JSON.stringify({ provider: request.providerId, model: request.modelId }),
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+    talos.registerLlmTaskTool();
+
+    const result = await talos.executeTool({
+      name: "llm_task",
+      args: {
+        prompt: "Return JSON",
+        provider: "openai",
+        model: "gpt-4o-mini",
+      },
+      context: { agentId: "main" },
+    });
+
+    expect(result.content).toContain('"provider": "openai"');
+    expect(result.content).toContain('"model": "gpt-4o-mini"');
+  });
+
   it("validates llm_task output with JSON schema when provided", async () => {
     const talos = createTalos({
       providers: {
@@ -788,6 +826,25 @@ describe("createTalos", () => {
     expect(spawn.content).toContain("echo:sub task");
     expect(history.content).toContain("user: hello");
     expect(status.content).toContain("main [main]");
+
+    const sendAlias = await talos.executeTool({
+      name: "sessions_send",
+      args: {
+        sessionKey: "main",
+        text: "ping-2",
+      },
+      context: { agentId: "main", sessionId: "main" },
+    });
+    const spawnAlias = await talos.executeTool({
+      name: "sessions_spawn",
+      args: {
+        prompt: "sub task alias",
+      },
+      context: { agentId: "main", sessionId: "main" },
+    });
+
+    expect(sendAlias.content).toContain("echo:ping-2");
+    expect(spawnAlias.content).toContain("echo:sub task alias");
   });
 
   it("lists registered plugins", async () => {

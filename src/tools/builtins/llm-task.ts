@@ -38,6 +38,24 @@ function toNonEmptyString(value: unknown): string | undefined {
   return normalized || undefined;
 }
 
+function resolveStringAlias(
+  args: Record<string, unknown>,
+  primaryKey: string,
+  aliases: string[],
+): string | undefined {
+  const primary = toNonEmptyString(args[primaryKey]);
+  if (primary) {
+    return primary;
+  }
+  for (const alias of aliases) {
+    const value = toNonEmptyString(args[alias]);
+    if (value) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
 export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
   const ajv = new Ajv2020.default({ allErrors: true, strict: false });
   return {
@@ -45,8 +63,8 @@ export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
     description: options.description ?? "Run a JSON-only LLM task step",
     async run(args, context) {
       const prompt = requiredPrompt(args);
-      const providerId = toNonEmptyString(args.providerId);
-      const modelId = toNonEmptyString(args.modelId);
+      const providerId = resolveStringAlias(args, "providerId", ["provider"]);
+      const modelId = resolveStringAlias(args, "modelId", ["model"]);
       const authProfileId = toNonEmptyString(args.authProfileId);
       const temperature = toPositiveNumber(args.temperature);
       const maxTokens = toPositiveNumber(args.maxTokens);

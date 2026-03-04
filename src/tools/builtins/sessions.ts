@@ -12,6 +12,21 @@ function requiredString(args: Record<string, unknown>, field: string): string {
   return value;
 }
 
+function optionalString(args: Record<string, unknown>, field: string): string | undefined {
+  const value = typeof args[field] === "string" ? String(args[field]).trim() : "";
+  return value || undefined;
+}
+
+function resolveFirstString(args: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = optionalString(args, key);
+    if (value) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
 function toLimit(value: unknown, fallback: number, max: number): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return fallback;
@@ -104,11 +119,8 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
       name: names.send ?? "sessions_send",
       description: "Send a message to another session",
       async run(args, context) {
-        const sessionId =
-          typeof args.sessionKey === "string" && args.sessionKey.trim()
-            ? args.sessionKey.trim()
-            : requiredString(args, "sessionId");
-        const message = requiredString(args, "message");
+        const sessionId = resolveFirstString(args, ["sessionKey", "sessionId"]) ?? requiredString(args, "sessionId");
+        const message = resolveFirstString(args, ["message", "text", "prompt"]) ?? requiredString(args, "message");
         const sent = await options.callbacks.sendToSession({
           sessionId,
           message,
@@ -131,7 +143,7 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
       name: names.spawn ?? "sessions_spawn",
       description: "Spawn a sub-session run",
       async run(args, context) {
-        const task = requiredString(args, "task");
+        const task = resolveFirstString(args, ["task", "prompt", "message"]) ?? requiredString(args, "task");
         const agentId = typeof args.agentId === "string" && args.agentId.trim() ? args.agentId.trim() : context.agentId;
         const runtime = args.runtime === "acp" ? "acp" : "subagent";
         const mode = args.mode === "run" || args.mode === "session" ? args.mode : undefined;
