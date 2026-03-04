@@ -686,7 +686,7 @@ export function createWebSearchTool(options: WebSearchToolOptions): ToolDefiniti
             untrusted: true,
             source: "web_search",
             provider,
-            wrapped: false,
+            wrapped: true,
           },
           details: {
             query,
@@ -791,6 +791,11 @@ export function createWebFetchTool(options?: WebFetchToolOptions): ToolDefinitio
           ...(typeof resolved.rawLength === "number" ? { rawLength: resolved.rawLength } : {}),
           ...(typeof resolved.wrappedLength === "number" ? { wrappedLength: resolved.wrappedLength } : {}),
           ...(resolved.title ? { title: resolved.title } : {}),
+          externalContent: {
+            untrusted: true,
+            source: "web_fetch",
+            wrapped: true,
+          },
           details: {
             url,
             extractMode,

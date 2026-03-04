@@ -133,6 +133,7 @@ describe("web builtins", () => {
       contentType?: string;
       rawLength?: number;
       wrappedLength?: number;
+      externalContent?: { source?: string; wrapped?: boolean };
       details?: {
         sourceUrl?: string;
         statusCode?: number;
@@ -144,6 +145,8 @@ describe("web builtins", () => {
     expect(data.contentType).toBe("text/html");
     expect(data.rawLength).toBe(1234);
     expect(data.wrappedLength).toBe(456);
+    expect(data.externalContent?.source).toBe("web_fetch");
+    expect(data.externalContent?.wrapped).toBe(true);
     expect(data.details?.sourceUrl).toBe("https://example.com/final");
   });
 });
