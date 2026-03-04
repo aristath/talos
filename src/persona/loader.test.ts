@@ -54,6 +54,19 @@ describe("loadPersonaSnapshot", () => {
     expect(cronSnapshot.files["MEMORY.md"]).toBeUndefined();
   });
 
+  it("does not inject missing optional memory files", async () => {
+    const dir = await createTmpDir();
+    await fs.writeFile(path.join(dir, "SOUL.md"), "core", "utf8");
+
+    const snapshot = await loadPersonaSnapshot(dir, { sessionKind: "main" });
+
+    expect(snapshot.bootstrapFiles.some((file) => file.name === "MEMORY.md")).toBe(false);
+    expect(snapshot.bootstrapFiles.some((file) => file.name === "memory.md")).toBe(false);
+    const prompt = buildPersonaSystemPrompt(snapshot);
+    expect(prompt?.includes("## MEMORY.md\n[MISSING]")).toBe(false);
+    expect(prompt?.includes("## memory.md\n[MISSING]")).toBe(false);
+  });
+
   it("rejects symlinked persona files", async () => {
     const dir = await createTmpDir();
     const outside = await createTmpDir();
