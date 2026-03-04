@@ -1,3 +1,3 @@
-# memory.md
+# MEMORY.md
 
-Legacy memory file. Prefer MEMORY.md.
+Long-term curated memory.

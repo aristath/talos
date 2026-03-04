@@ -40,8 +40,17 @@ export async function loadPersonaTemplates(options?: {
   const next: Record<PersonaFileName, string> = {
     ...DEFAULT_PERSONA_TEMPLATES,
   };
+  const presentNames = new Set(
+    await fs
+      .readdir(dir)
+      .then((entries) => entries)
+      .catch(() => [] as string[]),
+  );
 
   for (const name of PERSONA_LOAD_ORDER) {
+    if (!presentNames.has(name)) {
+      continue;
+    }
     const filePath = path.join(dir, name);
     try {
       const raw = await fs.readFile(filePath, "utf8");

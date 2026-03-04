@@ -29,6 +29,8 @@ describe("loadPersonaTemplates", () => {
   it("loads built-in docs templates by default", async () => {
     const templates = await loadPersonaTemplates({ forceReload: true });
     expect(templates["AGENTS.md"].trimStart().startsWith("# AGENTS.md - Your Workspace")).toBe(true);
+    expect(templates["MEMORY.md"].trimStart().startsWith("# MEMORY.md")).toBe(true);
+    expect(templates["memory.md"].trimStart().startsWith("# memory.md")).toBe(true);
   });
 
   it("loads templates from docs template directory when available", async () => {
@@ -53,5 +55,16 @@ describe("loadPersonaTemplates", () => {
     const templates = await loadPersonaTemplates({ forceReload: true });
 
     expect(templates["USER.md"]).toBe("# USER.md\n\nbody\n");
+  });
+
+  it("falls back to embedded memory alias when only MEMORY.md is provided", async () => {
+    const dir = await createTmpDir();
+    await fs.writeFile(path.join(dir, "MEMORY.md"), "# MEMORY.md\n\ncustom memory\n", "utf8");
+
+    process.env.TALOS_PERSONA_TEMPLATE_DIR = dir;
+    const templates = await loadPersonaTemplates({ forceReload: true });
+
+    expect(templates["MEMORY.md"]).toBe("# MEMORY.md\n\ncustom memory\n");
+    expect(templates["memory.md"].trimStart().startsWith("# memory.md")).toBe(true);
   });
 });

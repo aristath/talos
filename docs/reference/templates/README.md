@@ -6,4 +6,7 @@ Talos can load persona seed templates from this directory at runtime.
 - If a template file is missing here, Talos falls back to embedded defaults.
 - Leading Markdown frontmatter is stripped when loading.
 
+Note: on case-insensitive filesystems, `MEMORY.md` and `memory.md` cannot both exist on disk. Talos
+automatically falls back to the embedded `memory.md` template when only `MEMORY.md` is present.
+
 You can override the lookup directory for testing with `TALOS_PERSONA_TEMPLATE_DIR`.
