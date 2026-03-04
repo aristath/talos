@@ -19,6 +19,39 @@ const MIN_BOOTSTRAP_FILE_BUDGET_CHARS = 64;
 const BOOTSTRAP_HEAD_RATIO = 0.7;
 const BOOTSTRAP_TAIL_RATIO = 0.2;
 
+function truncateUtf16Safe(content: string, maxChars: number): string {
+  if (maxChars <= 0) {
+    return "";
+  }
+  if (content.length <= maxChars) {
+    return content;
+  }
+  let sliced = content.slice(0, maxChars);
+  const last = sliced.charCodeAt(sliced.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) {
+    sliced = sliced.slice(0, -1);
+  }
+  return sliced;
+}
+
+function takeTailUtf16Safe(content: string, maxChars: number): string {
+  if (maxChars <= 0) {
+    return "";
+  }
+  if (content.length <= maxChars) {
+    return content;
+  }
+  let sliced = content.slice(-maxChars);
+  if (sliced.length === 0) {
+    return sliced;
+  }
+  const first = sliced.charCodeAt(0);
+  if (first >= 0xdc00 && first <= 0xdfff) {
+    sliced = sliced.slice(1);
+  }
+  return sliced;
+}
+
 function isWithinRoot(root: string, candidate: string): boolean {
   if (candidate === root) {
     return true;
@@ -248,8 +281,8 @@ export function buildPersonaSystemPrompt(
     }
     const headChars = Math.floor(maxChars * BOOTSTRAP_HEAD_RATIO);
     const tailChars = Math.floor(maxChars * BOOTSTRAP_TAIL_RATIO);
-    const head = trimmed.slice(0, headChars);
-    const tail = trimmed.slice(-tailChars);
+    const head = truncateUtf16Safe(trimmed, headChars);
+    const tail = takeTailUtf16Safe(trimmed, tailChars);
     const marker = [
       "",
       `[...truncated, read ${fileName} for full content...]`,
@@ -267,9 +300,9 @@ export function buildPersonaSystemPrompt(
       return content;
     }
     if (budget <= 1) {
-      return content.slice(0, budget);
+      return truncateUtf16Safe(content, budget);
     }
-    return `${content.slice(0, budget - 1)}…`;
+    return `${truncateUtf16Safe(content, budget - 1)}…`;
   };
 
   const maxChars =

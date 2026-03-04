@@ -17,6 +17,25 @@ afterEach(async () => {
 });
 
 describe("loadPersonaSnapshot", () => {
+  const hasLoneSurrogates = (value: string): boolean => {
+    for (let i = 0; i < value.length; i += 1) {
+      const code = value.charCodeAt(i);
+      if (code >= 0xd800 && code <= 0xdbff) {
+        const next = value.charCodeAt(i + 1);
+        if (!(next >= 0xdc00 && next <= 0xdfff)) {
+          return true;
+        }
+      }
+      if (code >= 0xdc00 && code <= 0xdfff) {
+        const prev = value.charCodeAt(i - 1);
+        if (!(prev >= 0xd800 && prev <= 0xdbff)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
   it("loads regular persona files", async () => {
     const dir = await createTmpDir();
     await fs.writeFile(path.join(dir, "SOUL.md"), "core persona", "utf8");
@@ -108,5 +127,19 @@ describe("loadPersonaSnapshot", () => {
 
     expect(prompt?.length ?? 0).toBeLessThanOrEqual(300 + 200);
     expect(prompt?.includes("truncated")).toBe(true);
+  });
+
+  it("keeps utf16 pairs intact during truncation", async () => {
+    const dir = await createTmpDir();
+    await fs.writeFile(path.join(dir, "SOUL.md"), "🙂".repeat(600), "utf8");
+
+    const snapshot = await loadPersonaSnapshot(dir, { sessionKind: "main" });
+    const prompt = buildPersonaSystemPrompt(snapshot, {
+      bootstrapMaxChars: 101,
+      bootstrapTotalMaxChars: 160,
+    });
+
+    expect(prompt).toBeDefined();
+    expect(hasLoneSurrogates(prompt ?? "")).toBe(false);
   });
 });
