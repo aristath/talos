@@ -16,7 +16,7 @@ Talos is a library-only runtime with six core planes:
 `run(input)` executes the orchestration pipeline:
 
 1. Resolve agent and model strategy.
-2. Compose persona/system context from workspace files.
+2. Load persona workspace files, run `beforePersonaLoad` hooks, and compose system context.
 3. Execute model call with timeout/retry/fallback policy.
 4. Optionally enter tool-loop rounds when model emits JSON tool directives.
 5. Emit lifecycle events and update run summaries/statistics.

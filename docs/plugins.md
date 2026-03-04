@@ -33,6 +33,18 @@ export default definePlugin({
 
 `setup(api)` may return a teardown function (sync or async). Talos executes teardown when `removePlugin(pluginId)` is called.
 
+## Hooks
+
+Hook-capable plugins (`capabilities: ["hooks"]`) can register:
+
+- `beforeRun`
+- `beforePersonaLoad`
+- `beforeModel`
+- `afterModel`
+- `beforeTool`
+- `afterTool`
+- `afterRun`
+
 ## Metadata
 
 Talos can expose plugin metadata through:

@@ -14,7 +14,7 @@ Model runtime supports optional tool-call loops (`models.toolLoopMaxSteps`) usin
 Tool execution supports config-level allow/deny policy (`tools.allow`, `tools.deny`).
 Tool runtime supports `tools.executionTimeoutMs` and `executeTool(..., signal)` cancellation.
 Tool runtime supports execution modes (`tools.executionMode`: `host` | `sandbox`) with sandbox constraints (`tools.sandbox`) and output limits (`tools.maxOutputBytes`).
-Plugin hooks include `beforeModel` and `afterModel` for model request/response interception.
+Plugin hooks include `beforePersonaLoad`, `beforeModel`, and `afterModel` for persona/model interception.
 OpenAI-compatible providers can resolve credentials from `authProfiles` via `authProfileId`.
 State snapshots can be persisted automatically by setting `runtime.stateFile`.
 State snapshot serialization can redact sensitive fields via `security.redactKeys`.
@@ -55,6 +55,8 @@ Current core API:
 `run(input)` returns a `runId` and lifecycle events include that same `runId` for correlation.
 `run(input)` also supports cancellation via `AbortSignal` (`input.signal`).
 Persona loading follows session semantics: main sessions load full persona context, while subagent/cron sessions load a minimal allowlist.
+Persona context can also include extra bootstrap files via `persona.extraFiles` and prompt budgets via
+`persona.bootstrapMaxChars` / `persona.bootstrapTotalMaxChars`.
 
 This repository intentionally excludes channel integrations, UI apps, and CLI surfaces.
 
