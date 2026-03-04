@@ -675,7 +675,11 @@ export function createTalos(config: TalosConfig): Talos {
             `llm_task request timed out after ${timeoutMs}ms (${providerId}/${modelId}).`,
             "MODEL_TIMEOUT",
           );
-          return response.text;
+          return {
+            text: response.text,
+            providerId,
+            modelId,
+          };
         },
       });
     };

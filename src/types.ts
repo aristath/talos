@@ -302,7 +302,7 @@ export type LlmTaskToolOptions = {
     maxTokens?: number;
     timeoutMs?: number;
     context: RunContext;
-  }) => Promise<string>;
+  }) => Promise<string | { text: string; providerId?: string; modelId?: string }>;
   validateJson?: (value: unknown, schema?: unknown) => { ok: boolean; errors?: string[] };
 };
 

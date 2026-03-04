@@ -69,7 +69,7 @@ export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
       const temperature = toPositiveNumber(args.temperature);
       const maxTokens = toPositiveNumber(args.maxTokens);
       const timeoutMs = toPositiveNumber(args.timeoutMs);
-      const responseText = await options.generate({
+      const generated = await options.generate({
         prompt,
         ...(Object.hasOwn(args, "input") ? { input: args.input } : {}),
         ...(Object.hasOwn(args, "schema") ? { schema: args.schema } : {}),
@@ -81,6 +81,7 @@ export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
         ...(timeoutMs ? { timeoutMs } : {}),
         context,
       });
+      const responseText = typeof generated === "string" ? generated : generated.text;
       const raw = stripCodeFences(responseText);
 
       let parsed: unknown;
@@ -149,8 +150,20 @@ export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
         content: JSON.stringify(parsed, null, 2),
         data: {
           json: parsed,
+          ...(typeof generated === "string"
+            ? {}
+            : {
+                providerId: generated.providerId,
+                modelId: generated.modelId,
+              }),
           details: {
             json: parsed,
+            ...(typeof generated === "string"
+              ? {}
+              : {
+                  providerId: generated.providerId,
+                  modelId: generated.modelId,
+                }),
           },
         },
       };

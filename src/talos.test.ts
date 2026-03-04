@@ -1206,6 +1206,8 @@ describe("createTalos", () => {
 
     expect(result.content).toContain('"ok": true');
     expect((result.data as { json?: { ok?: boolean } }).json?.ok).toBe(true);
+    expect((result.data as { providerId?: string }).providerId).toBe("openai");
+    expect((result.data as { modelId?: string }).modelId).toBe("gpt-4o-mini");
     expect((result.data as { details?: { json?: { ok?: boolean } } }).details?.json?.ok).toBe(true);
 
     const aliasResult = await talos.executeTool({
