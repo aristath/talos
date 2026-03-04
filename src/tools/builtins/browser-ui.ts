@@ -30,6 +30,26 @@ const CANVAS_ACTIONS = new Set([
   "a2ui_reset",
 ]);
 
+function normalizeBrowserAction(action: string): string {
+  if (action === "trace.start") {
+    return "trace_start";
+  }
+  if (action === "trace.stop") {
+    return "trace_stop";
+  }
+  return action;
+}
+
+function normalizeCanvasAction(action: string): string {
+  if (action === "a2ui.pushJSONL") {
+    return "a2ui_push";
+  }
+  if (action === "a2ui.reset") {
+    return "a2ui_reset";
+  }
+  return action;
+}
+
 function requiredAction(args: Record<string, unknown>): string {
   const action = typeof args.action === "string" ? args.action.trim() : "";
   if (!action) {
@@ -143,7 +163,7 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
     name: options.name ?? "browser",
     description: options.description ?? "Run browser/UI automation actions",
     async run(args, context) {
-      const action = requiredAction(args);
+      const action = normalizeBrowserAction(requiredAction(args));
       assertAllowedAction(action, BROWSER_ACTIONS, "browser");
       assertBrowserActionParams(action, args);
       const output = await options.execute({ action, args, context });
@@ -168,7 +188,7 @@ export function createCanvasTool(options: CanvasToolOptions): ToolDefinition {
     name: options.name ?? "canvas",
     description: options.description ?? "Run canvas automation actions",
     async run(args, context) {
-      const action = requiredAction(args);
+      const action = normalizeCanvasAction(requiredAction(args));
       assertAllowedAction(action, CANVAS_ACTIONS, "canvas");
       assertCanvasActionParams(action, args);
       const output = await options.execute({ action, args, context });

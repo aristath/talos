@@ -171,8 +171,10 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
       description: "Inspect current or target session status",
       async run(args, context) {
         const sessionId =
-          typeof args.sessionId === "string" && args.sessionId.trim()
-            ? args.sessionId.trim()
+          typeof args.sessionKey === "string" && args.sessionKey.trim()
+            ? args.sessionKey.trim()
+            : typeof args.sessionId === "string" && args.sessionId.trim()
+              ? args.sessionId.trim()
             : context.sessionId;
         if (!sessionId) {
           throw new TalosError({

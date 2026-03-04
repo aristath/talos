@@ -413,15 +413,23 @@ describe("createTalos", () => {
       },
     });
 
+    const browserActions: string[] = [];
+    const canvasActions: string[] = [];
     talos.registerBrowserTools({
-      execute: async ({ action }) => ({
-        content: `browser:${action}`,
-      }),
+      execute: async ({ action }) => {
+        browserActions.push(action);
+        return {
+          content: `browser:${action}`,
+        };
+      },
     });
     talos.registerCanvasTools({
-      execute: async ({ action }) => ({
-        content: `canvas:${action}`,
-      }),
+      execute: async ({ action }) => {
+        canvasActions.push(action);
+        return {
+          content: `canvas:${action}`,
+        };
+      },
     });
 
     const browser = await talos.executeTool({
@@ -434,9 +442,23 @@ describe("createTalos", () => {
       args: { action: "present", target: "https://example.com" },
       context: { agentId: "main" },
     });
+    const browserTrace = await talos.executeTool({
+      name: "browser",
+      args: { action: "trace.start" },
+      context: { agentId: "main" },
+    });
+    const canvasA2ui = await talos.executeTool({
+      name: "canvas",
+      args: { action: "a2ui.pushJSONL", jsonl: "{}" },
+      context: { agentId: "main" },
+    });
 
     expect(browser.content).toBe("browser:snapshot");
     expect(canvas.content).toBe("canvas:present");
+    expect(browserTrace.content).toBe("browser:trace_start");
+    expect(canvasA2ui.content).toBe("canvas:a2ui_push");
+    expect(browserActions).toContain("trace_start");
+    expect(canvasActions).toContain("a2ui_push");
   });
 
   it("validates browser and canvas actions", async () => {
@@ -860,12 +882,20 @@ describe("createTalos", () => {
       },
       context: { agentId: "main", sessionId: "main" },
     });
+    const statusAlias = await talos.executeTool({
+      name: "session_status",
+      args: {
+        sessionKey: "main",
+      },
+      context: { agentId: "main", sessionId: "main" },
+    });
 
     expect(list.content).toContain("main");
     expect(send.content).toContain("echo:ping");
     expect(spawn.content).toContain("echo:sub task");
     expect(history.content).toContain("user: hello");
     expect(status.content).toContain("main [main]");
+    expect(statusAlias.content).toContain("main [main]");
 
     const sendAlias = await talos.executeTool({
       name: "sessions_send",
