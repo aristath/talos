@@ -154,6 +154,103 @@ describe("createTalos", () => {
     expect(fetched.content).toContain("Fetched https://example.com");
   });
 
+  it("validates web_search locale and freshness parameters", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerWebTools({
+      search: {
+        search: async () => [],
+      },
+    });
+
+    await expect(
+      talos.executeTool({
+        name: "web_search",
+        args: {
+          query: "talos",
+          search_lang: "en-US",
+        },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+
+    await expect(
+      talos.executeTool({
+        name: "web_search",
+        args: {
+          query: "talos",
+          freshness: "yesterday",
+        },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+  });
+
+  it("caches web_search and web_fetch responses", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    let searchCalls = 0;
+    let fetchCalls = 0;
+    talos.registerWebTools({
+      search: {
+        search: async ({ query }) => {
+          searchCalls += 1;
+          return [{ title: query, url: "https://example.com" }];
+        },
+      },
+      fetch: {
+        fetchContent: async ({ url }) => {
+          fetchCalls += 1;
+          return { content: `body:${url}` };
+        },
+      },
+    });
+
+    await talos.executeTool({
+      name: "web_search",
+      args: { query: "cache-me" },
+      context: { agentId: "main" },
+    });
+    await talos.executeTool({
+      name: "web_search",
+      args: { query: "cache-me" },
+      context: { agentId: "main" },
+    });
+    await talos.executeTool({
+      name: "web_fetch",
+      args: { url: "https://example.com" },
+      context: { agentId: "main" },
+    });
+    await talos.executeTool({
+      name: "web_fetch",
+      args: { url: "https://example.com" },
+      context: { agentId: "main" },
+    });
+
+    expect(searchCalls).toBe(1);
+    expect(fetchCalls).toBe(1);
+  });
+
   it("registers media tools and executes image/pdf analysis", async () => {
     const talos = createTalos({
       providers: {
@@ -195,6 +292,57 @@ describe("createTalos", () => {
     expect(pdf.content).toBe("pdf:/tmp/a.pdf");
   });
 
+  it("supports multi-input media args and caps item counts", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerMediaTools({
+      image: {
+        analyze: async ({ inputs }) => ({ text: `images:${(inputs ?? []).length}` }),
+      },
+      pdf: {
+        analyze: async ({ inputs }) => ({ text: `pdfs:${(inputs ?? []).length}` }),
+      },
+    });
+
+    const image = await talos.executeTool({
+      name: "image",
+      args: {
+        images: ["a.png", "b.png", "a.png"],
+      },
+      context: { agentId: "main" },
+    });
+    const pdf = await talos.executeTool({
+      name: "pdf",
+      args: {
+        pdfs: ["a.pdf", "b.pdf"],
+      },
+      context: { agentId: "main" },
+    });
+
+    expect(image.content).toBe("images:2");
+    expect(pdf.content).toBe("pdfs:2");
+
+    await expect(
+      talos.executeTool({
+        name: "pdf",
+        args: {
+          pdfs: Array.from({ length: 11 }, (_, i) => `f${i}.pdf`),
+        },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+  });
+
   it("registers browser and canvas tools and routes actions", async () => {
     const talos = createTalos({
       providers: {
@@ -234,6 +382,37 @@ describe("createTalos", () => {
     expect(canvas.content).toBe("canvas:present");
   });
 
+  it("validates browser and canvas actions", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+    talos.registerBrowserTools({ execute: async () => ({ content: "ok" }) });
+    talos.registerCanvasTools({ execute: async () => ({ content: "ok" }) });
+
+    await expect(
+      talos.executeTool({
+        name: "browser",
+        args: { action: "unknown" },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "canvas",
+        args: { action: "unknown" },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+  });
+
   it("registers llm_task tool and parses JSON output", async () => {
     const talos = createTalos({
       providers: {
@@ -262,6 +441,42 @@ describe("createTalos", () => {
       name: "llm_task",
       args: {
         prompt: "Return JSON",
+      },
+      context: { agentId: "main" },
+    });
+
+    expect(result.content).toContain('"ok": true');
+  });
+
+  it("accepts fenced JSON response in llm_task", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+    talos.registerModelProvider({
+      id: "openai",
+      async generate(request) {
+        return {
+          text: `\`\`\`json\n${JSON.stringify({ ok: true, prompt: request.prompt })}\n\`\`\``,
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+    talos.registerLlmTaskTool();
+
+    const result = await talos.executeTool({
+      name: "llm_task",
+      args: {
+        prompt: "Return JSON",
+        input: { hello: "world" },
       },
       context: { agentId: "main" },
     });
@@ -403,7 +618,7 @@ describe("createTalos", () => {
     const history = await talos.executeTool({
       name: "sessions_history",
       args: {
-        sessionId: "main",
+        sessionKey: "main",
       },
       context: { agentId: "main", sessionId: "main" },
     });

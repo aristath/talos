@@ -31,12 +31,27 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
       description: "List known sessions",
       async run(args) {
         const limit = toLimit(args.limit, 25, 200);
+        const activeMinutes = toLimit(args.activeMinutes, 0, 24 * 60);
+        const messageLimit = toLimit(args.messageLimit, 0, 20);
         const sessions = options.callbacks.listSessions();
         const kinds = Array.isArray(args.kinds)
           ? new Set(args.kinds.map((value) => String(value).trim()).filter(Boolean))
           : undefined;
+        const activeAfterEpoch =
+          activeMinutes > 0 ? Date.now() - activeMinutes * 60_000 : undefined;
         const filtered = sessions
-          .filter((session) => (kinds && kinds.size > 0 ? kinds.has(session.kind) : true))
+          .filter((session) => {
+            if (kinds && kinds.size > 0 && !kinds.has(session.kind)) {
+              return false;
+            }
+            if (typeof activeAfterEpoch === "number") {
+              const updatedAtEpoch = Date.parse(session.updatedAt);
+              if (Number.isFinite(updatedAtEpoch) && updatedAtEpoch < activeAfterEpoch) {
+                return false;
+              }
+            }
+            return true;
+          })
           .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
           .slice(0, limit);
         const content = filtered
@@ -47,7 +62,17 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
         return {
           content: content || "No sessions.",
           data: {
-            sessions: filtered,
+            sessions: filtered.map((session) => ({
+              ...session,
+              ...(messageLimit > 0
+                ? {
+                    messages:
+                      session.messages.length > messageLimit
+                        ? session.messages.slice(-messageLimit)
+                        : session.messages,
+                  }
+                : { messages: undefined }),
+            })),
           },
         };
       },
@@ -56,7 +81,10 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
       name: names.history ?? "sessions_history",
       description: "Show message history for a session",
       async run(args) {
-        const sessionId = requiredString(args, "sessionId");
+        const sessionId =
+          typeof args.sessionKey === "string" && args.sessionKey.trim()
+            ? args.sessionKey.trim()
+            : requiredString(args, "sessionId");
         const limit = toLimit(args.limit, 25, 500);
         const messages = options.callbacks.getHistory(sessionId, limit);
         return {
@@ -67,6 +95,7 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
           data: {
             sessionId,
             messages,
+            includeTools: Boolean(args.includeTools),
           },
         };
       },
@@ -75,13 +104,19 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
       name: names.send ?? "sessions_send",
       description: "Send a message to another session",
       async run(args, context) {
-        const sessionId = requiredString(args, "sessionId");
+        const sessionId =
+          typeof args.sessionKey === "string" && args.sessionKey.trim()
+            ? args.sessionKey.trim()
+            : requiredString(args, "sessionId");
         const message = requiredString(args, "message");
         const sent = await options.callbacks.sendToSession({
           sessionId,
           message,
           requesterAgentId: context.agentId,
           ...(context.workspaceDir ? { workspaceDir: context.workspaceDir } : {}),
+          ...(typeof args.timeoutSeconds === "number" && Number.isFinite(args.timeoutSeconds)
+            ? { timeoutSeconds: Math.max(0, Math.floor(args.timeoutSeconds)) }
+            : {}),
         });
         return {
           content: sent.text,
@@ -98,11 +133,20 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
       async run(args, context) {
         const task = requiredString(args, "task");
         const agentId = typeof args.agentId === "string" && args.agentId.trim() ? args.agentId.trim() : context.agentId;
+        const runtime = args.runtime === "acp" ? "acp" : "subagent";
+        const mode = args.mode === "run" || args.mode === "session" ? args.mode : undefined;
+        const label = typeof args.label === "string" && args.label.trim() ? args.label.trim() : undefined;
         const spawned = await options.callbacks.spawnSession({
           task,
           agentId,
           ...(context.workspaceDir ? { workspaceDir: context.workspaceDir } : {}),
           ...(context.sessionId ? { requesterSessionId: context.sessionId } : {}),
+          runtime,
+          ...(mode ? { mode } : {}),
+          ...(label ? { label } : {}),
+          ...(typeof args.runTimeoutSeconds === "number" && Number.isFinite(args.runTimeoutSeconds)
+            ? { timeoutSeconds: Math.max(0, Math.floor(args.runTimeoutSeconds)) }
+            : {}),
         });
         return {
           content: spawned.text,

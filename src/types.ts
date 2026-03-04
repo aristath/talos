@@ -101,7 +101,15 @@ export type WebSearchResultItem = {
 export type WebSearchToolOptions = {
   name?: string;
   description?: string;
-  search: (params: { query: string; count: number }) => Promise<WebSearchResultItem[]>;
+  search: (params: {
+    query: string;
+    count: number;
+    country?: string;
+    searchLang?: string;
+    uiLang?: string;
+    freshness?: string;
+  }) => Promise<WebSearchResultItem[]>;
+  cacheTtlMs?: number;
 };
 
 export type WebFetchToolOptions = {
@@ -111,8 +119,19 @@ export type WebFetchToolOptions = {
     url: string;
     extractMode: "markdown" | "text";
     maxChars: number;
+    timeoutMs: number;
+    maxResponseBytes: number;
+    maxRedirects: number;
+    userAgent: string;
   }) => Promise<{ content: string; title?: string }>;
   defaultMaxChars?: number;
+  maxCharsCap?: number;
+  timeoutMs?: number;
+  maxResponseBytes?: number;
+  maxRedirects?: number;
+  userAgent?: string;
+  cacheTtlMs?: number;
+  allowPrivateNetwork?: boolean;
 };
 
 export type MediaUnderstandToolOptions = {
@@ -120,7 +139,11 @@ export type MediaUnderstandToolOptions = {
   description?: string;
   analyze: (params: {
     input: string;
+    inputs?: string[];
     prompt?: string;
+    model?: string;
+    maxBytesMb?: number;
+    pages?: string;
     context: RunContext;
   }) => Promise<{ text: string; data?: unknown }>;
 };
@@ -170,12 +193,17 @@ export type SessionToolsCallbacks = {
     message: string;
     requesterAgentId: string;
     workspaceDir?: string;
+    timeoutSeconds?: number;
   }) => Promise<{ runId: string; text: string; providerId: string; modelId: string }>;
   spawnSession: (params: {
     task: string;
     agentId: string;
     workspaceDir?: string;
     requesterSessionId?: string;
+    runtime?: "subagent" | "acp";
+    mode?: "run" | "session";
+    label?: string;
+    timeoutSeconds?: number;
   }) => Promise<{ sessionId: string; runId: string; text: string; providerId: string; modelId: string }>;
   getStatus: (sessionId: string) => SessionRecord | undefined;
 };
@@ -196,8 +224,14 @@ export type LlmTaskToolOptions = {
   description?: string;
   generate: (params: {
     prompt: string;
+    input?: unknown;
+    schema?: unknown;
     providerId?: string;
     modelId?: string;
+    authProfileId?: string;
+    temperature?: number;
+    maxTokens?: number;
+    timeoutMs?: number;
     context: RunContext;
   }) => Promise<string>;
   validateJson?: (value: unknown, schema?: unknown) => { ok: boolean; errors?: string[] };
@@ -238,6 +272,9 @@ export type ModelRequest = {
   modelId: string;
   system?: string;
   prompt: string;
+  authProfileId?: string;
+  temperature?: number;
+  maxTokens?: number;
 };
 
 export type ModelResponse = {

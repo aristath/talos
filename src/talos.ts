@@ -457,7 +457,8 @@ export function createTalos(config: TalosConfig): Talos {
           };
         },
         spawnSession: async (params) => {
-          const sessionId = `agent:${params.agentId}:subagent:${randomUUID().slice(0, 8)}`;
+          const runtime = params.runtime === "acp" ? "subagent" : "subagent";
+          const sessionId = `agent:${params.agentId}:${runtime}:${randomUUID().slice(0, 8)}`;
           const result = await run({
             agentId: params.agentId,
             prompt: params.task,
@@ -509,14 +510,40 @@ export function createTalos(config: TalosConfig): Talos {
               message: "llm_task could not resolve provider/model.",
             });
           }
+          let inputJson = "null";
+          if (Object.hasOwn(params, "input")) {
+            try {
+              inputJson = JSON.stringify(params.input ?? null, null, 2);
+            } catch {
+              throw new TalosError({
+                code: "TOOL_FAILED",
+                message: "llm_task input must be JSON-serializable.",
+              });
+            }
+          }
+          const system = [
+            "You are a JSON-only function.",
+            "Return ONLY a valid JSON value.",
+            "Do not wrap in markdown fences.",
+            "Do not include commentary.",
+          ].join(" ");
+          const fullPrompt = `TASK:\n${params.prompt}\n\nINPUT_JSON:\n${inputJson}\n`;
+          const timeoutMs =
+            typeof params.timeoutMs === "number" && params.timeoutMs > 0
+              ? Math.floor(params.timeoutMs)
+              : requestTimeoutMs;
           const response = await withTimeout(
             models.generate({
               providerId,
               modelId,
-              prompt: params.prompt,
+              system,
+              prompt: fullPrompt,
+              ...(params.authProfileId ? { authProfileId: params.authProfileId } : {}),
+              ...(typeof params.temperature === "number" ? { temperature: params.temperature } : {}),
+              ...(typeof params.maxTokens === "number" ? { maxTokens: Math.floor(params.maxTokens) } : {}),
             }),
-            requestTimeoutMs,
-            `llm_task request timed out after ${requestTimeoutMs}ms (${providerId}/${modelId}).`,
+            timeoutMs,
+            `llm_task request timed out after ${timeoutMs}ms (${providerId}/${modelId}).`,
             "MODEL_TIMEOUT",
           );
           return response.text;

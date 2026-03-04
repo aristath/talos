@@ -34,6 +34,8 @@ export function createOpenAICompatibleProvider(
         headers,
         body: JSON.stringify({
           model: request.modelId,
+          ...(typeof request.temperature === "number" ? { temperature: request.temperature } : {}),
+          ...(typeof request.maxTokens === "number" ? { max_tokens: request.maxTokens } : {}),
           messages: [
             ...(request.system ? [{ role: "system", content: request.system }] : []),
             { role: "user", content: request.prompt },

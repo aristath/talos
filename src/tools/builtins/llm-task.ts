@@ -12,35 +12,66 @@ function requiredPrompt(args: Record<string, unknown>): string {
   return prompt;
 }
 
+function stripCodeFences(raw: string): string {
+  const trimmed = raw.trim();
+  const match = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (!match) {
+    return trimmed;
+  }
+  return (match[1] ?? "").trim();
+}
+
+function toPositiveNumber(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return undefined;
+  }
+  return value;
+}
+
+function toNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized || undefined;
+}
+
 export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
   return {
     name: options.name ?? "llm_task",
     description: options.description ?? "Run a JSON-only LLM task step",
     async run(args, context) {
       const prompt = requiredPrompt(args);
-      const providerId = typeof args.providerId === "string" && args.providerId.trim()
-        ? args.providerId.trim()
-        : undefined;
-      const modelId = typeof args.modelId === "string" && args.modelId.trim()
-        ? args.modelId.trim()
-        : undefined;
+      const providerId = toNonEmptyString(args.providerId);
+      const modelId = toNonEmptyString(args.modelId);
+      const authProfileId = toNonEmptyString(args.authProfileId);
+      const temperature = toPositiveNumber(args.temperature);
+      const maxTokens = toPositiveNumber(args.maxTokens);
+      const timeoutMs = toPositiveNumber(args.timeoutMs);
       const responseText = await options.generate({
         prompt,
+        ...(Object.hasOwn(args, "input") ? { input: args.input } : {}),
+        ...(Object.hasOwn(args, "schema") ? { schema: args.schema } : {}),
         ...(providerId ? { providerId } : {}),
         ...(modelId ? { modelId } : {}),
+        ...(authProfileId ? { authProfileId } : {}),
+        ...(temperature ? { temperature } : {}),
+        ...(maxTokens ? { maxTokens } : {}),
+        ...(timeoutMs ? { timeoutMs } : {}),
         context,
       });
+      const raw = stripCodeFences(responseText);
 
       let parsed: unknown;
       try {
-        parsed = JSON.parse(responseText);
+        parsed = JSON.parse(raw);
       } catch (error) {
         throw new TalosError({
           code: "TOOL_FAILED",
           message: "llm_task response is not valid JSON.",
           cause: error,
           details: {
-            responseText,
+            responseText: raw,
           },
         });
       }
