@@ -34,6 +34,13 @@ export const talosConfigSchema = z.object({
       allow: z.array(z.string().min(1)).optional(),
       deny: z.array(z.string().min(1)).optional(),
       executionTimeoutMs: z.number().int().positive().optional(),
+      executionMode: z.enum(["host", "sandbox"]).optional(),
+      sandbox: z
+        .object({
+          allowedCommands: z.array(z.string().min(1)).optional(),
+          allowedPaths: z.array(z.string().min(1)).optional(),
+        })
+        .optional(),
     })
     .optional(),
   runtime: z

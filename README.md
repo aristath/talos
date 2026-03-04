@@ -13,6 +13,7 @@ Model runtime supports request timeout and retry policy (`models.requestTimeoutM
 Model runtime supports optional tool-call loops (`models.toolLoopMaxSteps`) using JSON tool directives.
 Tool execution supports config-level allow/deny policy (`tools.allow`, `tools.deny`).
 Tool runtime supports `tools.executionTimeoutMs` and `executeTool(..., signal)` cancellation.
+Tool runtime supports execution modes (`tools.executionMode`: `host` | `sandbox`) with sandbox constraints (`tools.sandbox`).
 Plugin hooks include `beforeModel` and `afterModel` for model request/response interception.
 OpenAI-compatible providers can resolve credentials from `authProfiles` via `authProfileId`.
 State snapshots can be persisted automatically by setting `runtime.stateFile`.
@@ -23,6 +24,7 @@ Current core API:
 - `registerAgent(agent)`
 - `listAgents()`, `hasAgent(agentId)`, and `removeAgent(agentId)`
 - `registerTool(tool)`
+- `registerExecTool(options?)` to register built-in command execution tool
 - `listTools()`, `hasTool(toolName)`, and `removeTool(toolName)`
 - `registerPlugin(plugin)` with capability declarations (`tools`, `providers`, `hooks`)
 - plugins can declare `apiVersion` (current supported version: `1`)

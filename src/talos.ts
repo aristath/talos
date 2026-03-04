@@ -8,6 +8,7 @@ import { seedPersonaWorkspace } from "./persona/bootstrap.js";
 import { PluginRegistry } from "./plugins/registry.js";
 import { discoverPluginEntryPaths, loadPluginFromPath } from "./plugins/loader.js";
 import { ToolRegistry } from "./tools/registry.js";
+import { createExecTool } from "./tools/builtins/exec.js";
 import { TalosError, toTalosErrorLike } from "./errors.js";
 import { LifecycleEventBus } from "./observability/events.js";
 import { loadStateSnapshot, saveStateSnapshot } from "./observability/persistence.js";
@@ -27,6 +28,7 @@ import type {
   ModelResponse,
   ToolExecutionInput,
   ToolResult,
+  ExecToolOptions,
   ActiveRun,
   RunSummary,
   RunQuery,
@@ -227,18 +229,61 @@ export function createTalos(config: TalosConfig): Talos {
   const toolAllowlist = new Set((parsed.data.tools?.allow ?? []).map(normalizeToolName));
   const toolDenylist = new Set((parsed.data.tools?.deny ?? []).map(normalizeToolName));
 
-  const assertToolAllowed = (name: string) => {
+  const toNormalizedSet = (values?: string[]) => {
+    return new Set((values ?? []).map(normalizeToolName).filter((value) => value.length > 0));
+  };
+
+  const assertToolAllowed = (params: {
+    name: string;
+    agentId?: string;
+    policy?: {
+      allow?: string[];
+      deny?: string[];
+    };
+  }) => {
+    const { name, agentId, policy } = params;
     const normalized = normalizeToolName(name);
+
+    const agent = agentId && agents.has(agentId) ? agents.resolve(agentId) : undefined;
+    const agentAllow = toNormalizedSet(agent?.tools?.allow);
+    const agentDeny = toNormalizedSet(agent?.tools?.deny);
+    const runAllow = toNormalizedSet(policy?.allow);
+    const runDeny = toNormalizedSet(policy?.deny);
+
     if (toolDenylist.has(normalized)) {
       throw new TalosError({
         code: "TOOL_NOT_ALLOWED",
-        message: `Tool is denied by configuration: ${name}`,
+        message: `Tool is denied by global configuration: ${name}`,
+      });
+    }
+    if (agentDeny.has(normalized)) {
+      throw new TalosError({
+        code: "TOOL_NOT_ALLOWED",
+        message: `Tool is denied by agent policy: ${name}`,
+      });
+    }
+    if (runDeny.has(normalized)) {
+      throw new TalosError({
+        code: "TOOL_NOT_ALLOWED",
+        message: `Tool is denied by run policy: ${name}`,
       });
     }
     if (toolAllowlist.size > 0 && !toolAllowlist.has(normalized)) {
       throw new TalosError({
         code: "TOOL_NOT_ALLOWED",
-        message: `Tool is not in allowlist: ${name}`,
+        message: `Tool is not in global allowlist: ${name}`,
+      });
+    }
+    if (agentAllow.size > 0 && !agentAllow.has(normalized)) {
+      throw new TalosError({
+        code: "TOOL_NOT_ALLOWED",
+        message: `Tool is not in agent allowlist: ${name}`,
+      });
+    }
+    if (runAllow.size > 0 && !runAllow.has(normalized)) {
+      throw new TalosError({
+        code: "TOOL_NOT_ALLOWED",
+        message: `Tool is not in run allowlist: ${name}`,
       });
     }
   };
@@ -308,8 +353,30 @@ export function createTalos(config: TalosConfig): Talos {
   };
 
   const registerTool = (tool: ToolDefinition) => {
-    assertToolAllowed(tool.name);
+    assertToolAllowed({ name: tool.name });
     tools.register(tool);
+  };
+
+  const registerExecTool = (options?: ExecToolOptions) => {
+    const mode = options?.mode ?? parsed.data.tools?.executionMode ?? "host";
+    const sandbox = options?.sandbox ?? parsed.data.tools?.sandbox;
+    const timeoutMs = options?.timeoutMs ?? toolExecutionTimeoutMs;
+    const normalizedSandbox = sandbox
+      ? {
+          ...(sandbox.allowedCommands ? { allowedCommands: sandbox.allowedCommands } : {}),
+          ...(sandbox.allowedPaths ? { allowedPaths: sandbox.allowedPaths } : {}),
+        }
+      : undefined;
+    registerTool(
+      createExecTool({
+        ...(options?.name ? { name: options.name } : {}),
+        ...(options?.description ? { description: options.description } : {}),
+        mode,
+        ...(normalizedSandbox ? { sandbox: normalizedSandbox } : {}),
+        ...(options?.defaultCwd ? { defaultCwd: options.defaultCwd } : {}),
+        timeoutMs,
+      }),
+    );
   };
 
   const listTools = (): ToolDefinition[] => {
@@ -663,6 +730,7 @@ export function createTalos(config: TalosConfig): Talos {
       args,
       context: input.context,
       signal: toolAbortController.signal,
+      ...(input.policy ? { policy: input.policy } : {}),
     };
 
     assertToolNotAborted(normalizedInput.signal, normalizedInput.name);
@@ -681,7 +749,18 @@ export function createTalos(config: TalosConfig): Talos {
     try {
       await plugins.runBeforeTool(normalizedInput);
       assertToolNotAborted(normalizedInput.signal, normalizedInput.name);
-      assertToolAllowed(normalizedInput.name);
+      assertToolAllowed(
+        normalizedInput.policy
+          ? {
+              name: normalizedInput.name,
+              agentId: normalizedInput.context.agentId,
+              policy: normalizedInput.policy,
+            }
+          : {
+              name: normalizedInput.name,
+              agentId: normalizedInput.context.agentId,
+            },
+      );
       const result = await withTimeout(
         tools.execute(normalizedInput.name, args, normalizedInput.context),
         toolExecutionTimeoutMs,
@@ -935,6 +1014,7 @@ export function createTalos(config: TalosConfig): Talos {
                 runId,
               },
               signal,
+              ...(input.tools ? { policy: input.tools } : {}),
             });
             toolOutputs.push(`- ${call.name}: ${toolResult.content}`);
           }
@@ -1017,6 +1097,7 @@ export function createTalos(config: TalosConfig): Talos {
     hasAgent,
     removeAgent,
     registerTool,
+    registerExecTool,
     listTools,
     hasTool,
     removeTool,

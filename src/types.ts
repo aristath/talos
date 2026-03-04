@@ -29,6 +29,11 @@ export type TalosConfig = {
     allow?: string[];
     deny?: string[];
     executionTimeoutMs?: number;
+    executionMode?: "host" | "sandbox";
+    sandbox?: {
+      allowedCommands?: string[];
+      allowedPaths?: string[];
+    };
   };
   runtime?: {
     stateFile?: string;
@@ -42,6 +47,10 @@ export type AgentDefinition = {
     providerId?: string;
     modelId?: string;
     fallbacks?: Array<{ providerId: string; modelId: string }>;
+  };
+  tools?: {
+    allow?: string[];
+    deny?: string[];
   };
   promptPrefix?: string;
 };
@@ -61,6 +70,10 @@ export type ToolExecutionInput = {
   args?: Record<string, unknown>;
   context: RunContext;
   signal?: AbortSignal;
+  policy?: {
+    allow?: string[];
+    deny?: string[];
+  };
 };
 
 export type ToolDefinition = {
@@ -69,12 +82,28 @@ export type ToolDefinition = {
   run: (args: Record<string, unknown>, ctx: RunContext) => Promise<ToolResult>;
 };
 
+export type ExecToolOptions = {
+  name?: string;
+  description?: string;
+  mode?: "host" | "sandbox";
+  sandbox?: {
+    allowedCommands?: string[];
+    allowedPaths?: string[];
+  };
+  defaultCwd?: string;
+  timeoutMs?: number;
+};
+
 export type RunInput = {
   agentId: string;
   prompt: string;
   workspaceDir?: string;
   sessionId?: string;
   signal?: AbortSignal;
+  tools?: {
+    allow?: string[];
+    deny?: string[];
+  };
 };
 
 export type RunResult = {
@@ -384,6 +413,7 @@ export type Talos = {
   hasAgent: (agentId: string) => boolean;
   removeAgent: (agentId: string) => boolean;
   registerTool: (tool: ToolDefinition) => void;
+  registerExecTool: (options?: ExecToolOptions) => void;
   listTools: () => ToolDefinition[];
   hasTool: (toolName: string) => boolean;
   removeTool: (toolName: string) => boolean;

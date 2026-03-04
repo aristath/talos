@@ -23,6 +23,7 @@ describe("createTalos", () => {
     expect(typeof talos.hasAgent).toBe("function");
     expect(typeof talos.removeAgent).toBe("function");
     expect(typeof talos.registerTool).toBe("function");
+    expect(typeof talos.registerExecTool).toBe("function");
     expect(typeof talos.listTools).toBe("function");
     expect(typeof talos.hasTool).toBe("function");
     expect(typeof talos.removeTool).toBe("function");
@@ -96,6 +97,41 @@ describe("createTalos", () => {
     expect(talos.listTools().map((tool) => tool.name)).toContain("echo");
     expect(talos.removeTool("echo")).toBe(true);
     expect(talos.hasTool("echo")).toBe(false);
+  });
+
+  it("registers built-in exec tool using config defaults", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+      tools: {
+        executionMode: "sandbox",
+        sandbox: {
+          allowedCommands: [process.execPath],
+          allowedPaths: [process.cwd()],
+        },
+      },
+    });
+
+    talos.registerExecTool();
+    expect(talos.hasTool("exec")).toBe(true);
+
+    const result = await talos.executeTool({
+      name: "exec",
+      args: {
+        command: process.execPath,
+        args: ["-e", "console.log('exec-ok')"],
+        cwd: process.cwd(),
+      },
+      context: { agentId: "main" },
+    });
+    expect(result.content).toContain("exec-ok");
   });
 
   it("lists registered plugins", async () => {
@@ -870,7 +906,7 @@ describe("createTalos", () => {
           return { content: "x" };
         },
       }),
-    ).toThrowError(/Tool is denied by configuration/);
+    ).toThrowError(/Tool is denied by global configuration/);
   });
 
   it("enforces tool allowlist", async () => {
@@ -897,7 +933,84 @@ describe("createTalos", () => {
           return { content: "x" };
         },
       }),
-    ).toThrowError(/Tool is not in allowlist/);
+    ).toThrowError(/Tool is not in global allowlist/);
+  });
+
+  it("enforces agent-level tool policy", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerAgent({
+      id: "restricted",
+      tools: {
+        allow: ["safe"],
+      },
+    });
+
+    talos.registerTool({
+      name: "unsafe",
+      description: "unsafe",
+      async run() {
+        return { content: "x" };
+      },
+    });
+
+    await expect(
+      talos.executeTool({
+        name: "unsafe",
+        context: { agentId: "restricted" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
+  });
+
+  it("enforces run-level tool policy during run tool loops", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [],
+      },
+      models: {
+        toolLoopMaxSteps: 1,
+      },
+    });
+
+    talos.registerAgent({
+      id: "main",
+      model: { providerId: "provider", modelId: "m" },
+    });
+    talos.registerTool({
+      name: "sum",
+      description: "sum",
+      async run(args) {
+        return { content: String(Number(args.a ?? 0) + Number(args.b ?? 0)) };
+      },
+    });
+    talos.registerModelProvider({
+      id: "provider",
+      async generate() {
+        return {
+          text: JSON.stringify({ tool: "sum", args: { a: 2, b: 3 } }),
+          providerId: "provider",
+          modelId: "m",
+        };
+      },
+    });
+
+    await expect(
+      talos.run({
+        agentId: "main",
+        prompt: "Compute",
+        tools: { deny: ["sum"] },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
   });
 
   it("applies beforeModel hook overrides", async () => {
