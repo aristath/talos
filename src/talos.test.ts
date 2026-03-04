@@ -759,6 +759,7 @@ describe("createTalos", () => {
     let canvasPresentArgs: Record<string, unknown> | undefined;
     let canvasNavigateArgs: Record<string, unknown> | undefined;
     let canvasA2uiArgs: Record<string, unknown> | undefined;
+    const canvasSnapshotArgs: Record<string, unknown>[] = [];
     talos.registerBrowserTools({
       execute: async ({ action, args }) => {
         browserActions.push(action);
@@ -802,6 +803,9 @@ describe("createTalos", () => {
         }
         if (action === "a2ui_push") {
           canvasA2uiArgs = args;
+        }
+        if (action === "snapshot") {
+          canvasSnapshotArgs.push(args);
         }
         return {
           content: `canvas:${action}`,
@@ -1002,6 +1006,7 @@ describe("createTalos", () => {
     expect(canvasSnapshotSnakeFormat.content).toBe("canvas:snapshot");
     expect((canvasSnapshot.data as { node?: string }).node).toBe("canvas-node-1");
     expect((canvasSnapshot.data as { target?: string }).target).toBe("node");
+    expect((canvasSnapshotArgs[0] as { executionTarget?: string } | undefined)?.executionTarget).toBe("node");
     expect((canvasNavigateArgs as { url?: string } | undefined)?.url).toBe("https://example.com/canvas");
     expect((canvasPresentArgs as { target?: string } | undefined)?.target).toBe("https://example.com/embed");
     expect((canvasA2uiArgs as { jsonl?: string } | undefined)?.jsonl).toBe("./a2ui.jsonl");

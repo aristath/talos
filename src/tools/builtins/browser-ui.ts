@@ -761,7 +761,15 @@ export function createCanvasTool(options: CanvasToolOptions): ToolDefinition {
         normalizeCanvasExecutionTarget(inputArgs.targetMode);
       const node = typeof inputArgs.node === "string" && inputArgs.node.trim() ? inputArgs.node.trim() : undefined;
       const resolvedExecutionTarget = executionTarget ?? (node ? "node" : undefined);
-      const output = await options.execute({ action, args: normalizedArgs, context });
+      const explicitTarget = typeof normalizedArgs.executionTarget === "string" ? normalizedArgs.executionTarget.trim() : "";
+      const executeArgs =
+        resolvedExecutionTarget && !explicitTarget
+          ? {
+              ...normalizedArgs,
+              executionTarget: resolvedExecutionTarget,
+            }
+          : normalizedArgs;
+      const output = await options.execute({ action, args: executeArgs, context });
       return {
         content: output.content,
         data:
