@@ -248,14 +248,121 @@ function extractReadableHtml(input: string): string {
   return input;
 }
 
-function decodeHtmlEntities(input: string): string {
-  return input
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+function stripMarkdownCodeFences(raw: string): string {
+  const trimmed = raw.trim();
+  const match = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (!match) {
+    return trimmed;
+  }
+  return (match[1] ?? "").trim();
+}
+
+function parseSearchJsonPayload(raw: string): WebSearchResultItem[] {
+  const normalized = stripMarkdownCodeFences(raw);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(normalized);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+  return parsed
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const title = typeof (entry as { title?: unknown }).title === "string" ? (entry as { title: string }).title.trim() : "";
+      const url = typeof (entry as { url?: unknown }).url === "string" ? (entry as { url: string }).url.trim() : "";
+      const snippet =
+        typeof (entry as { snippet?: unknown }).snippet === "string"
+          ? (entry as { snippet: string }).snippet.trim()
+          : "";
+      if (!title || !url) {
+        return null;
+      }
+      return {
+        title,
+        url,
+        ...(snippet ? { snippet } : {}),
+      };
+    })
+    .filter((entry): entry is WebSearchResultItem => Boolean(entry));
+}
+
+async function providerModelSearch(params: {
+  provider: "perplexity" | "gemini" | "grok" | "kimi";
+  providerApiKey: string;
+  query: string;
+  count: number;
+}): Promise<WebSearchResultItem[]> {
+  const endpoint =
+    params.provider === "perplexity"
+      ? "https://api.perplexity.ai/chat/completions"
+      : params.provider === "gemini"
+        ? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+        : params.provider === "grok"
+          ? "https://api.x.ai/v1/chat/completions"
+          : "https://api.moonshot.ai/v1/chat/completions";
+  const model =
+    params.provider === "perplexity"
+      ? "sonar"
+      : params.provider === "gemini"
+        ? "gemini-2.5-pro"
+        : params.provider === "grok"
+          ? "grok-2-latest"
+          : "kimi-k2-0711-preview";
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${params.providerApiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a web search formatter. Return ONLY valid JSON array of {title,url,snippet}. No markdown.",
+        },
+        {
+          role: "user",
+          content: `Query: ${params.query}\nReturn top ${params.count} web results as JSON array with title,url,snippet.`,
+        },
+      ],
+      temperature: 0,
+      max_tokens: 700,
+      ...(params.provider === "perplexity" ? { search_domain_filter: [], return_citations: true } : {}),
+    }),
+  });
+  if (!response.ok) {
+    throw new TalosError({
+      code: "TOOL_FAILED",
+      message: `${params.provider} web_search failed (${response.status}).`,
+    });
+  }
+  const payload = (await response.json()) as {
+    citations?: string[];
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const text = payload.choices?.[0]?.message?.content?.trim() ?? "";
+  const parsed = text ? parseSearchJsonPayload(text) : [];
+  if (parsed.length > 0) {
+    return parsed.slice(0, params.count);
+  }
+  const citations = Array.isArray(payload.citations) ? payload.citations : [];
+  if (citations.length > 0) {
+    return citations.slice(0, params.count).map((url, index) => ({
+      title: `Result ${index + 1}`,
+      url,
+    }));
+  }
+  throw new TalosError({
+    code: "TOOL_FAILED",
+    message: `${params.provider} web_search returned no usable results.`,
+  });
 }
 
 async function defaultWebSearch(params: {
@@ -323,38 +430,18 @@ async function defaultWebSearch(params: {
       .filter((entry): entry is WebSearchResultItem => Boolean(entry));
   }
 
-  const fallbackUrl = new URL("https://duckduckgo.com/html/");
-  fallbackUrl.searchParams.set("q", params.query);
-  const response = await fetch(fallbackUrl.toString(), {
-    headers: {
-      Accept: "text/html",
-      "User-Agent": DEFAULT_WEB_USER_AGENT,
-    },
-  });
-  if (!response.ok) {
+  if (!params.providerApiKey) {
     throw new TalosError({
       code: "TOOL_FAILED",
-      message: `${provider} web_search fallback failed (${response.status}).`,
+      message: `web_search provider '${provider}' requires a provider API key.`,
     });
   }
-  const html = await response.text();
-  const rows = Array.from(
-    html.matchAll(/<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi),
-  )
-    .slice(0, params.count)
-    .map((match) => {
-      const url = decodeHtmlEntities((match[1] ?? "").trim());
-      const title = decodeHtmlEntities((match[2] ?? "").replace(/<[^>]+>/g, " ").trim());
-      if (!url || !title) {
-        return null;
-      }
-      return {
-        title,
-        url,
-      };
-    })
-    .filter((entry): entry is WebSearchResultItem => Boolean(entry));
-  return rows;
+  return await providerModelSearch({
+    provider,
+    providerApiKey: params.providerApiKey,
+    query: params.query,
+    count: params.count,
+  });
 }
 
 async function defaultFirecrawlFallback(params: {

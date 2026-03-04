@@ -19,12 +19,22 @@ describe("web builtins", () => {
     }
   });
 
-  it("uses built-in fallback search for non-brave providers", async () => {
+  it("uses provider model search for non-brave providers", async () => {
     const fetchMock = vi.fn(async () => {
       return {
         ok: true,
-        async text() {
-          return '<a class="result__a" href="https://example.com/a">Example A</a>';
+        async json() {
+          return {
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify([
+                    { title: "Example A", url: "https://example.com/a", snippet: "snippet" },
+                  ]),
+                },
+              },
+            ],
+          };
         },
       };
     });
@@ -32,11 +42,24 @@ describe("web builtins", () => {
 
     const tool = createWebSearchTool({
       defaultProvider: "gemini",
+      providerApiKeys: {
+        gemini: "gemini-key",
+      },
     });
 
     const result = await tool.run({ query: "talos", provider: "gemini" }, { agentId: "main" });
     const urls = (result.data as { results: Array<{ url: string }> }).results.map((entry) => entry.url);
     expect(urls).toContain("https://example.com/a");
+  });
+
+  it("requires key for non-brave providers", async () => {
+    const tool = createWebSearchTool({
+      defaultProvider: "gemini",
+    });
+
+    await expect(tool.run({ query: "talos", provider: "gemini" }, { agentId: "main" })).rejects.toMatchObject({
+      code: "TOOL_FAILED",
+    });
   });
 
   it("requires key for brave provider in built-in search", async () => {
