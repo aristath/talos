@@ -290,6 +290,12 @@ function normalizeBrowserActionArgs(action: string, args: Record<string, unknown
       };
     }
   }
+  if (action === "dialog") {
+    return {
+      ...args,
+      accept: typeof args.accept === "boolean" ? args.accept : false,
+    };
+  }
   return args;
 }
 
@@ -384,6 +390,15 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
       requireActionParam(args, "ref", "browser", action);
       requireActionParam(args, "filename", "browser", action);
       return;
+    case "upload": {
+      if (!Array.isArray(args.paths) || args.paths.length === 0) {
+        throw new TalosError({
+          code: "TOOL_FAILED",
+          message: "browser action 'upload' requires a non-empty 'paths' array.",
+        });
+      }
+      return;
+    }
     case "evaluate":
       requireActionParam(args, "fn", "browser", action);
       return;

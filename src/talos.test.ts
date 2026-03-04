@@ -752,6 +752,7 @@ describe("createTalos", () => {
     let browserFocusArgs: Record<string, unknown> | undefined;
     let browserNavigateArgs: Record<string, unknown> | undefined;
     const browserCloseArgs: Record<string, unknown>[] = [];
+    let browserDialogArgs: Record<string, unknown> | undefined;
     const canvasActions: string[] = [];
     let canvasPresentArgs: Record<string, unknown> | undefined;
     let canvasNavigateArgs: Record<string, unknown> | undefined;
@@ -773,6 +774,9 @@ describe("createTalos", () => {
         }
         if (action === "close") {
           browserCloseArgs.push(args);
+        }
+        if (action === "dialog") {
+          browserDialogArgs = args;
         }
         return {
           content: `browser:${action}`,
@@ -921,6 +925,7 @@ describe("createTalos", () => {
     expect((browserNavigateArgs as { url?: string } | undefined)?.url).toBe("https://example.com/nav");
     expect((browserCloseArgs[0] as { targetId?: string } | undefined)?.targetId).toBe("tab-8");
     expect((browserCloseArgs[1] as { targetId?: string } | undefined)?.targetId).toBeUndefined();
+    expect((browserDialogArgs as { accept?: boolean } | undefined)?.accept).toBe(false);
     expect(browserCookies.content).toBe("browser:cookies_set");
     expect(canvasA2ui.content).toBe("canvas:a2ui_push");
     expect(canvasA2uiPath.content).toBe("canvas:a2ui_push");
@@ -1007,6 +1012,13 @@ describe("createTalos", () => {
       talos.executeTool({
         name: "browser",
         args: { action: "set.viewport", width: 100 },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "browser",
+        args: { action: "upload" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
