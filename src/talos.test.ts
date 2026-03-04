@@ -1579,6 +1579,14 @@ describe("createTalos", () => {
       },
       context: { agentId: "main", sessionId: "main" },
     });
+    const statusOverride = await talos.executeTool({
+      name: "session_status",
+      args: {
+        sessionId: "main",
+        model: "gpt-4o",
+      },
+      context: { agentId: "main", sessionId: "main" },
+    });
 
     expect(list.content).toContain("main");
     expect(send.content).toContain("echo:ping");
@@ -1587,6 +1595,7 @@ describe("createTalos", () => {
     expect(status.content).toContain("main [main]");
     expect(statusAlias.content).toContain("main [main]");
     expect((status.data as { details?: { sessionId?: string } }).details?.sessionId).toBe("main");
+    expect((statusOverride.data as { changedModel?: boolean }).changedModel).toBe(true);
 
     const sendAlias = await talos.executeTool({
       name: "sessions_send",
@@ -1608,6 +1617,7 @@ describe("createTalos", () => {
     });
 
     expect(sendAlias.content).toContain("echo:ping-2");
+    expect((sendAlias.data as { modelId?: string }).modelId).toBe("gpt-4o");
     expect(spawnAlias.content).toContain("echo:sub task alias");
     expect((sendAlias.data as { details?: { sessionId?: string } }).details?.sessionId).toBe("main");
     expect((spawnAlias.data as { details?: { sessionId?: string } }).details?.sessionId).toContain("agent:main:acp:");

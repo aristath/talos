@@ -232,6 +232,10 @@ export type SessionRecord = {
   mode?: "run" | "session";
   label?: string;
   spawnedBy?: string;
+   providerOverride?: string;
+   modelOverride?: string;
+   providerId?: string;
+   modelId?: string;
   createdAt: string;
   updatedAt: string;
   lastRunId?: string;
@@ -279,6 +283,10 @@ export type SessionToolsCallbacks = {
     attachMountPath?: string;
   }) => Promise<{ sessionId: string; runId: string; text: string; providerId: string; modelId: string }>;
   getStatus: (sessionId: string) => SessionRecord | undefined;
+  setModelOverride?: (params: {
+    sessionId: string;
+    model: string;
+  }) => SessionRecord | undefined;
 };
 
 export type SessionToolsOptions = {

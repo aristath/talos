@@ -562,6 +562,12 @@ export function createTalos(config: TalosConfig): Talos {
             sessionKind: "subagent",
             ...(params.workspaceDir ? { workspaceDir: params.workspaceDir } : {}),
           });
+          const existing = sessions.get(sessionId);
+          if (existing) {
+            existing.providerId = result.providerId;
+            existing.modelId = result.modelId;
+            sessions.set(sessionId, existing);
+          }
           return {
             sessionId,
             runId: result.runId,
@@ -578,6 +584,36 @@ export function createTalos(config: TalosConfig): Talos {
           return {
             ...record,
             messages: [...record.messages],
+          };
+        },
+        setModelOverride: ({ sessionId, model }) => {
+          const session = sessions.get(sessionId.trim());
+          if (!session) {
+            return undefined;
+          }
+          const normalized = model.trim();
+          if (!normalized || normalized.toLowerCase() === "default") {
+            session.providerOverride = undefined;
+            session.modelOverride = undefined;
+            sessions.set(session.sessionId, session);
+            return {
+              ...session,
+              messages: [...session.messages],
+            };
+          }
+          const slashIndex = normalized.indexOf("/");
+          if (slashIndex > 0 && slashIndex < normalized.length - 1) {
+            session.providerOverride = normalized.slice(0, slashIndex);
+            session.modelOverride = normalized.slice(slashIndex + 1);
+          } else {
+            const providerFromLastRun = session.providerId ?? parsed.data.providers.openaiCompatible[0]?.id;
+            session.providerOverride = providerFromLastRun;
+            session.modelOverride = normalized;
+          }
+          sessions.set(session.sessionId, session);
+          return {
+            ...session,
+            messages: [...session.messages],
           };
         },
       },
@@ -1210,8 +1246,14 @@ export function createTalos(config: TalosConfig): Talos {
       assertRunNotAborted(signal, runId);
       const agent = agents.resolve(input.agentId);
       const primaryProvider = parsed.data.providers.openaiCompatible[0];
-      const primaryProviderId = agent.model?.providerId ?? primaryProvider?.id;
-      const primaryModelId = agent.model?.modelId ?? primaryProvider?.defaultModel;
+      const sessionOverride =
+        typeof input.sessionId === "string" && input.sessionId.trim()
+          ? sessions.get(input.sessionId.trim())
+          : undefined;
+      const primaryProviderId =
+        sessionOverride?.providerOverride ?? agent.model?.providerId ?? primaryProvider?.id;
+      const primaryModelId =
+        sessionOverride?.modelOverride ?? agent.model?.modelId ?? primaryProvider?.defaultModel;
       if (!primaryProviderId || !primaryModelId) {
         throw new TalosError({
           code: "PROVIDER_NOT_FOUND",
@@ -1464,6 +1506,8 @@ export function createTalos(config: TalosConfig): Talos {
           const now = new Date().toISOString();
           existing.updatedAt = now;
           existing.lastRunId = runId;
+          existing.providerId = result.providerId;
+          existing.modelId = result.modelId;
           existing.messages.push({
             role: "assistant",
             text: result.text,

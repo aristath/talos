@@ -199,9 +199,11 @@ describe("createSessionTools", () => {
       { agentId: "main" },
     );
     expect((deniedSend.data as { status?: string }).status).toBe("forbidden");
-    await expect(
-      statusTool!.run({ sessionId: "agent:main:subagent:blocked" }, { agentId: "main" }),
-    ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
+    const deniedStatus = await statusTool!.run(
+      { sessionId: "agent:main:subagent:blocked" },
+      { agentId: "main" },
+    );
+    expect((deniedStatus.data as { status?: string }).status).toBe("forbidden");
     await expect(
       spawnTool!.run(
         { task: "spawn" },
@@ -371,5 +373,61 @@ describe("createSessionTools", () => {
     expect(spawnCalls[0]?.thread).toBe(true);
     expect(spawnCalls[0]?.cleanup).toBe("delete");
     expect(spawnCalls[0]?.sandbox).toBe("require");
+  });
+
+  it("applies session_status model override via callback", async () => {
+    const tools = createSessionTools({
+      callbacks: {
+        listSessions: () => [],
+        getHistory: () => [],
+        sendToSession: async () => ({ runId: "r", text: "ok" }),
+        spawnSession: async () => ({
+          sessionId: "agent:main:subagent:xyz",
+          runId: "r2",
+          text: "ok",
+          providerId: "p",
+          modelId: "m",
+        }),
+        getStatus: () => ({
+          sessionId: "agent:main:subagent:abc",
+          agentId: "main",
+          kind: "subagent",
+          providerId: "openai",
+          modelId: "gpt-4o-mini",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          messages: [],
+        }),
+        setModelOverride: () => ({
+          sessionId: "agent:main:subagent:abc",
+          agentId: "main",
+          kind: "subagent",
+          providerId: "openai",
+          modelId: "gpt-4o-mini",
+          providerOverride: "anthropic",
+          modelOverride: "claude-3-7-sonnet",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          messages: [],
+        }),
+      },
+    });
+
+    const statusTool = tools.find((tool) => tool.name === "session_status");
+    expect(statusTool).toBeTruthy();
+    const result = await statusTool!.run(
+      { sessionId: "agent:main:subagent:abc", model: "anthropic/claude-3-7-sonnet" },
+      { agentId: "main" },
+    );
+    const data = result.data as {
+      status?: string;
+      changedModel?: boolean;
+      providerOverride?: string;
+      modelOverride?: string;
+    };
+    expect(data.status).toBe("ok");
+    expect(data.changedModel).toBe(true);
+    expect(data.providerOverride).toBe("anthropic");
+    expect(data.modelOverride).toBe("claude-3-7-sonnet");
   });
 });

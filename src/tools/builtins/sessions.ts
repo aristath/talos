@@ -571,10 +571,18 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
         }
         const status = options.callbacks.getStatus(sessionId);
         if (!status) {
-          throw new TalosError({
-            code: "TOOL_FAILED",
-            message: `Unknown session: ${sessionId}`,
-          });
+          return {
+            content: `Unknown session: ${sessionId}`,
+            data: {
+              sessionId,
+              status: "error",
+              error: `Unknown session: ${sessionId}`,
+              details: {
+                sessionId,
+                status: "error",
+              },
+            },
+          };
         }
         if (
           options.canAccessSession &&
@@ -585,27 +593,62 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
             session: status,
           })
         ) {
-          throw new TalosError({
-            code: "TOOL_NOT_ALLOWED",
-            message: `Access denied for session_status: ${sessionId}`,
-          });
+          return {
+            content: `Access denied for session_status: ${sessionId}`,
+            data: {
+              sessionId,
+              status: "forbidden",
+              error: `Access denied for session_status: ${sessionId}`,
+              details: {
+                sessionId,
+                status: "forbidden",
+              },
+            },
+          };
         }
+        const requestedModel = optionalString(args, "model");
+        const effectiveStatus =
+          requestedModel && options.callbacks.setModelOverride
+            ? options.callbacks.setModelOverride({ sessionId, model: requestedModel }) ?? status
+            : status;
+        const providerLine = effectiveStatus.providerId ? ` provider=${effectiveStatus.providerId}` : "";
+        const modelLine = effectiveStatus.modelId ? ` model=${effectiveStatus.modelId}` : "";
+        const overrideLine =
+          effectiveStatus.providerOverride || effectiveStatus.modelOverride
+            ? ` override=${[effectiveStatus.providerOverride, effectiveStatus.modelOverride]
+                .filter(Boolean)
+                .join("/")}`
+            : "";
+        const content = `${effectiveStatus.sessionId} [${effectiveStatus.kind}] agent=${effectiveStatus.agentId}${providerLine}${modelLine}${overrideLine} lastRun=${effectiveStatus.lastRunId ?? "n/a"}`;
+        const changedModel =
+          requestedModel &&
+          options.callbacks.setModelOverride &&
+          `${effectiveStatus.providerOverride ?? ""}/${effectiveStatus.modelOverride ?? ""}`.trim().length > 1;
         return {
-          content: `${status.sessionId} [${status.kind}] agent=${status.agentId} lastRun=${status.lastRunId ?? "n/a"}`,
+          content,
           data: {
-            ...status,
+            ...effectiveStatus,
+            status: "ok",
+            ...(requestedModel ? { requestedModel } : {}),
+            ...(changedModel ? { changedModel: true } : {}),
             details: {
-              sessionId: status.sessionId,
-              agentId: status.agentId,
-              kind: status.kind,
-              runtime: status.runtime,
-              mode: status.mode,
-              label: status.label,
-              lastRunId: status.lastRunId,
-              messageCount: status.messages.length,
+              sessionId: effectiveStatus.sessionId,
+              agentId: effectiveStatus.agentId,
+              kind: effectiveStatus.kind,
+              runtime: effectiveStatus.runtime,
+              mode: effectiveStatus.mode,
+              label: effectiveStatus.label,
+              providerId: effectiveStatus.providerId,
+              modelId: effectiveStatus.modelId,
+              providerOverride: effectiveStatus.providerOverride,
+              modelOverride: effectiveStatus.modelOverride,
+              lastRunId: effectiveStatus.lastRunId,
+              messageCount: effectiveStatus.messages.length,
+              status: "ok",
+              ...(requestedModel ? { requestedModel } : {}),
             },
           },
-        };
+        }
       },
     },
   ];
