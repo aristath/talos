@@ -979,6 +979,14 @@ describe("createTalos", () => {
     expect((browserStatusArgs[1] as { target?: string } | undefined)?.target).toBe("host");
     expect((browserStatusArgs[2] as { target?: string } | undefined)?.target).toBe("node");
     expect((browserTrace.data as { details?: { action?: string } }).details?.action).toBe("trace_start");
+    expect(
+      (browser.data as { details?: { externalContent?: { source?: string; kind?: string } } }).details
+        ?.externalContent?.source,
+    ).toBe("browser");
+    expect(
+      (browser.data as { details?: { externalContent?: { source?: string; kind?: string } } }).details
+        ?.externalContent?.kind,
+    ).toBe("snapshot");
     expect((browserActArgs[0]?.request as { kind?: string })?.kind).toBe("click");
     expect((browserActArgs[0] as { kind?: string } | undefined)?.kind).toBe("click");
     expect((browserActArgs[1]?.request as { kind?: string; key?: string })?.kind).toBe("press");

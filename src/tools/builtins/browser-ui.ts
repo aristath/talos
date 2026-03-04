@@ -704,6 +704,18 @@ function normalizeCanvasActionArgs(action: string, args: Record<string, unknown>
   return args;
 }
 
+function externalBrowserContentDetails(action: string): { untrusted: boolean; source: string; kind: string; wrapped: boolean } | undefined {
+  if (action === "snapshot" || action === "console" || action === "tabs" || action === "errors" || action === "requests") {
+    return {
+      untrusted: true,
+      source: "browser",
+      kind: action,
+      wrapped: false,
+    };
+  }
+  return undefined;
+}
+
 export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
   return {
     name: options.name ?? "browser",
@@ -758,6 +770,9 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
                   profile,
                   target: resolvedTarget,
                   node,
+                  ...(externalBrowserContentDetails(action)
+                    ? { externalContent: externalBrowserContentDetails(action) }
+                    : {}),
                 },
               }
             : {
@@ -770,6 +785,9 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
                   profile,
                   target: resolvedTarget,
                   node,
+                  ...(externalBrowserContentDetails(action)
+                    ? { externalContent: externalBrowserContentDetails(action) }
+                    : {}),
                 },
               },
       };
