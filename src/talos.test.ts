@@ -264,6 +264,85 @@ describe("createTalos", () => {
     expect(result.content).toContain('"ok": true');
   });
 
+  it("fails llm_task when model output is invalid JSON", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+    talos.registerModelProvider({
+      id: "openai",
+      async generate(request) {
+        return {
+          text: `not-json:${request.prompt}`,
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+    talos.registerLlmTaskTool();
+
+    await expect(
+      talos.executeTool({
+        name: "llm_task",
+        args: {
+          prompt: "Return JSON",
+        },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+  });
+
+  it("fails llm_task when JSON validation fails", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+    talos.registerModelProvider({
+      id: "openai",
+      async generate(request) {
+        return {
+          text: JSON.stringify({ mode: "unsafe", prompt: request.prompt }),
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+    talos.registerLlmTaskTool({
+      validateJson: (value) => ({
+        ok: Boolean(
+          value &&
+            typeof value === "object" &&
+            !Array.isArray(value) &&
+            (value as { mode?: string }).mode === "safe",
+        ),
+      }),
+    });
+
+    await expect(
+      talos.executeTool({
+        name: "llm_task",
+        args: {
+          prompt: "Return JSON",
+        },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+  });
+
   it("registers session tools and orchestrates sessions", async () => {
     const talos = createTalos({
       providers: {
@@ -316,10 +395,26 @@ describe("createTalos", () => {
       },
       context: { agentId: "main", sessionId: "main" },
     });
+    const history = await talos.executeTool({
+      name: "sessions_history",
+      args: {
+        sessionId: "main",
+      },
+      context: { agentId: "main", sessionId: "main" },
+    });
+    const status = await talos.executeTool({
+      name: "session_status",
+      args: {
+        sessionId: "main",
+      },
+      context: { agentId: "main", sessionId: "main" },
+    });
 
     expect(list.content).toContain("main");
     expect(send.content).toContain("echo:ping");
     expect(spawn.content).toContain("echo:sub task");
+    expect(history.content).toContain("user: hello");
+    expect(status.content).toContain("main [main]");
   });
 
   it("lists registered plugins", async () => {
