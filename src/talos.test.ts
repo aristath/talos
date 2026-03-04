@@ -522,6 +522,8 @@ describe("createTalos", () => {
       },
     });
     talos.registerLlmTaskTool();
+    expect(talos.hasTool("llm_task")).toBe(true);
+    expect(talos.hasTool("llm-task")).toBe(true);
 
     const result = await talos.executeTool({
       name: "llm_task",
@@ -532,6 +534,15 @@ describe("createTalos", () => {
     });
 
     expect(result.content).toContain('"ok": true');
+
+    const aliasResult = await talos.executeTool({
+      name: "llm-task",
+      args: {
+        prompt: "Return JSON",
+      },
+      context: { agentId: "main" },
+    });
+    expect(aliasResult.content).toContain('"ok": true');
   });
 
   it("accepts fenced JSON response in llm_task", async () => {

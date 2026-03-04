@@ -546,9 +546,9 @@ export function createTalos(config: TalosConfig): Talos {
     defaultMaxTokens?: number;
   }) => {
     const allowedModels = (options?.allowedModels ?? []).map((entry) => entry.trim()).filter(Boolean);
-    registerTool(
-      createLlmTaskTool({
-        ...(options?.name ? { name: options.name } : {}),
+    const buildTool = (name: string) => {
+      return createLlmTaskTool({
+        name,
         ...(options?.description ? { description: options.description } : {}),
         ...(options?.validateJson ? { validateJson: options.validateJson } : {}),
         generate: async (params) => {
@@ -570,7 +570,7 @@ export function createTalos(config: TalosConfig): Talos {
           if (allowedModels.length > 0 && !allowedModels.includes(modelKey)) {
             throw new TalosError({
               code: "TOOL_NOT_ALLOWED",
-              message: `llm_task model is not allowed: ${modelKey}`,
+              message: "llm_task model is not allowed: " + modelKey,
               details: {
                 allowedModels,
               },
@@ -624,8 +624,14 @@ export function createTalos(config: TalosConfig): Talos {
           );
           return response.text;
         },
-      }),
-    );
+      });
+    };
+
+    const primaryName = options?.name?.trim() || "llm_task";
+    registerTool(buildTool(primaryName));
+    if (!options?.name) {
+      registerTool(buildTool("llm-task"));
+    }
   };
 
   const listTools = (): ToolDefinition[] => {
