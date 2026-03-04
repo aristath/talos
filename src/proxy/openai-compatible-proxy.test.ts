@@ -183,6 +183,55 @@ describe("createOpenAICompatibleProxy", () => {
     expect(ids).toContain("agent:seo");
   });
 
+  it("protects and filters /v1/models when inbound auth is configured", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-models-auth-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+    await setupAgent({
+      workspaceDir,
+      agentId: "seo",
+      soul: "SEO soul",
+      apiKey: "sk-seo",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1-mini",
+    });
+
+    const proxy = createOpenAICompatibleProxy({
+      workspaceDir,
+      defaultAgentId: "designer",
+      inboundAuth: {
+        "client-key": {
+          defaultAgentId: "designer",
+          allowedAgentIds: ["designer"],
+        },
+      },
+    });
+
+    const unauthorized = await proxy.handle(new Request("http://localhost/v1/models", { method: "GET" }));
+    expect(unauthorized.status).toBe(401);
+
+    const authorized = await proxy.handle(
+      new Request("http://localhost/v1/models", {
+        method: "GET",
+        headers: {
+          authorization: "Bearer client-key",
+        },
+      }),
+    );
+    expect(authorized.status).toBe(200);
+    const payload = (await authorized.json()) as {
+      data?: Array<{ id?: string }>;
+    };
+    const ids = (payload.data ?? []).map((entry) => entry.id);
+    expect(ids).toEqual(["agent:designer"]);
+  });
+
   it("selects agent by model alias and enforces inbound auth allowlist", async () => {
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-alias-"));
     await setupAgent({

@@ -289,8 +289,12 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
     }
   };
 
-  const listModels = async (): Promise<Response> => {
-    const agentIds = await listAgentIds(workspaceDir, agentsDir);
+  const listModels = async (allowedAgentIds?: string[]): Promise<Response> => {
+    const allAgentIds = await listAgentIds(workspaceDir, agentsDir);
+    const agentIds =
+      Array.isArray(allowedAgentIds) && allowedAgentIds.length > 0
+        ? allAgentIds.filter((agentId) => allowedAgentIds.includes(agentId))
+        : allAgentIds;
     const rows = await Promise.all(
       agentIds.map(async (agentId) => {
         try {
@@ -324,7 +328,19 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
     handle: async (request: Request): Promise<Response> => {
       const url = new URL(request.url);
       if (request.method === "GET" && url.pathname === "/v1/models") {
-        return await listModels();
+        if (!options.inboundAuth) {
+          return await listModels();
+        }
+        const token = readBearerToken(request);
+        if (!token) {
+          return openAIError(401, "Missing bearer token.", "authentication_error");
+        }
+        const rule = options.inboundAuth[token];
+        if (!rule) {
+          return openAIError(403, "Invalid API token.", "authentication_error");
+        }
+        const allowed = rule.allowedAgentIds ?? [rule.defaultAgentId];
+        return await listModels(allowed.map((entry) => entry.trim()).filter(Boolean));
       }
       if (request.method !== "POST") {
         return openAIError(405, "Method not allowed.");
