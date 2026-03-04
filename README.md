@@ -25,6 +25,7 @@ Current core API:
 - `registerTool(tool)`
 - `listTools()`, `hasTool(toolName)`, and `removeTool(toolName)`
 - `registerPlugin(plugin)` with capability declarations (`tools`, `providers`, `hooks`)
+- plugins can declare `apiVersion` (current supported version: `1`)
 - `removePlugin(pluginId)` to unload a registered plugin
 - plugin `setup()` may return a teardown function executed during `removePlugin`
 - `listPlugins()` and `hasPlugin(pluginId)`

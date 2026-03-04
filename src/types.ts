@@ -126,6 +126,7 @@ export type TalosErrorCode =
   | "PLUGIN_DUPLICATE"
   | "PLUGIN_LOAD_FAILED"
   | "PLUGIN_UNLOAD_FAILED"
+  | "PLUGIN_API_VERSION_UNSUPPORTED"
   | "PLUGIN_CAPABILITY_DENIED"
   | "PLUGIN_HOOK_INVALID"
   | "RUN_FAILED"
@@ -329,6 +330,7 @@ export type RunStats = {
 
 export type PluginSummary = {
   id: string;
+  apiVersion: number;
   capabilities: PluginCapability[];
   toolCount: number;
   providerCount: number;
@@ -358,6 +360,7 @@ export type DiagnosticsResetResult = {
 };
 
 export type TalosPluginApi = {
+  apiVersion: number;
   registerTool: (tool: ToolDefinition) => void;
   registerModelProvider: (provider: ModelProviderAdapter) => void;
   on: <K extends keyof PluginHooks>(hook: K, handler: PluginHooks[K]) => void;
@@ -365,6 +368,7 @@ export type TalosPluginApi = {
 
 export type TalosPlugin = {
   id: string;
+  apiVersion?: number;
   capabilities?: PluginCapability[];
   setup: (
     api: TalosPluginApi,

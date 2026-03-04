@@ -43,6 +43,7 @@ const DEFAULT_RETRIES_PER_MODEL = 0;
 const DEFAULT_RETRY_DELAY_MS = 0;
 const DEFAULT_TOOL_EXECUTION_TIMEOUT_MS = 30_000;
 const DEFAULT_TOOL_LOOP_MAX_STEPS = 0;
+const TALOS_PLUGIN_API_VERSION = 1;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -200,6 +201,7 @@ export function createTalos(config: TalosConfig): Talos {
   const pluginOwnedProviders = new Map<string, Set<string>>();
   const pluginTeardowns = new Map<string, () => void | Promise<void>>();
   const pluginCapabilities = new Map<string, PluginCapability[]>();
+  const pluginApiVersions = new Map<string, number>();
   const authProfiles = new Map<string, AuthProfile>();
   const requestTimeoutMs = parsed.data.models?.requestTimeoutMs ?? DEFAULT_MODEL_REQUEST_TIMEOUT_MS;
   const retriesPerModel = parsed.data.models?.retriesPerModel ?? DEFAULT_RETRIES_PER_MODEL;
@@ -341,10 +343,18 @@ export function createTalos(config: TalosConfig): Talos {
   const registerPlugin = async (plugin: TalosPlugin) => {
     plugins.assertNotRegistered(plugin.id);
     const normalizedPluginId = plugin.id.trim();
+    const apiVersion = plugin.apiVersion ?? TALOS_PLUGIN_API_VERSION;
+    if (apiVersion !== TALOS_PLUGIN_API_VERSION) {
+      throw new TalosError({
+        code: "PLUGIN_API_VERSION_UNSUPPORTED",
+        message: `Plugin ${normalizedPluginId} uses apiVersion ${apiVersion}, but runtime supports ${TALOS_PLUGIN_API_VERSION}.`,
+      });
+    }
     const capabilities = plugin.capabilities ?? ["tools", "providers", "hooks"];
     const ownedTools = new Set<string>();
     const ownedProviders = new Set<string>();
     const teardown = await plugin.setup({
+      apiVersion: TALOS_PLUGIN_API_VERSION,
       registerTool: (tool) => {
         if (!hasCapability(capabilities, "tools")) {
           throw new TalosError({
@@ -379,6 +389,7 @@ export function createTalos(config: TalosConfig): Talos {
     pluginOwnedTools.set(normalizedPluginId, ownedTools);
     pluginOwnedProviders.set(normalizedPluginId, ownedProviders);
     pluginCapabilities.set(normalizedPluginId, [...capabilities]);
+    pluginApiVersions.set(normalizedPluginId, apiVersion);
     if (typeof teardown === "function") {
       pluginTeardowns.set(normalizedPluginId, teardown);
     }
@@ -430,6 +441,7 @@ export function createTalos(config: TalosConfig): Talos {
     }
 
     pluginCapabilities.delete(normalizedPluginId);
+    pluginApiVersions.delete(normalizedPluginId);
 
     await events.emit({
       type: "plugin.unregistered",
@@ -461,6 +473,7 @@ export function createTalos(config: TalosConfig): Talos {
       const providers = pluginOwnedProviders.get(pluginId);
       return {
         id: pluginId,
+        apiVersion: pluginApiVersions.get(pluginId) ?? TALOS_PLUGIN_API_VERSION,
         capabilities,
         toolCount: tools?.size ?? 0,
         providerCount: providers?.size ?? 0,
@@ -478,6 +491,7 @@ export function createTalos(config: TalosConfig): Talos {
     const providers = pluginOwnedProviders.get(normalizedPluginId);
     return {
       id: normalizedPluginId,
+      apiVersion: pluginApiVersions.get(normalizedPluginId) ?? TALOS_PLUGIN_API_VERSION,
       capabilities,
       toolCount: tools?.size ?? 0,
       providerCount: providers?.size ?? 0,

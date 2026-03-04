@@ -167,6 +167,7 @@ describe("createTalos", () => {
     expect(summaries.some((entry) => entry.id === "summary-plugin")).toBe(true);
     expect(summary?.toolCount).toBe(1);
     expect(summary?.providerCount).toBe(1);
+    expect(summary?.apiVersion).toBe(1);
     expect(summary?.capabilities).toContain("hooks");
   });
 
@@ -406,6 +407,30 @@ describe("createTalos", () => {
         },
       }),
     ).rejects.toMatchObject({ code: "PLUGIN_CAPABILITY_DENIED" });
+  });
+
+  it("rejects plugins with unsupported apiVersion", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    await expect(
+      talos.registerPlugin({
+        id: "future-plugin",
+        apiVersion: 99,
+        setup() {
+          return undefined;
+        },
+      }),
+    ).rejects.toMatchObject({ code: "PLUGIN_API_VERSION_UNSUPPORTED" });
   });
 
   it("emits plugin registration events", async () => {
