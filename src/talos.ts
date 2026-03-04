@@ -14,6 +14,8 @@ import type { PersonaSnapshot } from "./persona/types.js";
 import { PluginRegistry } from "./plugins/registry.js";
 import { discoverPluginEntryPaths, loadPluginFromPath } from "./plugins/loader.js";
 import { TALOS_PLUGIN_API_VERSION, assertPluginCompatibility } from "./plugin-sdk.js";
+import { ToolRegistry } from "./tools/registry.js";
+import { createExecTool } from "./tools/builtins/exec.js";
 import { TalosError, toTalosErrorLike } from "./errors.js";
 import { LifecycleEventBus } from "./observability/events.js";
 import { loadStateSnapshot, saveStateSnapshot } from "./observability/persistence.js";
@@ -26,10 +28,14 @@ import type {
   Talos,
   TalosConfig,
   TalosPlugin,
+  ToolDefinition,
   PluginCapability,
   RunLifecycleListener,
   RunLifecycleUnsubscribe,
   ModelResponse,
+  ToolExecutionInput,
+  ToolResult,
+  ExecToolOptions,
   ActiveRun,
   RunSummary,
   RunQuery,
@@ -44,6 +50,8 @@ import type {
 const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 60_000;
 const DEFAULT_RETRIES_PER_MODEL = 0;
 const DEFAULT_RETRY_DELAY_MS = 0;
+const DEFAULT_TOOL_EXECUTION_TIMEOUT_MS = 30_000;
+const DEFAULT_TOOL_LOOP_MAX_STEPS = 0;
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -57,6 +65,16 @@ function assertRunNotAborted(signal: AbortSignal | undefined, runId: string): vo
   throw new TalosError({
     code: "RUN_CANCELLED",
     message: `Run ${runId} was cancelled.`,
+  });
+}
+
+function assertToolNotAborted(signal: AbortSignal | undefined, toolName: string): void {
+  if (!signal?.aborted) {
+    return;
+  }
+  throw new TalosError({
+    code: "TOOL_CANCELLED",
+    message: `Tool execution was cancelled: ${toolName}`,
   });
 }
 
@@ -87,7 +105,7 @@ async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
   timeoutMessage: string,
-  timeoutCode: "MODEL_TIMEOUT" = "MODEL_TIMEOUT",
+  timeoutCode: "MODEL_TIMEOUT" | "TOOL_TIMEOUT" = "MODEL_TIMEOUT",
 ): Promise<T> {
   let timeoutHandle: NodeJS.Timeout | null = null;
   try {
@@ -111,6 +129,76 @@ async function withTimeout<T>(
   }
 }
 
+type ParsedToolLoopResponse = {
+  toolCalls: Array<{ name: string; args: Record<string, unknown> }>;
+  final?: string;
+};
+
+function parseToolLoopResponse(text: string): ParsedToolLoopResponse | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  const candidate = parsed as {
+    tool?: unknown;
+    args?: unknown;
+    toolCalls?: unknown;
+    final?: unknown;
+  };
+
+  const singleTool =
+    typeof candidate.tool === "string" && candidate.tool.trim()
+      ? [
+          {
+            name: candidate.tool.trim(),
+            args:
+              candidate.args && typeof candidate.args === "object" && !Array.isArray(candidate.args)
+                ? (candidate.args as Record<string, unknown>)
+                : {},
+          },
+        ]
+      : [];
+
+  const manyTools = Array.isArray(candidate.toolCalls)
+    ? candidate.toolCalls
+        .map((entry) => {
+          if (!entry || typeof entry !== "object") {
+            return null;
+          }
+          const e = entry as { name?: unknown; args?: unknown };
+          if (typeof e.name !== "string" || !e.name.trim()) {
+            return null;
+          }
+          return {
+            name: e.name.trim(),
+            args: e.args && typeof e.args === "object" && !Array.isArray(e.args)
+              ? (e.args as Record<string, unknown>)
+              : {},
+          };
+        })
+        .filter((entry): entry is { name: string; args: Record<string, unknown> } => Boolean(entry))
+    : [];
+
+  const toolCalls = manyTools.length > 0 ? manyTools : singleTool;
+  const final = typeof candidate.final === "string" && candidate.final.trim() ? candidate.final : undefined;
+  if (toolCalls.length === 0) {
+    return null;
+  }
+  return {
+    toolCalls,
+    ...(final ? { final } : {}),
+  };
+}
+
 export function createTalos(config: TalosConfig): Talos {
   const parsed = talosConfigSchema.safeParse(config);
   if (!parsed.success) {
@@ -128,6 +216,7 @@ export function createTalos(config: TalosConfig): Talos {
   }
   const agents = new AgentRegistry();
   const models = new ModelRegistry();
+  const tools = new ToolRegistry();
   const plugins = new PluginRegistry();
   const events = new LifecycleEventBus();
   const activeRuns = new Map<
@@ -138,6 +227,7 @@ export function createTalos(config: TalosConfig): Talos {
       detachExternalAbort?: () => void;
     }
   >();
+  const pluginOwnedTools = new Map<string, Set<string>>();
   const pluginOwnedProviders = new Map<string, Set<string>>();
   const personaSnapshotCache = new Map<string, PersonaSnapshot>();
   const pluginTeardowns = new Map<string, () => void | Promise<void>>();
@@ -147,6 +237,9 @@ export function createTalos(config: TalosConfig): Talos {
   const requestTimeoutMs = parsed.data.models?.requestTimeoutMs ?? DEFAULT_MODEL_REQUEST_TIMEOUT_MS;
   const retriesPerModel = parsed.data.models?.retriesPerModel ?? DEFAULT_RETRIES_PER_MODEL;
   const retryDelayMs = parsed.data.models?.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
+  const toolLoopMaxSteps = parsed.data.models?.toolLoopMaxSteps ?? DEFAULT_TOOL_LOOP_MAX_STEPS;
+  const toolExecutionTimeoutMs =
+    parsed.data.tools?.executionTimeoutMs ?? DEFAULT_TOOL_EXECUTION_TIMEOUT_MS;
   const defaultStateFile = parsed.data.runtime?.stateFile?.trim();
   const redactKeys = parsed.data.security?.redactKeys;
 
@@ -160,6 +253,69 @@ export function createTalos(config: TalosConfig): Talos {
 
   const hasCapability = (pluginCapabilities: PluginCapability[] | undefined, needed: PluginCapability) => {
     return pluginCapabilities?.includes(needed) ?? false;
+  };
+
+  const normalizeToolName = (name: string) => name.trim().toLowerCase();
+  const toolAllowlist = new Set((parsed.data.tools?.allow ?? []).map(normalizeToolName));
+  const toolDenylist = new Set((parsed.data.tools?.deny ?? []).map(normalizeToolName));
+
+  const toNormalizedSet = (values?: string[]) => {
+    return new Set((values ?? []).map(normalizeToolName).filter((value) => value.length > 0));
+  };
+
+  const assertToolAllowed = (params: {
+    name: string;
+    agentId?: string;
+    policy?: {
+      allow?: string[];
+      deny?: string[];
+    };
+  }) => {
+    const { name, agentId, policy } = params;
+    const normalized = normalizeToolName(name);
+
+    const agent = agentId && agents.has(agentId) ? agents.resolve(agentId) : undefined;
+    const agentAllow = toNormalizedSet(agent?.tools?.allow);
+    const agentDeny = toNormalizedSet(agent?.tools?.deny);
+    const runAllow = toNormalizedSet(policy?.allow);
+    const runDeny = toNormalizedSet(policy?.deny);
+
+    if (toolDenylist.has(normalized)) {
+      throw new TalosError({
+        code: "TOOL_NOT_ALLOWED",
+        message: `Tool is denied by global configuration: ${name}`,
+      });
+    }
+    if (agentDeny.has(normalized)) {
+      throw new TalosError({
+        code: "TOOL_NOT_ALLOWED",
+        message: `Tool is denied by agent policy: ${name}`,
+      });
+    }
+    if (runDeny.has(normalized)) {
+      throw new TalosError({
+        code: "TOOL_NOT_ALLOWED",
+        message: `Tool is denied by run policy: ${name}`,
+      });
+    }
+    if (toolAllowlist.size > 0 && !toolAllowlist.has(normalized)) {
+      throw new TalosError({
+        code: "TOOL_NOT_ALLOWED",
+        message: `Tool is not in global allowlist: ${name}`,
+      });
+    }
+    if (agentAllow.size > 0 && !agentAllow.has(normalized)) {
+      throw new TalosError({
+        code: "TOOL_NOT_ALLOWED",
+        message: `Tool is not in agent allowlist: ${name}`,
+      });
+    }
+    if (runAllow.size > 0 && !runAllow.has(normalized)) {
+      throw new TalosError({
+        code: "TOOL_NOT_ALLOWED",
+        message: `Tool is not in run allowlist: ${name}`,
+      });
+    }
   };
 
   for (const provider of parsed.data.providers.openaiCompatible) {
@@ -226,6 +382,50 @@ export function createTalos(config: TalosConfig): Talos {
     return authProfiles.delete(normalizedId);
   };
 
+  const registerTool = (tool: ToolDefinition) => {
+    assertToolAllowed({ name: tool.name });
+    tools.register(tool);
+  };
+
+  const registerExecTool = (options?: ExecToolOptions) => {
+    const mode = options?.mode ?? parsed.data.tools?.executionMode ?? "host";
+    const sandbox = options?.sandbox ?? parsed.data.tools?.sandbox;
+    const timeoutMs = options?.timeoutMs ?? toolExecutionTimeoutMs;
+    const maxOutputBytes = options?.maxOutputBytes ?? parsed.data.tools?.maxOutputBytes;
+    const normalizedSandbox = sandbox
+      ? {
+          ...(sandbox.allowedCommands ? { allowedCommands: sandbox.allowedCommands } : {}),
+          ...(sandbox.allowedPaths ? { allowedPaths: sandbox.allowedPaths } : {}),
+          ...(typeof sandbox.requireCwdInAllowedPaths === "boolean"
+            ? { requireCwdInAllowedPaths: sandbox.requireCwdInAllowedPaths }
+            : {}),
+        }
+      : undefined;
+    registerTool(
+      createExecTool({
+        ...(options?.name ? { name: options.name } : {}),
+        ...(options?.description ? { description: options.description } : {}),
+        mode,
+        ...(normalizedSandbox ? { sandbox: normalizedSandbox } : {}),
+        ...(options?.defaultCwd ? { defaultCwd: options.defaultCwd } : {}),
+        timeoutMs,
+        ...(typeof maxOutputBytes === "number" ? { maxOutputBytes } : {}),
+      }),
+    );
+  };
+
+  const listTools = (): ToolDefinition[] => {
+    return tools.list();
+  };
+
+  const hasTool = (toolName: string): boolean => {
+    return tools.has(toolName);
+  };
+
+  const removeTool = (toolName: string): boolean => {
+    return tools.remove(toolName);
+  };
+
   const registerAgent = (agent: AgentDefinition) => {
     agents.register(agent);
   };
@@ -247,10 +447,21 @@ export function createTalos(config: TalosConfig): Talos {
     const normalizedPluginId = plugin.id.trim();
     assertPluginCompatibility(plugin);
     const apiVersion = plugin.apiVersion ?? TALOS_PLUGIN_API_VERSION;
-    const capabilities = plugin.capabilities ?? ["providers", "hooks"];
+    const capabilities = plugin.capabilities ?? ["tools", "providers", "hooks"];
+    const ownedTools = new Set<string>();
     const ownedProviders = new Set<string>();
     const teardown = await plugin.setup({
       apiVersion: TALOS_PLUGIN_API_VERSION,
+      registerTool: (tool) => {
+        if (!hasCapability(capabilities, "tools")) {
+          throw new TalosError({
+            code: "PLUGIN_CAPABILITY_DENIED",
+            message: `Plugin ${plugin.id} is not allowed to register tools.`,
+          });
+        }
+        registerTool(tool);
+        ownedTools.add(tool.name.trim());
+      },
       registerModelProvider: (provider) => {
         if (!hasCapability(capabilities, "providers")) {
           throw new TalosError({
@@ -272,6 +483,7 @@ export function createTalos(config: TalosConfig): Talos {
       },
     });
     plugins.markRegistered(normalizedPluginId);
+    pluginOwnedTools.set(normalizedPluginId, ownedTools);
     pluginOwnedProviders.set(normalizedPluginId, ownedProviders);
     pluginCapabilities.set(normalizedPluginId, [...capabilities]);
     pluginApiVersions.set(normalizedPluginId, apiVersion);
@@ -307,6 +519,14 @@ export function createTalos(config: TalosConfig): Talos {
       } finally {
         pluginTeardowns.delete(normalizedPluginId);
       }
+    }
+
+    const ownedTools = pluginOwnedTools.get(normalizedPluginId);
+    if (ownedTools) {
+      for (const toolName of ownedTools) {
+        tools.remove(toolName);
+      }
+      pluginOwnedTools.delete(normalizedPluginId);
     }
 
     const ownedProviders = pluginOwnedProviders.get(normalizedPluginId);
@@ -346,11 +566,13 @@ export function createTalos(config: TalosConfig): Talos {
   const listPluginSummaries = (): PluginSummary[] => {
     return plugins.list().map((pluginId) => {
       const capabilities = pluginCapabilities.get(pluginId) ?? [];
+      const tools = pluginOwnedTools.get(pluginId);
       const providers = pluginOwnedProviders.get(pluginId);
       return {
         id: pluginId,
         apiVersion: pluginApiVersions.get(pluginId) ?? TALOS_PLUGIN_API_VERSION,
         capabilities,
+        toolCount: tools?.size ?? 0,
         providerCount: providers?.size ?? 0,
         hooks: plugins.getHooks(pluginId),
       };
@@ -363,11 +585,13 @@ export function createTalos(config: TalosConfig): Talos {
       return undefined;
     }
     const capabilities = pluginCapabilities.get(normalizedPluginId) ?? [];
+    const tools = pluginOwnedTools.get(normalizedPluginId);
     const providers = pluginOwnedProviders.get(normalizedPluginId);
     return {
       id: normalizedPluginId,
       apiVersion: pluginApiVersions.get(normalizedPluginId) ?? TALOS_PLUGIN_API_VERSION,
       capabilities,
+      toolCount: tools?.size ?? 0,
       providerCount: providers?.size ?? 0,
       hooks: plugins.getHooks(normalizedPluginId),
     };
@@ -457,6 +681,7 @@ export function createTalos(config: TalosConfig): Talos {
       generatedAt: new Date().toISOString(),
       counts: {
         agents: agents.list().length,
+        tools: tools.list().length,
         plugins: plugins.list().length,
         providers: models.list().length,
         activeRuns: activeRuns.size,
@@ -515,6 +740,126 @@ export function createTalos(config: TalosConfig): Talos {
       }
     }
     return loadedPluginIds;
+  };
+
+  const executeTool = async (input: ToolExecutionInput): Promise<ToolResult> => {
+    const toolAbortController = new AbortController();
+    const externalSignal = input.signal;
+    let detachExternalAbort: (() => void) | undefined;
+    if (externalSignal?.aborted) {
+      toolAbortController.abort();
+    } else if (externalSignal) {
+      const onExternalAbort = () => {
+        toolAbortController.abort();
+      };
+      externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+      detachExternalAbort = () => {
+        externalSignal.removeEventListener("abort", onExternalAbort);
+      };
+    }
+
+    const args = input.args ?? {};
+    const normalizedInput: ToolExecutionInput = {
+      name: input.name,
+      args,
+      context: input.context,
+      signal: toolAbortController.signal,
+      ...(input.policy ? { policy: input.policy } : {}),
+    };
+
+    assertToolNotAborted(normalizedInput.signal, normalizedInput.name);
+
+    await events.emit({
+      type: "tool.started",
+      at: new Date().toISOString(),
+      data: {
+        name: normalizedInput.name,
+        agentId: normalizedInput.context.agentId,
+        ...(normalizedInput.context.sessionId ? { sessionId: normalizedInput.context.sessionId } : {}),
+        ...(normalizedInput.context.runId ? { runId: normalizedInput.context.runId } : {}),
+      },
+    });
+
+    try {
+      await plugins.runBeforeTool(normalizedInput);
+      assertToolNotAborted(normalizedInput.signal, normalizedInput.name);
+      assertToolAllowed(
+        normalizedInput.policy
+          ? {
+              name: normalizedInput.name,
+              agentId: normalizedInput.context.agentId,
+              policy: normalizedInput.policy,
+            }
+          : {
+              name: normalizedInput.name,
+              agentId: normalizedInput.context.agentId,
+            },
+      );
+      const result = await withTimeout(
+        tools.execute(normalizedInput.name, args, normalizedInput.context),
+        toolExecutionTimeoutMs,
+        `Tool execution timed out after ${toolExecutionTimeoutMs}ms: ${normalizedInput.name}`,
+        "TOOL_TIMEOUT",
+      );
+      assertToolNotAborted(normalizedInput.signal, normalizedInput.name);
+      await plugins.runAfterTool({
+        input: normalizedInput,
+        result,
+      });
+      await events.emit({
+        type: "tool.completed",
+        at: new Date().toISOString(),
+        data: {
+          name: normalizedInput.name,
+          agentId: normalizedInput.context.agentId,
+          ...(normalizedInput.context.sessionId
+            ? { sessionId: normalizedInput.context.sessionId }
+            : {}),
+          ...(normalizedInput.context.runId ? { runId: normalizedInput.context.runId } : {}),
+        },
+      });
+      return result;
+    } catch (error) {
+      if (error instanceof TalosError && error.code === "TOOL_CANCELLED") {
+        await events.emit({
+          type: "tool.cancelled",
+          at: new Date().toISOString(),
+          data: {
+            name: normalizedInput.name,
+            agentId: normalizedInput.context.agentId,
+            ...(normalizedInput.context.sessionId
+              ? { sessionId: normalizedInput.context.sessionId }
+              : {}),
+            ...(normalizedInput.context.runId ? { runId: normalizedInput.context.runId } : {}),
+            reason: error.message,
+          },
+        });
+        throw error;
+      }
+      await events.emit({
+        type: "tool.failed",
+        at: new Date().toISOString(),
+        data: {
+          name: normalizedInput.name,
+          agentId: normalizedInput.context.agentId,
+          ...(normalizedInput.context.sessionId
+            ? { sessionId: normalizedInput.context.sessionId }
+            : {}),
+          ...(normalizedInput.context.runId ? { runId: normalizedInput.context.runId } : {}),
+          error: toTalosErrorLike(error),
+        },
+      });
+      if (error instanceof TalosError) {
+        throw error;
+      }
+      throw new TalosError({
+        code: "TOOL_FAILED",
+        message: `Tool execution failed: ${normalizedInput.name}`,
+        cause: error,
+      });
+    } finally {
+      detachExternalAbort?.();
+    }
   };
 
   const run = async (input: RunInput): Promise<RunResult> => {
@@ -739,7 +1084,50 @@ export function createTalos(config: TalosConfig): Talos {
         return generated;
       };
 
-      const generated = await generateWithFallback(input.prompt);
+      let generated = await generateWithFallback(input.prompt);
+      if (toolLoopMaxSteps > 0) {
+        let toolRound = 0;
+        let workingPrompt = input.prompt;
+        while (toolRound < toolLoopMaxSteps) {
+          const parsedToolResponse = parseToolLoopResponse(generated.text);
+          if (!parsedToolResponse || parsedToolResponse.toolCalls.length === 0) {
+            break;
+          }
+          const toolOutputs: string[] = [];
+          for (const call of parsedToolResponse.toolCalls) {
+            const toolResult = await executeTool({
+              name: call.name,
+              args: call.args,
+              context: {
+                agentId: input.agentId,
+                ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+                ...(input.workspaceDir ? { workspaceDir: input.workspaceDir } : {}),
+                runId,
+              },
+              signal,
+              ...(input.tools ? { policy: input.tools } : {}),
+            });
+            toolOutputs.push(`- ${call.name}: ${toolResult.content}`);
+          }
+          if (parsedToolResponse.final) {
+            generated = {
+              ...generated,
+              text: parsedToolResponse.final,
+            };
+            break;
+          }
+          toolRound += 1;
+          workingPrompt = [
+            workingPrompt,
+            "",
+            "Tool results:",
+            ...toolOutputs,
+            "",
+            "Provide the final answer for the user. If you still need tools, reply with JSON only.",
+          ].join("\n");
+          generated = await generateWithFallback(workingPrompt);
+        }
+      }
 
       const result: RunResult = {
         runId,
@@ -799,6 +1187,11 @@ export function createTalos(config: TalosConfig): Talos {
     listAgents,
     hasAgent,
     removeAgent,
+    registerTool,
+    registerExecTool,
+    listTools,
+    hasTool,
+    removeTool,
     registerPlugin,
     removePlugin,
     listPlugins,
@@ -830,6 +1223,7 @@ export function createTalos(config: TalosConfig): Talos {
     seedPersonaWorkspace: seedPersonaWorkspaceApi,
     loadPluginFromPath: loadPluginFromPathApi,
     loadPluginsFromDirectory,
+    executeTool,
     run,
   };
 }

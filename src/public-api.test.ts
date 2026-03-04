@@ -9,6 +9,7 @@ describe("public API contract", () => {
       "TALOS_PLUGIN_API_VERSION",
       "TalosError",
       "assertPluginCompatibility",
+      "createExecTool",
       "createTalos",
       "definePlugin",
       "discoverPluginEntryPaths",

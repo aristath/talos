@@ -26,6 +26,7 @@ export const talosConfigSchema = z.object({
       requestTimeoutMs: z.number().int().positive().optional(),
       retriesPerModel: z.number().int().min(0).max(10).optional(),
       retryDelayMs: z.number().int().min(0).max(60_000).optional(),
+      toolLoopMaxSteps: z.number().int().min(0).max(20).optional(),
     })
     .optional(),
   persona: z
@@ -34,6 +35,22 @@ export const talosConfigSchema = z.object({
       bootstrapTotalMaxChars: z.number().int().positive().optional(),
       extraFiles: z.array(z.string().min(1)).optional(),
       contextMode: z.enum(["full", "lightweight"]).optional(),
+    })
+    .optional(),
+  tools: z
+    .object({
+      allow: z.array(z.string().min(1)).optional(),
+      deny: z.array(z.string().min(1)).optional(),
+      executionTimeoutMs: z.number().int().positive().optional(),
+      maxOutputBytes: z.number().int().positive().optional(),
+      executionMode: z.enum(["host", "sandbox"]).optional(),
+      sandbox: z
+        .object({
+          allowedCommands: z.array(z.string().min(1)).optional(),
+          allowedPaths: z.array(z.string().min(1)).optional(),
+          requireCwdInAllowedPaths: z.boolean().optional(),
+        })
+        .optional(),
     })
     .optional(),
   runtime: z

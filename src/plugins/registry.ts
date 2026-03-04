@@ -8,12 +8,16 @@ export class PluginRegistry {
     afterRun: Array<{ pluginId: string; handler: PluginHooks["afterRun"] }>;
     beforeModel: Array<{ pluginId: string; handler: PluginHooks["beforeModel"] }>;
     afterModel: Array<{ pluginId: string; handler: PluginHooks["afterModel"] }>;
+    beforeTool: Array<{ pluginId: string; handler: PluginHooks["beforeTool"] }>;
+    afterTool: Array<{ pluginId: string; handler: PluginHooks["afterTool"] }>;
   } = {
     beforeRun: [],
     beforePersonaLoad: [],
     afterRun: [],
     beforeModel: [],
     afterModel: [],
+    beforeTool: [],
+    afterTool: [],
   };
 
   private readonly plugins = new Set<string>();
@@ -67,6 +71,12 @@ export class PluginRegistry {
     if (this.hooks.afterModel.some((entry) => entry.pluginId === normalizedId)) {
       hooks.push("afterModel");
     }
+    if (this.hooks.beforeTool.some((entry) => entry.pluginId === normalizedId)) {
+      hooks.push("beforeTool");
+    }
+    if (this.hooks.afterTool.some((entry) => entry.pluginId === normalizedId)) {
+      hooks.push("afterTool");
+    }
     return hooks;
   }
 
@@ -84,6 +94,8 @@ export class PluginRegistry {
     this.hooks.afterRun = this.hooks.afterRun.filter((entry) => entry.pluginId !== normalizedId);
     this.hooks.beforeModel = this.hooks.beforeModel.filter((entry) => entry.pluginId !== normalizedId);
     this.hooks.afterModel = this.hooks.afterModel.filter((entry) => entry.pluginId !== normalizedId);
+    this.hooks.beforeTool = this.hooks.beforeTool.filter((entry) => entry.pluginId !== normalizedId);
+    this.hooks.afterTool = this.hooks.afterTool.filter((entry) => entry.pluginId !== normalizedId);
     return true;
   }
 
@@ -111,6 +123,14 @@ export class PluginRegistry {
     }
     if (name === "afterRun") {
       this.hooks.afterRun.push({ pluginId, handler: handler as PluginHooks["afterRun"] });
+      return;
+    }
+    if (name === "beforeTool") {
+      this.hooks.beforeTool.push({ pluginId, handler: handler as PluginHooks["beforeTool"] });
+      return;
+    }
+    if (name === "afterTool") {
+      this.hooks.afterTool.push({ pluginId, handler: handler as PluginHooks["afterTool"] });
       return;
     }
     if (name === "beforeModel") {
@@ -151,6 +171,18 @@ export class PluginRegistry {
       }
     }
     return current;
+  }
+
+  async runBeforeTool(input: Parameters<PluginHooks["beforeTool"]>[0]): Promise<void> {
+    for (const hook of this.hooks.beforeTool) {
+      await hook.handler(input);
+    }
+  }
+
+  async runAfterTool(input: Parameters<PluginHooks["afterTool"]>[0]): Promise<void> {
+    for (const hook of this.hooks.afterTool) {
+      await hook.handler(input);
+    }
   }
 
   async runBeforeModel(
