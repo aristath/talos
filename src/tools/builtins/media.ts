@@ -28,11 +28,12 @@ function collectInputs(args: Record<string, unknown>, singleField: string, multi
   const deduped: string[] = [];
   for (const item of items) {
     const trimmed = item.trim();
-    if (!trimmed || seen.has(trimmed)) {
+    const normalized = trimmed.startsWith("@") ? trimmed.slice(1).trim() : trimmed;
+    if (!normalized || seen.has(normalized)) {
       continue;
     }
-    seen.add(trimmed);
-    deduped.push(trimmed);
+    seen.add(normalized);
+    deduped.push(normalized);
   }
   return deduped;
 }
@@ -94,7 +95,9 @@ function parsePagesExpression(raw: string, maxPages: number): number[] {
 }
 
 function validateMediaReference(input: string, isPdf: boolean): void {
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(input)) {
+  const looksLikeWindowsDrivePath = /^[a-zA-Z]:[\\/]/.test(input);
+  const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(input);
+  if (hasScheme && !looksLikeWindowsDrivePath) {
     let parsed: URL;
     try {
       parsed = new URL(input);
@@ -104,7 +107,7 @@ function validateMediaReference(input: string, isPdf: boolean): void {
         message: `Invalid ${isPdf ? "PDF" : "image"} URL: ${input}`,
       });
     }
-    const allowed = new Set(["http:", "https:", "file:"]);
+    const allowed = new Set(["http:", "https:", "file:", "data:"]);
     if (!allowed.has(parsed.protocol)) {
       throw new TalosError({
         code: "TOOL_FAILED",
