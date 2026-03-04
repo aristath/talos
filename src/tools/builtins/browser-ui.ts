@@ -479,6 +479,40 @@ function assertCanvasActionParams(action: string, args: Record<string, unknown>)
   }
 }
 
+function normalizeCanvasActionArgs(action: string, args: Record<string, unknown>): Record<string, unknown> {
+  if (action === "present") {
+    const target = typeof args.target === "string" ? args.target.trim() : "";
+    const url = typeof args.url === "string" ? args.url.trim() : "";
+    if (!target && url) {
+      return {
+        ...args,
+        target: url,
+      };
+    }
+  }
+  if (action === "navigate") {
+    const target = typeof args.target === "string" ? args.target.trim() : "";
+    const url = typeof args.url === "string" ? args.url.trim() : "";
+    if (!url && target) {
+      return {
+        ...args,
+        url: target,
+      };
+    }
+  }
+  if (action === "a2ui_push") {
+    const jsonl = typeof args.jsonl === "string" ? args.jsonl.trim() : "";
+    const jsonlPath = typeof args.jsonlPath === "string" ? args.jsonlPath.trim() : "";
+    if (!jsonl && jsonlPath) {
+      return {
+        ...args,
+        jsonl: jsonlPath,
+      };
+    }
+  }
+  return args;
+}
+
 export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
   return {
     name: options.name ?? "browser",
@@ -550,10 +584,11 @@ export function createCanvasTool(options: CanvasToolOptions): ToolDefinition {
       const action = normalizeCanvasAction(requiredAction(args));
       assertAllowedAction(action, CANVAS_ACTIONS, "canvas");
       assertCanvasActionParams(action, args);
+      const normalizedArgs = normalizeCanvasActionArgs(action, args);
       const executionTarget =
         normalizeCanvasExecutionTarget(args.executionTarget) ?? normalizeCanvasExecutionTarget(args.targetMode);
       const node = typeof args.node === "string" && args.node.trim() ? args.node.trim() : undefined;
-      const output = await options.execute({ action, args, context });
+      const output = await options.execute({ action, args: normalizedArgs, context });
       return {
         content: output.content,
         data:

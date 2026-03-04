@@ -753,6 +753,9 @@ describe("createTalos", () => {
     let browserNavigateArgs: Record<string, unknown> | undefined;
     const browserCloseArgs: Record<string, unknown>[] = [];
     const canvasActions: string[] = [];
+    let canvasPresentArgs: Record<string, unknown> | undefined;
+    let canvasNavigateArgs: Record<string, unknown> | undefined;
+    let canvasA2uiArgs: Record<string, unknown> | undefined;
     talos.registerBrowserTools({
       execute: async ({ action, args }) => {
         browserActions.push(action);
@@ -777,8 +780,17 @@ describe("createTalos", () => {
       },
     });
     talos.registerCanvasTools({
-      execute: async ({ action }) => {
+      execute: async ({ action, args }) => {
         canvasActions.push(action);
+        if (action === "present") {
+          canvasPresentArgs = args;
+        }
+        if (action === "navigate") {
+          canvasNavigateArgs = args;
+        }
+        if (action === "a2ui_push") {
+          canvasA2uiArgs = args;
+        }
         return {
           content: `canvas:${action}`,
         };
@@ -860,6 +872,21 @@ describe("createTalos", () => {
       args: { action: "a2ui.pushJSONL", jsonl: "{}" },
       context: { agentId: "main" },
     });
+    const canvasA2uiPath = await talos.executeTool({
+      name: "canvas",
+      args: { action: "a2ui.pushJSONL", jsonlPath: "./a2ui.jsonl" },
+      context: { agentId: "main" },
+    });
+    const canvasNavigateAlias = await talos.executeTool({
+      name: "canvas",
+      args: { action: "navigate", target: "https://example.com/canvas" },
+      context: { agentId: "main" },
+    });
+    const canvasPresentAlias = await talos.executeTool({
+      name: "canvas",
+      args: { action: "present", url: "https://example.com/embed" },
+      context: { agentId: "main" },
+    });
     const canvasSnapshot = await talos.executeTool({
       name: "canvas",
       args: { action: "snapshot", node: "canvas-node-1" },
@@ -896,8 +923,14 @@ describe("createTalos", () => {
     expect((browserCloseArgs[1] as { targetId?: string } | undefined)?.targetId).toBeUndefined();
     expect(browserCookies.content).toBe("browser:cookies_set");
     expect(canvasA2ui.content).toBe("canvas:a2ui_push");
+    expect(canvasA2uiPath.content).toBe("canvas:a2ui_push");
+    expect(canvasNavigateAlias.content).toBe("canvas:navigate");
+    expect(canvasPresentAlias.content).toBe("canvas:present");
     expect(canvasSnapshot.content).toBe("canvas:snapshot");
     expect((canvasSnapshot.data as { node?: string }).node).toBe("canvas-node-1");
+    expect((canvasNavigateArgs as { url?: string } | undefined)?.url).toBe("https://example.com/canvas");
+    expect((canvasPresentArgs as { target?: string } | undefined)?.target).toBe("https://example.com/embed");
+    expect((canvasA2uiArgs as { jsonl?: string } | undefined)?.jsonl).toBe("./a2ui.jsonl");
     expect((canvasA2ui.data as { details?: { action?: string } }).details?.action).toBe("a2ui_push");
     expect(browserActions).toContain("trace_start");
     expect(browserActions).toContain("dialog");
