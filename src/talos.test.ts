@@ -251,6 +251,63 @@ describe("createTalos", () => {
     expect(fetchCalls).toBe(1);
   });
 
+  it("applies web tool defaults from config", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+      tools: {
+        web: {
+          search: {
+            cacheTtlMs: 60_000,
+          },
+          fetch: {
+            defaultMaxChars: 1234,
+            maxCharsCap: 1234,
+            timeoutMs: 3000,
+            maxResponseBytes: 4096,
+            maxRedirects: 1,
+            userAgent: "TalosTest/1.0",
+            cacheTtlMs: 60_000,
+            allowPrivateNetwork: true,
+          },
+        },
+      },
+    });
+
+    let seenMaxChars = 0;
+    let seenUserAgent = "";
+    talos.registerWebTools({
+      search: {
+        search: async () => [],
+      },
+      fetch: {
+        fetchContent: async ({ maxChars, userAgent }) => {
+          seenMaxChars = maxChars;
+          seenUserAgent = userAgent;
+          return { content: "ok" };
+        },
+      },
+    });
+
+    await talos.executeTool({
+      name: "web_fetch",
+      args: {
+        url: "http://127.0.0.1/test",
+      },
+      context: { agentId: "main" },
+    });
+
+    expect(seenMaxChars).toBe(1234);
+    expect(seenUserAgent).toBe("TalosTest/1.0");
+  });
+
   it("registers media tools and executes image/pdf analysis", async () => {
     const talos = createTalos({
       providers: {
@@ -484,6 +541,65 @@ describe("createTalos", () => {
     expect(result.content).toContain('"ok": true');
   });
 
+  it("validates llm_task output with JSON schema when provided", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+    talos.registerModelProvider({
+      id: "openai",
+      async generate(request) {
+        return {
+          text: JSON.stringify({ answer: request.prompt }),
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+    talos.registerLlmTaskTool();
+
+    const ok = await talos.executeTool({
+      name: "llm_task",
+      args: {
+        prompt: "hello",
+        schema: {
+          type: "object",
+          required: ["answer"],
+          additionalProperties: false,
+          properties: {
+            answer: { type: "string" },
+          },
+        },
+      },
+      context: { agentId: "main" },
+    });
+    expect(ok.content).toContain('"answer":');
+
+    await expect(
+      talos.executeTool({
+        name: "llm_task",
+        args: {
+          prompt: "hello",
+          schema: {
+            type: "object",
+            required: ["missing"],
+            properties: {
+              missing: { type: "string" },
+            },
+          },
+        },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+  });
+
   it("fails llm_task when model output is invalid JSON", async () => {
     const talos = createTalos({
       providers: {
@@ -561,6 +677,43 @@ describe("createTalos", () => {
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+  });
+
+  it("enforces llm_task allowed model list", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+    talos.registerModelProvider({
+      id: "openai",
+      async generate(request) {
+        return {
+          text: JSON.stringify({ ok: true, prompt: request.prompt }),
+          providerId: request.providerId,
+          modelId: request.modelId,
+        };
+      },
+    });
+    talos.registerLlmTaskTool({
+      allowedModels: ["openai/gpt-4o"],
+    });
+
+    await expect(
+      talos.executeTool({
+        name: "llm_task",
+        args: {
+          prompt: "Return JSON",
+        },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
   });
 
   it("registers session tools and orchestrates sessions", async () => {

@@ -42,6 +42,27 @@ export const talosConfigSchema = z.object({
       allow: z.array(z.string().min(1)).optional(),
       deny: z.array(z.string().min(1)).optional(),
       executionTimeoutMs: z.number().int().positive().optional(),
+      web: z
+        .object({
+          search: z
+            .object({
+              cacheTtlMs: z.number().int().positive().optional(),
+            })
+            .optional(),
+          fetch: z
+            .object({
+              defaultMaxChars: z.number().int().positive().optional(),
+              maxCharsCap: z.number().int().positive().optional(),
+              timeoutMs: z.number().int().positive().optional(),
+              maxResponseBytes: z.number().int().positive().optional(),
+              maxRedirects: z.number().int().nonnegative().optional(),
+              userAgent: z.string().min(1).optional(),
+              cacheTtlMs: z.number().int().positive().optional(),
+              allowPrivateNetwork: z.boolean().optional(),
+            })
+            .optional(),
+        })
+        .optional(),
     })
     .optional(),
   runtime: z

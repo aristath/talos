@@ -1,5 +1,7 @@
 import { TalosError } from "../../errors.js";
 import type { LlmTaskToolOptions, ToolDefinition } from "../../types.js";
+import Ajv2020 from "ajv/dist/2020.js";
+import type { ErrorObject } from "ajv";
 
 function requiredPrompt(args: Record<string, unknown>): string {
   const prompt = typeof args.prompt === "string" ? args.prompt.trim() : "";
@@ -37,6 +39,7 @@ function toNonEmptyString(value: unknown): string | undefined {
 }
 
 export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
+  const ajv = new Ajv2020.default({ allErrors: true, strict: false });
   return {
     name: options.name ?? "llm_task",
     description: options.description ?? "Run a JSON-only LLM task step",
@@ -84,6 +87,34 @@ export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
             message: "llm_task JSON response failed schema validation.",
             details: {
               errors: validation.errors ?? [],
+              response: parsed,
+            },
+          });
+        }
+      } else if (args.schema && typeof args.schema === "object" && !Array.isArray(args.schema)) {
+        let valid = false;
+        let errors: string[] = [];
+        try {
+          const validate = ajv.compile(args.schema as object);
+          valid = Boolean(validate(parsed));
+          if (!valid && validate.errors) {
+            errors = validate.errors.map((entry: ErrorObject) => {
+              return `${entry.instancePath || "<root>"} ${entry.message || "invalid"}`;
+            });
+          }
+        } catch (error) {
+          throw new TalosError({
+            code: "TOOL_FAILED",
+            message: "llm_task schema compilation failed.",
+            cause: error,
+          });
+        }
+        if (!valid) {
+          throw new TalosError({
+            code: "TOOL_FAILED",
+            message: "llm_task JSON response failed schema validation.",
+            details: {
+              errors,
               response: parsed,
             },
           });

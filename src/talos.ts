@@ -396,8 +396,51 @@ export function createTalos(config: TalosConfig): Talos {
     search: Parameters<typeof createWebSearchTool>[0];
     fetch?: Parameters<typeof createWebFetchTool>[0];
   }) => {
-    registerTool(createWebSearchTool(options.search));
-    registerTool(createWebFetchTool(options.fetch));
+    const search: Parameters<typeof createWebSearchTool>[0] = {
+      ...options.search,
+    };
+    if (typeof search.cacheTtlMs !== "number" && typeof parsed.data.tools?.web?.search?.cacheTtlMs === "number") {
+      search.cacheTtlMs = parsed.data.tools.web.search.cacheTtlMs;
+    }
+
+    const fetch: Parameters<typeof createWebFetchTool>[0] = {
+      ...(options.fetch ?? {}),
+    };
+    if (
+      typeof fetch.defaultMaxChars !== "number" &&
+      typeof parsed.data.tools?.web?.fetch?.defaultMaxChars === "number"
+    ) {
+      fetch.defaultMaxChars = parsed.data.tools.web.fetch.defaultMaxChars;
+    }
+    if (typeof fetch.maxCharsCap !== "number" && typeof parsed.data.tools?.web?.fetch?.maxCharsCap === "number") {
+      fetch.maxCharsCap = parsed.data.tools.web.fetch.maxCharsCap;
+    }
+    if (typeof fetch.timeoutMs !== "number" && typeof parsed.data.tools?.web?.fetch?.timeoutMs === "number") {
+      fetch.timeoutMs = parsed.data.tools.web.fetch.timeoutMs;
+    }
+    if (
+      typeof fetch.maxResponseBytes !== "number" &&
+      typeof parsed.data.tools?.web?.fetch?.maxResponseBytes === "number"
+    ) {
+      fetch.maxResponseBytes = parsed.data.tools.web.fetch.maxResponseBytes;
+    }
+    if (typeof fetch.maxRedirects !== "number" && typeof parsed.data.tools?.web?.fetch?.maxRedirects === "number") {
+      fetch.maxRedirects = parsed.data.tools.web.fetch.maxRedirects;
+    }
+    if (typeof fetch.userAgent !== "string" && typeof parsed.data.tools?.web?.fetch?.userAgent === "string") {
+      fetch.userAgent = parsed.data.tools.web.fetch.userAgent;
+    }
+    if (typeof fetch.cacheTtlMs !== "number" && typeof parsed.data.tools?.web?.fetch?.cacheTtlMs === "number") {
+      fetch.cacheTtlMs = parsed.data.tools.web.fetch.cacheTtlMs;
+    }
+    if (
+      typeof fetch.allowPrivateNetwork !== "boolean" &&
+      typeof parsed.data.tools?.web?.fetch?.allowPrivateNetwork === "boolean"
+    ) {
+      fetch.allowPrivateNetwork = parsed.data.tools.web.fetch.allowPrivateNetwork;
+    }
+    registerTool(createWebSearchTool(search));
+    registerTool(createWebFetchTool(fetch));
   };
 
   const registerMediaTools = (options: {
@@ -495,19 +538,42 @@ export function createTalos(config: TalosConfig): Talos {
     name?: string;
     description?: string;
     validateJson?: Parameters<typeof createLlmTaskTool>[0]["validateJson"];
+    defaultProviderId?: string;
+    defaultModelId?: string;
+    defaultAuthProfileId?: string;
+    allowedModels?: string[];
+    defaultTimeoutMs?: number;
+    defaultMaxTokens?: number;
   }) => {
+    const allowedModels = (options?.allowedModels ?? []).map((entry) => entry.trim()).filter(Boolean);
     registerTool(
       createLlmTaskTool({
         ...(options?.name ? { name: options.name } : {}),
         ...(options?.description ? { description: options.description } : {}),
         ...(options?.validateJson ? { validateJson: options.validateJson } : {}),
         generate: async (params) => {
-          const providerId = params.providerId ?? parsed.data.providers.openaiCompatible[0]?.id;
-          const modelId = params.modelId ?? parsed.data.providers.openaiCompatible[0]?.defaultModel;
+          const providerId =
+            params.providerId ??
+            options?.defaultProviderId ??
+            parsed.data.providers.openaiCompatible[0]?.id;
+          const modelId =
+            params.modelId ??
+            options?.defaultModelId ??
+            parsed.data.providers.openaiCompatible[0]?.defaultModel;
           if (!providerId || !modelId) {
             throw new TalosError({
               code: "PROVIDER_NOT_FOUND",
               message: "llm_task could not resolve provider/model.",
+            });
+          }
+          const modelKey = `${providerId}/${modelId}`;
+          if (allowedModels.length > 0 && !allowedModels.includes(modelKey)) {
+            throw new TalosError({
+              code: "TOOL_NOT_ALLOWED",
+              message: `llm_task model is not allowed: ${modelKey}`,
+              details: {
+                allowedModels,
+              },
             });
           }
           let inputJson = "null";
@@ -531,16 +597,26 @@ export function createTalos(config: TalosConfig): Talos {
           const timeoutMs =
             typeof params.timeoutMs === "number" && params.timeoutMs > 0
               ? Math.floor(params.timeoutMs)
-              : requestTimeoutMs;
+              : typeof options?.defaultTimeoutMs === "number" && options.defaultTimeoutMs > 0
+                ? Math.floor(options.defaultTimeoutMs)
+                : requestTimeoutMs;
           const response = await withTimeout(
             models.generate({
               providerId,
               modelId,
               system,
               prompt: fullPrompt,
-              ...(params.authProfileId ? { authProfileId: params.authProfileId } : {}),
+              ...(params.authProfileId
+                ? { authProfileId: params.authProfileId }
+                : options?.defaultAuthProfileId
+                  ? { authProfileId: options.defaultAuthProfileId }
+                  : {}),
               ...(typeof params.temperature === "number" ? { temperature: params.temperature } : {}),
-              ...(typeof params.maxTokens === "number" ? { maxTokens: Math.floor(params.maxTokens) } : {}),
+              ...(typeof params.maxTokens === "number"
+                ? { maxTokens: Math.floor(params.maxTokens) }
+                : typeof options?.defaultMaxTokens === "number" && options.defaultMaxTokens > 0
+                  ? { maxTokens: Math.floor(options.defaultMaxTokens) }
+                  : {}),
             }),
             timeoutMs,
             `llm_task request timed out after ${timeoutMs}ms (${providerId}/${modelId}).`,

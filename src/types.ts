@@ -41,6 +41,21 @@ export type TalosConfig = {
     allow?: string[];
     deny?: string[];
     executionTimeoutMs?: number;
+    web?: {
+      search?: {
+        cacheTtlMs?: number;
+      };
+      fetch?: {
+        defaultMaxChars?: number;
+        maxCharsCap?: number;
+        timeoutMs?: number;
+        maxResponseBytes?: number;
+        maxRedirects?: number;
+        userAgent?: string;
+        cacheTtlMs?: number;
+        allowPrivateNetwork?: boolean;
+      };
+    };
   };
   runtime?: {
     stateFile?: string;
@@ -594,6 +609,12 @@ export type Talos = {
     name?: string;
     description?: string;
     validateJson?: LlmTaskToolOptions["validateJson"];
+    defaultProviderId?: string;
+    defaultModelId?: string;
+    defaultAuthProfileId?: string;
+    allowedModels?: string[];
+    defaultTimeoutMs?: number;
+    defaultMaxTokens?: number;
   }) => void;
   listTools: () => ToolDefinition[];
   hasTool: (toolName: string) => boolean;
