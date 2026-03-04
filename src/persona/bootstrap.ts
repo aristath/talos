@@ -88,8 +88,8 @@ async function shouldCreateBootstrap(params: {
     fs.readFile(params.userPath, "utf8").catch(() => ""),
   ]);
 
-  const identityTemplate = `${DEFAULT_PERSONA_TEMPLATES["IDENTITY.md"].trim()}\n`;
-  const userTemplate = `${DEFAULT_PERSONA_TEMPLATES["USER.md"].trim()}\n`;
+  const identityTemplate = DEFAULT_PERSONA_TEMPLATES["IDENTITY.md"];
+  const userTemplate = DEFAULT_PERSONA_TEMPLATES["USER.md"];
 
   if (identityContent !== identityTemplate || userContent !== userTemplate) {
     return false;
@@ -143,7 +143,7 @@ export async function seedPersonaWorkspace(
 
   for (const name of DEFAULT_SEEDED_PERSONA_FILES) {
     const targetPath = path.join(realDir, name);
-    const payload = `${templates[name].trim()}\n`;
+    const payload = templates[name];
     if (options?.overwrite) {
       await fs.writeFile(targetPath, payload, "utf8");
       created.push(name);
@@ -180,7 +180,7 @@ export async function seedPersonaWorkspace(
     if (createBootstrap) {
       const wroteBootstrap = await writeFileIfMissing(
         bootstrapPath,
-        `${templates["BOOTSTRAP.md"].trim()}\n`,
+        templates["BOOTSTRAP.md"],
       );
       bootstrapExists = wroteBootstrap || (await fileExists(bootstrapPath));
       if (bootstrapExists) {
