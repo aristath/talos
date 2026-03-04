@@ -650,6 +650,7 @@ describe("createTalos", () => {
     });
 
     expect(result.content).toContain('"ok": true');
+    expect((result.data as { json?: { ok?: boolean } }).json?.ok).toBe(true);
 
     const aliasResult = await talos.executeTool({
       name: "llm-task",
@@ -788,6 +789,17 @@ describe("createTalos", () => {
               missing: { type: "string" },
             },
           },
+        },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+
+    await expect(
+      talos.executeTool({
+        name: "llm_task",
+        args: {
+          prompt: "hello",
+          schema: "not-an-object",
         },
         context: { agentId: "main" },
       }),

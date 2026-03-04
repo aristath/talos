@@ -43,10 +43,10 @@ Parity requires matching:
 
 ## LLM Task Tool
 
-- [ ] `llm_task`/`llm-task`: parameter and alias parity
-- [ ] `llm_task`/`llm-task`: model/auth resolution precedence parity
-- [ ] `llm_task`/`llm-task`: allowed-model enforcement parity
-- [ ] `llm_task`/`llm-task`: schema validation semantics parity
+- [x] `llm_task`/`llm-task`: parameter and alias parity
+- [x] `llm_task`/`llm-task`: model/auth resolution precedence parity
+- [x] `llm_task`/`llm-task`: allowed-model enforcement parity
+- [x] `llm_task`/`llm-task`: schema validation semantics parity
 - [ ] `llm_task`/`llm-task`: output/detail shape parity
 
 ## Browser and Canvas Tools

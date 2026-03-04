@@ -109,7 +109,13 @@ export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
             },
           });
         }
-      } else if (args.schema && typeof args.schema === "object" && !Array.isArray(args.schema)) {
+      } else if (typeof args.schema !== "undefined") {
+        if (!args.schema || typeof args.schema !== "object" || Array.isArray(args.schema)) {
+          throw new TalosError({
+            code: "TOOL_FAILED",
+            message: "llm_task schema must be a JSON Schema object.",
+          });
+        }
         let valid = false;
         let errors: string[] = [];
         try {
@@ -141,7 +147,9 @@ export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
 
       return {
         content: JSON.stringify(parsed, null, 2),
-        data: parsed,
+        data: {
+          json: parsed,
+        },
       };
     },
   };
