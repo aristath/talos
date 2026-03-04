@@ -51,12 +51,12 @@ Parity requires matching:
 
 ## Browser and Canvas Tools
 
-- [ ] `browser`: action surface parity
-- [ ] `browser`: action parameter validation parity
+- [x] `browser`: action surface parity
+- [x] `browser`: action parameter validation parity
 - [ ] `browser`: output/detail shape parity
 - [ ] `browser`: target/profile routing semantics parity
-- [ ] `canvas`: action surface parity
-- [ ] `canvas`: action parameter validation parity
+- [x] `canvas`: action surface parity
+- [x] `canvas`: action parameter validation parity
 - [ ] `canvas`: output/detail shape parity
 
 ## Global Tool Runtime Parity

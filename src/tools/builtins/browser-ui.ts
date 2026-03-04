@@ -7,13 +7,49 @@ const BROWSER_ACTIONS = new Set([
   "stop",
   "profiles",
   "tabs",
+  "tab",
+  "tab_new",
+  "tab_select",
+  "tab_close",
   "open",
   "focus",
   "close",
   "snapshot",
   "screenshot",
+  "console",
+  "errors",
+  "requests",
+  "response_body",
   "navigate",
+  "resize",
   "act",
+  "click",
+  "type",
+  "press",
+  "hover",
+  "scrollintoview",
+  "drag",
+  "select",
+  "download",
+  "wait_download",
+  "wait",
+  "evaluate",
+  "highlight",
+  "cookies",
+  "cookies_set",
+  "cookies_clear",
+  "storage_get",
+  "storage_set",
+  "storage_clear",
+  "set_offline",
+  "set_headers",
+  "set_credentials",
+  "set_geolocation",
+  "set_media",
+  "set_timezone",
+  "set_locale",
+  "set_device",
+  "set_viewport",
   "upload",
   "pdf",
   "trace_start",
@@ -31,11 +67,68 @@ const CANVAS_ACTIONS = new Set([
 ]);
 
 function normalizeBrowserAction(action: string): string {
+  if (action === "tab.new") {
+    return "tab_new";
+  }
+  if (action === "tab.select") {
+    return "tab_select";
+  }
+  if (action === "tab.close") {
+    return "tab_close";
+  }
   if (action === "trace.start") {
     return "trace_start";
   }
   if (action === "trace.stop") {
     return "trace_stop";
+  }
+  if (action === "response.body") {
+    return "response_body";
+  }
+  if (action === "wait.download") {
+    return "wait_download";
+  }
+  if (action === "cookies.set") {
+    return "cookies_set";
+  }
+  if (action === "cookies.clear") {
+    return "cookies_clear";
+  }
+  if (action === "storage.get") {
+    return "storage_get";
+  }
+  if (action === "storage.set") {
+    return "storage_set";
+  }
+  if (action === "storage.clear") {
+    return "storage_clear";
+  }
+  if (action === "set.offline") {
+    return "set_offline";
+  }
+  if (action === "set.headers") {
+    return "set_headers";
+  }
+  if (action === "set.credentials") {
+    return "set_credentials";
+  }
+  if (action === "set.geolocation") {
+    return "set_geolocation";
+  }
+  if (action === "set.media") {
+    return "set_media";
+  }
+  if (action === "set.timezone") {
+    return "set_timezone";
+  }
+  if (action === "set.locale") {
+    return "set_locale";
+  }
+  if (action === "set.device") {
+    return "set_device";
+  }
+  if (action === "set.viewport") {
+    return "set_viewport";
   }
   return action;
 }
@@ -104,9 +197,65 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
       }
       return;
     }
+    case "tab_select": {
+      const index = typeof args.index === "number" ? args.index : undefined;
+      if (typeof index !== "number" || !Number.isFinite(index) || index < 1) {
+        throw new TalosError({
+          code: "TOOL_FAILED",
+          message: "browser action 'tab_select' requires numeric 'index' >= 1.",
+        });
+      }
+      return;
+    }
     case "act":
       requireActionParam(args, "kind", "browser", action);
       return;
+    case "click":
+    case "type":
+    case "hover":
+    case "scrollintoview":
+    case "highlight":
+      requireActionParam(args, "ref", "browser", action);
+      return;
+    case "drag":
+      requireActionParam(args, "fromRef", "browser", action);
+      requireActionParam(args, "toRef", "browser", action);
+      return;
+    case "download":
+      requireActionParam(args, "ref", "browser", action);
+      requireActionParam(args, "filename", "browser", action);
+      return;
+    case "evaluate":
+      requireActionParam(args, "fn", "browser", action);
+      return;
+    case "wait_download":
+      requireActionParam(args, "filename", "browser", action);
+      return;
+    case "storage_get":
+    case "storage_set":
+    case "storage_clear":
+      requireActionParam(args, "kind", "browser", action);
+      return;
+    case "set_timezone":
+      requireActionParam(args, "timezone", "browser", action);
+      return;
+    case "set_locale":
+      requireActionParam(args, "locale", "browser", action);
+      return;
+    case "set_device":
+      requireActionParam(args, "device", "browser", action);
+      return;
+    case "set_viewport": {
+      const width = typeof args.width === "number" ? args.width : NaN;
+      const height = typeof args.height === "number" ? args.height : NaN;
+      if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+        throw new TalosError({
+          code: "TOOL_FAILED",
+          message: "browser action 'set_viewport' requires positive numeric width and height.",
+        });
+      }
+      return;
+    }
     default:
       return;
   }

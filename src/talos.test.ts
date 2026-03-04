@@ -541,6 +541,11 @@ describe("createTalos", () => {
       args: { action: "trace.start" },
       context: { agentId: "main" },
     });
+    const browserCookies = await talos.executeTool({
+      name: "browser",
+      args: { action: "cookies.set" },
+      context: { agentId: "main" },
+    });
     const canvasA2ui = await talos.executeTool({
       name: "canvas",
       args: { action: "a2ui.pushJSONL", jsonl: "{}" },
@@ -550,8 +555,10 @@ describe("createTalos", () => {
     expect(browser.content).toBe("browser:snapshot");
     expect(canvas.content).toBe("canvas:present");
     expect(browserTrace.content).toBe("browser:trace_start");
+    expect(browserCookies.content).toBe("browser:cookies_set");
     expect(canvasA2ui.content).toBe("canvas:a2ui_push");
     expect(browserActions).toContain("trace_start");
+    expect(browserActions).toContain("cookies_set");
     expect(canvasActions).toContain("a2ui_push");
   });
 
@@ -596,6 +603,13 @@ describe("createTalos", () => {
       talos.executeTool({
         name: "browser",
         args: { action: "focus" },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "browser",
+        args: { action: "set.viewport", width: 100 },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
