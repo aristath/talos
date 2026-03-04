@@ -38,6 +38,9 @@ export type TalosConfig = {
   runtime?: {
     stateFile?: string;
   };
+  security?: {
+    redactKeys?: string[];
+  };
 };
 
 export type AgentDefinition = {

@@ -17,6 +17,7 @@ Tool runtime supports execution modes (`tools.executionMode`: `host` | `sandbox`
 Plugin hooks include `beforeModel` and `afterModel` for model request/response interception.
 OpenAI-compatible providers can resolve credentials from `authProfiles` via `authProfileId`.
 State snapshots can be persisted automatically by setting `runtime.stateFile`.
+State snapshot serialization can redact sensitive fields via `security.redactKeys`.
 
 Current core API:
 
@@ -28,6 +29,7 @@ Current core API:
 - `listTools()`, `hasTool(toolName)`, and `removeTool(toolName)`
 - `registerPlugin(plugin)` with capability declarations (`tools`, `providers`, `hooks`)
 - plugins can declare `apiVersion` (current supported version: `1`)
+- plugin SDK exports: `definePlugin`, `assertPluginCompatibility`, `TALOS_PLUGIN_API_VERSION`
 - `removePlugin(pluginId)` to unload a registered plugin
 - plugin `setup()` may return a teardown function executed during `removePlugin`
 - `listPlugins()` and `hasPlugin(pluginId)`

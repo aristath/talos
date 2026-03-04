@@ -1824,6 +1824,50 @@ describe("createTalos", () => {
     }
   });
 
+  it("redacts configured keys when saving state snapshots", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-redact-state-"));
+    const statePath = path.join(stateDir, "state.json");
+    try {
+      const talos = createTalos({
+        security: {
+          redactKeys: ["authorization"],
+        },
+        providers: {
+          openaiCompatible: [],
+        },
+      });
+
+      talos.onEvent((event) => {
+        if (event.type === "run.failed") {
+          Object.assign(event.data, {
+            authorization: "secret-token",
+          });
+        }
+      });
+
+      talos.registerAgent({
+        id: "main",
+        model: { providerId: "bad", modelId: "m" },
+      });
+      talos.registerModelProvider({
+        id: "bad",
+        async generate() {
+          throw new Error("authorization=secret-token");
+        },
+      });
+
+      await expect(talos.run({ agentId: "main", prompt: "x" })).rejects.toMatchObject({
+        code: "RUN_FAILED",
+      });
+      await talos.saveState(statePath);
+
+      const raw = await fs.readFile(statePath, "utf8");
+      expect(raw.includes('"authorization": "[REDACTED]"')).toBe(true);
+    } finally {
+      await fs.rm(stateDir, { recursive: true, force: true });
+    }
+  });
+
   it("auto-persists and auto-loads state when runtime.stateFile is configured", async () => {
     const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-auto-state-"));
     const statePath = path.join(stateDir, "state.json");

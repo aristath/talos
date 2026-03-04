@@ -1,9 +1,17 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { TalosError } from "../errors.js";
+import { redactValue } from "../security/redaction.js";
 import type { TalosStateSnapshot } from "../types.js";
 
-export async function saveStateSnapshot(filePath: string, snapshot: TalosStateSnapshot): Promise<string> {
+export async function saveStateSnapshot(
+  filePath: string,
+  snapshot: TalosStateSnapshot,
+  options?: {
+    redactKeys?: string[];
+  },
+): Promise<string> {
   const normalizedPath = filePath.trim();
   if (!normalizedPath) {
     throw new TalosError({
@@ -13,8 +21,9 @@ export async function saveStateSnapshot(filePath: string, snapshot: TalosStateSn
   }
   const targetPath = path.resolve(normalizedPath);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
-  const payload = `${JSON.stringify(snapshot, null, 2)}\n`;
-  const tmpPath = `${targetPath}.tmp-${process.pid}-${Date.now().toString(36)}`;
+  const safeSnapshot = redactValue(snapshot, options?.redactKeys) as TalosStateSnapshot;
+  const payload = `${JSON.stringify(safeSnapshot, null, 2)}\n`;
+  const tmpPath = `${targetPath}.tmp-${process.pid}-${Date.now().toString(36)}-${randomUUID()}`;
   await fs.writeFile(tmpPath, payload, "utf8");
   await fs.rename(tmpPath, targetPath);
   return targetPath;

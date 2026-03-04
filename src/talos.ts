@@ -7,6 +7,7 @@ import { loadPersonaSnapshot, buildPersonaSystemPrompt } from "./persona/loader.
 import { seedPersonaWorkspace } from "./persona/bootstrap.js";
 import { PluginRegistry } from "./plugins/registry.js";
 import { discoverPluginEntryPaths, loadPluginFromPath } from "./plugins/loader.js";
+import { TALOS_PLUGIN_API_VERSION, assertPluginCompatibility } from "./plugin-sdk.js";
 import { ToolRegistry } from "./tools/registry.js";
 import { createExecTool } from "./tools/builtins/exec.js";
 import { TalosError, toTalosErrorLike } from "./errors.js";
@@ -45,8 +46,6 @@ const DEFAULT_RETRIES_PER_MODEL = 0;
 const DEFAULT_RETRY_DELAY_MS = 0;
 const DEFAULT_TOOL_EXECUTION_TIMEOUT_MS = 30_000;
 const DEFAULT_TOOL_LOOP_MAX_STEPS = 0;
-const TALOS_PLUGIN_API_VERSION = 1;
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -212,6 +211,7 @@ export function createTalos(config: TalosConfig): Talos {
   const toolExecutionTimeoutMs =
     parsed.data.tools?.executionTimeoutMs ?? DEFAULT_TOOL_EXECUTION_TIMEOUT_MS;
   const defaultStateFile = parsed.data.runtime?.stateFile?.trim();
+  const redactKeys = parsed.data.security?.redactKeys;
 
   for (const [id, profile] of Object.entries(parsed.data.authProfiles ?? {})) {
     authProfiles.set(id.trim(), {
@@ -410,13 +410,8 @@ export function createTalos(config: TalosConfig): Talos {
   const registerPlugin = async (plugin: TalosPlugin) => {
     plugins.assertNotRegistered(plugin.id);
     const normalizedPluginId = plugin.id.trim();
+    assertPluginCompatibility(plugin);
     const apiVersion = plugin.apiVersion ?? TALOS_PLUGIN_API_VERSION;
-    if (apiVersion !== TALOS_PLUGIN_API_VERSION) {
-      throw new TalosError({
-        code: "PLUGIN_API_VERSION_UNSUPPORTED",
-        message: `Plugin ${normalizedPluginId} uses apiVersion ${apiVersion}, but runtime supports ${TALOS_PLUGIN_API_VERSION}.`,
-      });
-    }
     const capabilities = plugin.capabilities ?? ["tools", "providers", "hooks"];
     const ownedTools = new Set<string>();
     const ownedProviders = new Set<string>();
@@ -589,7 +584,9 @@ export function createTalos(config: TalosConfig): Talos {
   const saveState = async (filePath?: string): Promise<string> => {
     const target = resolveStateFilePath(filePath);
     const snapshot = events.snapshot();
-    return await saveStateSnapshot(target, snapshot);
+    return await saveStateSnapshot(target, snapshot, {
+      ...(redactKeys ? { redactKeys } : {}),
+    });
   };
 
   const loadState = async (filePath?: string): Promise<string> => {

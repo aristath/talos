@@ -48,6 +48,11 @@ export const talosConfigSchema = z.object({
       stateFile: z.string().min(1).optional(),
     })
     .optional(),
+  security: z
+    .object({
+      redactKeys: z.array(z.string().min(1)).optional(),
+    })
+    .optional(),
 });
 
 export type TalosConfigSchema = z.infer<typeof talosConfigSchema>;
