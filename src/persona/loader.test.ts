@@ -67,13 +67,19 @@ describe("loadPersonaSnapshot", () => {
 
   it("loads extra patterns and reports diagnostics", async () => {
     const dir = await createTmpDir();
+    await fs.mkdir(path.join(dir, "nested"), { recursive: true });
     await fs.writeFile(path.join(dir, "SOUL.md"), "soul", "utf8");
+    await fs.writeFile(path.join(dir, "nested", "SOUL.md"), "nested soul", "utf8");
 
     const snapshot = await loadPersonaSnapshot(dir, {
-      extraPatterns: ["SOUL.md", "nope.md"],
+      extraPatterns: ["nested/SOUL.md", "nope.md"],
     });
 
-    expect(snapshot.files["SOUL.md"]).toBe("soul");
+    expect(snapshot.files["SOUL.md"]).toBe("nested soul");
+    expect(snapshot.bootstrapFiles.some((f) => f.path.endsWith(path.join("nested", "SOUL.md")))).toBe(
+      true,
+    );
+    expect(snapshot.bootstrapFiles.some((f) => f.content === "nested soul")).toBe(true);
     expect(snapshot.diagnostics.some((d) => d.reason === "invalid-persona-filename")).toBe(true);
   });
 

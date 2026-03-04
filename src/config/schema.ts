@@ -33,6 +33,7 @@ export const talosConfigSchema = z.object({
     .object({
       bootstrapMaxChars: z.number().int().positive().optional(),
       bootstrapTotalMaxChars: z.number().int().positive().optional(),
+      extraFiles: z.array(z.string().min(1)).optional(),
     })
     .optional(),
   tools: z

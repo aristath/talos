@@ -28,6 +28,7 @@ export type TalosConfig = {
   persona?: {
     bootstrapMaxChars?: number;
     bootstrapTotalMaxChars?: number;
+    extraFiles?: string[];
   };
   tools?: {
     allow?: string[];

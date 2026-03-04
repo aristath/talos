@@ -907,6 +907,7 @@ export function createTalos(config: TalosConfig): Talos {
               ...(input.sessionKind ? { sessionKind: input.sessionKind } : {}),
               ...(input.sessionId ? { sessionId: input.sessionId } : {}),
             }),
+            ...(parsed.data.persona?.extraFiles ? { extraPatterns: parsed.data.persona.extraFiles } : {}),
           })
         : undefined;
       const persona = loadedPersona ? await plugins.runBeforePersonaLoad(loadedPersona) : undefined;

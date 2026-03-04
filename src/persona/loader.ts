@@ -27,10 +27,10 @@ function isWithinRoot(root: string, candidate: string): boolean {
 
 async function readSafePersonaFile(params: {
   workspaceRealPath: string;
-  workspaceInputPath: string;
+  filePath: string;
   fileName: PersonaFileName;
 }): Promise<PersonaBootstrapFile> {
-  const candidatePath = path.join(params.workspaceInputPath, params.fileName);
+  const candidatePath = path.resolve(params.filePath);
   let stat;
   try {
     stat = await fs.lstat(candidatePath);
@@ -132,7 +132,7 @@ export async function loadExtraPersonaFilesWithDiagnostics(params: {
     try {
       const loaded = await readSafePersonaFile({
         workspaceRealPath: resolvedDir,
-        workspaceInputPath: resolvedDir,
+        filePath: absolutePath,
         fileName: name,
       });
       files.push(loaded);
@@ -194,11 +194,11 @@ export async function loadPersonaSnapshot(
 
   const loadedFiles: PersonaBootstrapFile[] = [];
   for (const name of PERSONA_LOAD_ORDER) {
-    const loaded = await readSafePersonaFile({
-      workspaceRealPath,
-      workspaceInputPath: normalizedWorkspace,
-      fileName: name,
-    });
+      const loaded = await readSafePersonaFile({
+        workspaceRealPath,
+        filePath: path.join(normalizedWorkspace, name),
+        fileName: name,
+      });
     loadedFiles.push(loaded);
   }
 

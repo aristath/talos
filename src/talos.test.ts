@@ -1175,6 +1175,50 @@ describe("createTalos", () => {
     }
   });
 
+  it("loads configured extra persona files into system context", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-extra-"));
+    try {
+      await fs.mkdir(path.join(workspace, "nested"), { recursive: true });
+      await fs.writeFile(path.join(workspace, "SOUL.md"), "root soul", "utf8");
+      await fs.writeFile(path.join(workspace, "nested", "SOUL.md"), "nested soul", "utf8");
+
+      const talos = createTalos({
+        providers: {
+          openaiCompatible: [],
+        },
+        persona: {
+          extraFiles: ["nested/SOUL.md"],
+        },
+      });
+
+      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+
+      let seenSystem = "";
+      talos.registerModelProvider({
+        id: "provider",
+        async generate(request) {
+          seenSystem = request.system ?? "";
+          return {
+            text: "ok",
+            providerId: request.providerId,
+            modelId: request.modelId,
+          };
+        },
+      });
+
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+      });
+
+      expect(seenSystem.includes("root soul")).toBe(true);
+      expect(seenSystem.includes("nested soul")).toBe(true);
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true });
+    }
+  });
+
   it("emits model lifecycle events", async () => {
     const talos = createTalos({
       providers: {
