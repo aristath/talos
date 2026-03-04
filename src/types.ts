@@ -1,4 +1,10 @@
-import type { PersonaFileName, PersonaSessionKind, PersonaSnapshot } from "./persona/types.js";
+import type {
+  PersonaContextMode,
+  PersonaFileName,
+  PersonaRunKind,
+  PersonaSessionKind,
+  PersonaSnapshot,
+} from "./persona/types.js";
 import type { PersonaBootstrapResult } from "./persona/bootstrap.js";
 
 export type TalosConfig = {
@@ -29,6 +35,7 @@ export type TalosConfig = {
     bootstrapMaxChars?: number;
     bootstrapTotalMaxChars?: number;
     extraFiles?: string[];
+    contextMode?: PersonaContextMode;
   };
   tools?: {
     allow?: string[];
@@ -112,6 +119,8 @@ export type RunInput = {
   workspaceDir?: string;
   sessionId?: string;
   sessionKind?: PersonaSessionKind;
+  runKind?: PersonaRunKind;
+  contextMode?: PersonaContextMode;
   signal?: AbortSignal;
   tools?: {
     allow?: string[];

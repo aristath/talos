@@ -17,6 +17,7 @@ Talos is a library-only runtime with six core planes:
 
 1. Resolve agent and model strategy.
 2. Load persona workspace files, run `beforePersonaLoad` hooks, and compose system context.
+   - `contextMode: "lightweight"` supports heartbeat/cron lightweight context behavior.
 3. Execute model call with timeout/retry/fallback policy.
 4. Optionally enter tool-loop rounds when model emits JSON tool directives.
 5. Emit lifecycle events and update run summaries/statistics.

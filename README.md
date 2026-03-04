@@ -57,6 +57,7 @@ Current core API:
 Persona loading follows session semantics: main sessions load full persona context, while subagent/cron sessions load a minimal allowlist.
 Persona context can also include extra bootstrap files via `persona.extraFiles` and prompt budgets via
 `persona.bootstrapMaxChars` / `persona.bootstrapTotalMaxChars`.
+Persona context mode supports OpenClaw-style lightweight runs (`contextMode: "lightweight"` + `runKind`).
 
 This repository intentionally excludes channel integrations, UI apps, and CLI surfaces.
 

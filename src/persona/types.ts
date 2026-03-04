@@ -10,6 +10,8 @@ export type PersonaFileName =
   | "memory.md";
 
 export type PersonaSessionKind = "main" | "subagent" | "cron";
+export type PersonaContextMode = "full" | "lightweight";
+export type PersonaRunKind = "default" | "heartbeat" | "cron";
 
 export type PersonaBootstrapFile = {
   name: PersonaFileName;

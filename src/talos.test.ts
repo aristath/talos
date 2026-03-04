@@ -1469,6 +1469,87 @@ describe("createTalos", () => {
     }
   });
 
+  it("supports lightweight persona context mode for heartbeat runs", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-lightweight-heartbeat-"));
+    try {
+      await fs.writeFile(path.join(workspace, "SOUL.md"), "soul", "utf8");
+      await fs.writeFile(path.join(workspace, "HEARTBEAT.md"), "heartbeat", "utf8");
+
+      const talos = createTalos({
+        providers: {
+          openaiCompatible: [],
+        },
+      });
+      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+
+      let seenSystem = "";
+      talos.registerModelProvider({
+        id: "provider",
+        async generate(request) {
+          seenSystem = request.system ?? "";
+          return {
+            text: "ok",
+            providerId: request.providerId,
+            modelId: request.modelId,
+          };
+        },
+      });
+
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+        contextMode: "lightweight",
+        runKind: "heartbeat",
+      });
+
+      expect(seenSystem.includes("heartbeat")).toBe(true);
+      expect(seenSystem.includes("soul")).toBe(false);
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("supports lightweight persona context mode for cron/default runs", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-lightweight-cron-"));
+    try {
+      await fs.writeFile(path.join(workspace, "SOUL.md"), "soul", "utf8");
+      await fs.writeFile(path.join(workspace, "HEARTBEAT.md"), "heartbeat", "utf8");
+
+      const talos = createTalos({
+        providers: {
+          openaiCompatible: [],
+        },
+      });
+      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+
+      let seenSystem = "unset";
+      talos.registerModelProvider({
+        id: "provider",
+        async generate(request) {
+          seenSystem = request.system ?? "";
+          return {
+            text: "ok",
+            providerId: request.providerId,
+            modelId: request.modelId,
+          };
+        },
+      });
+
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+        contextMode: "lightweight",
+        runKind: "cron",
+      });
+
+      expect(seenSystem).toBe("");
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true });
+    }
+  });
+
   it("emits model lifecycle events", async () => {
     const talos = createTalos({
       providers: {

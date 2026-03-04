@@ -4,9 +4,11 @@ import path from "node:path";
 import { TalosError } from "../errors.js";
 import type {
   PersonaBootstrapFile,
+  PersonaContextMode,
   PersonaFileName,
   PersonaLoadDiagnostic,
   PersonaLoadDiagnosticCode,
+  PersonaRunKind,
   PersonaSessionKind,
   PersonaSnapshot,
 } from "./types.js";
@@ -299,6 +301,22 @@ export function filterPersonaFilesForSession(
     return files;
   }
   return files.filter((file) => MINIMAL_PERSONA_ALLOWLIST.has(file.name));
+}
+
+export function filterPersonaFilesForContextMode(params: {
+  files: PersonaBootstrapFile[];
+  contextMode?: PersonaContextMode;
+  runKind?: PersonaRunKind;
+}): PersonaBootstrapFile[] {
+  const contextMode = params.contextMode ?? "full";
+  const runKind = params.runKind ?? "default";
+  if (contextMode !== "lightweight") {
+    return params.files;
+  }
+  if (runKind === "heartbeat") {
+    return params.files.filter((file) => file.name === "HEARTBEAT.md");
+  }
+  return [];
 }
 
 export async function loadExtraPersonaFilesWithDiagnostics(params: {

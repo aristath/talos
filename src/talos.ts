@@ -3,7 +3,11 @@ import { talosConfigSchema } from "./config/schema.js";
 import { AgentRegistry } from "./agents/registry.js";
 import { ModelRegistry } from "./models/registry.js";
 import { createOpenAICompatibleProvider } from "./models/openai-compatible.js";
-import { loadPersonaSnapshot, buildPersonaSystemPrompt } from "./persona/loader.js";
+import {
+  loadPersonaSnapshot,
+  buildPersonaSystemPrompt,
+  filterPersonaFilesForContextMode,
+} from "./persona/loader.js";
 import { seedPersonaWorkspace } from "./persona/bootstrap.js";
 import { resolvePersonaSessionKind } from "./persona/session-kind.js";
 import type { PersonaSnapshot } from "./persona/types.js";
@@ -937,6 +941,17 @@ export function createTalos(config: TalosConfig): Talos {
             personaSnapshotCache.set(personaCacheKey, loadedPersona);
           }
         }
+      }
+      if (loadedPersona) {
+        const contextMode = input.contextMode ?? parsed.data.persona?.contextMode;
+        loadedPersona = {
+          ...loadedPersona,
+          bootstrapFiles: filterPersonaFilesForContextMode({
+            files: loadedPersona.bootstrapFiles,
+            ...(contextMode ? { contextMode } : {}),
+            ...(input.runKind ? { runKind: input.runKind } : {}),
+          }),
+        };
       }
       const persona = loadedPersona
         ? sanitizePersonaSnapshot(
