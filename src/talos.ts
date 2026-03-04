@@ -489,6 +489,27 @@ export function createTalos(config: TalosConfig): Talos {
       },
       callbacks: {
         listSessions: () => listSessionsSnapshot(),
+        resolveSessionByLabel: (params) => {
+          const label = params.label.trim();
+          if (!label) {
+            return undefined;
+          }
+          const matches = Array.from(sessions.values())
+            .filter((session) => {
+              if (session.label !== label) {
+                return false;
+              }
+              if (params.agentId && session.agentId !== params.agentId) {
+                return false;
+              }
+              if (params.spawnedBy && session.spawnedBy !== params.spawnedBy) {
+                return false;
+              }
+              return true;
+            })
+            .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+          return matches[0]?.sessionId;
+        },
         getHistory: (sessionId, limit) => {
           const session = sessions.get(sessionId.trim());
           if (!session) {

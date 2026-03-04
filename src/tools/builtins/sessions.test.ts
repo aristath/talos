@@ -242,4 +242,62 @@ describe("createSessionTools", () => {
     expect(data.contentRedacted).toBe(true);
     expect(data.bytes).toBeGreaterThan(0);
   });
+
+  it("supports sessions_send label lookup and status payload", async () => {
+    const tools = createSessionTools({
+      callbacks: {
+        listSessions: () => [
+          {
+            sessionId: "agent:main:subagent:abc",
+            agentId: "main",
+            kind: "subagent",
+            label: "planner",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+            messages: [],
+          },
+        ],
+        resolveSessionByLabel: ({ label }) => (label === "planner" ? "agent:main:subagent:abc" : undefined),
+        getHistory: () => [],
+        sendToSession: async () => ({
+          runId: "run-1",
+          status: "accepted",
+          reply: "queued",
+          delivery: {
+            status: "pending",
+            mode: "announce",
+          },
+        }),
+        spawnSession: async () => ({
+          sessionId: "agent:main:subagent:xyz",
+          runId: "r2",
+          text: "ok",
+          providerId: "p",
+          modelId: "m",
+        }),
+        getStatus: (sessionId) => ({
+          sessionId,
+          agentId: "main",
+          kind: "subagent",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          messages: [],
+        }),
+      },
+    });
+
+    const sendTool = tools.find((tool) => tool.name === "sessions_send");
+    expect(sendTool).toBeTruthy();
+    const result = await sendTool!.run({ label: "planner", message: "hello" }, { agentId: "main" });
+    const data = result.data as {
+      sessionId?: string;
+      status?: string;
+      reply?: string;
+      details?: { status?: string };
+    };
+    expect(data.sessionId).toBe("agent:main:subagent:abc");
+    expect(data.status).toBe("accepted");
+    expect(data.reply).toBe("queued");
+    expect(data.details?.status).toBe("accepted");
+  });
 });

@@ -317,7 +317,27 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
       name: names.send ?? "sessions_send",
       description: "Send a message to another session",
       async run(args, context) {
-        const sessionId = resolveFirstString(args, ["sessionKey", "sessionId"]) ?? requiredString(args, "sessionId");
+        const sessionIdFromInput = resolveFirstString(args, ["sessionKey", "sessionId"]);
+        const label = optionalString(args, "label");
+        const labelAgentId = optionalString(args, "agentId");
+        if (sessionIdFromInput && label) {
+          throw new TalosError({
+            code: "TOOL_FAILED",
+            message: "Provide either sessionKey/sessionId or label, not both.",
+          });
+        }
+        const sessionId =
+          sessionIdFromInput ??
+          (label && options.callbacks.resolveSessionByLabel
+            ? options.callbacks.resolveSessionByLabel({
+                label,
+                ...(labelAgentId ? { agentId: labelAgentId } : {}),
+                ...(typeof args.spawnedBy === "string" && args.spawnedBy.trim()
+                  ? { spawnedBy: args.spawnedBy.trim() }
+                  : {}),
+              })
+            : undefined) ??
+          requiredString(args, "sessionId");
         const message = resolveFirstString(args, ["message", "text", "prompt"]) ?? requiredString(args, "message");
         const session = options.callbacks.getStatus(sessionId);
         if (!session) {
@@ -349,16 +369,21 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
             ? { timeoutSeconds: Math.max(0, Math.floor(args.timeoutSeconds)) }
             : {}),
         });
+        const status = sent.status ?? "ok";
+        const reply = sent.reply ?? sent.text ?? "";
         return {
-          content: sent.text,
+          content: reply || (status === "accepted" ? "Message accepted." : "No reply."),
           data: {
             sessionId,
+            status,
             ...sent,
             details: {
               sessionId,
               runId: sent.runId,
               providerId: sent.providerId,
               modelId: sent.modelId,
+              status,
+              error: sent.error,
             },
           },
         };

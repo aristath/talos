@@ -241,13 +241,23 @@ export type SessionRecord = {
 export type SessionToolsCallbacks = {
   listSessions: () => SessionRecord[];
   getHistory: (sessionId: string, limit: number) => SessionMessage[];
+  resolveSessionByLabel?: (params: { label: string; agentId?: string; spawnedBy?: string }) => string | undefined;
   sendToSession: (params: {
     sessionId: string;
     message: string;
     requesterAgentId: string;
     workspaceDir?: string;
     timeoutSeconds?: number;
-  }) => Promise<{ runId: string; text: string; providerId: string; modelId: string }>;
+  }) => Promise<{
+    runId: string;
+    text?: string;
+    reply?: string;
+    status?: "ok" | "accepted" | "timeout" | "error";
+    error?: string;
+    providerId?: string;
+    modelId?: string;
+    delivery?: { status: string; mode?: string };
+  }>;
   spawnSession: (params: {
     task: string;
     agentId: string;
