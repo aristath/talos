@@ -167,6 +167,40 @@ function assertAllowedAction(action: string, allowed: ReadonlySet<string>, toolN
   });
 }
 
+function normalizeTarget(value: unknown): "sandbox" | "host" | "node" | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  if (normalized === "sandbox" || normalized === "host" || normalized === "node") {
+    return normalized;
+  }
+  throw new TalosError({
+    code: "TOOL_FAILED",
+    message: `Unsupported browser target: ${normalized}`,
+  });
+}
+
+function normalizeCanvasExecutionTarget(value: unknown): "sandbox" | "host" | "node" | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  if (normalized === "sandbox" || normalized === "host" || normalized === "node") {
+    return normalized;
+  }
+  throw new TalosError({
+    code: "TOOL_FAILED",
+    message: `Unsupported canvas execution target: ${normalized}`,
+  });
+}
+
 function requireActionParam(args: Record<string, unknown>, field: string, toolName: string, action: string): string {
   const value = typeof args[field] === "string" ? args[field].trim() : "";
   if (value) {
@@ -315,6 +349,8 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
       const action = normalizeBrowserAction(requiredAction(args));
       assertAllowedAction(action, BROWSER_ACTIONS, "browser");
       assertBrowserActionParams(action, args);
+      const profile = typeof args.profile === "string" && args.profile.trim() ? args.profile.trim() : undefined;
+      const target = normalizeTarget(args.target);
       const output = await options.execute({ action, args, context });
       return {
         content: output.content,
@@ -322,10 +358,14 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
           typeof output.data !== "undefined"
             ? {
                 action,
+                ...(profile ? { profile } : {}),
+                ...(target ? { target } : {}),
                 result: output.data,
               }
             : {
                 action,
+                ...(profile ? { profile } : {}),
+                ...(target ? { target } : {}),
               },
       };
     },
@@ -340,6 +380,8 @@ export function createCanvasTool(options: CanvasToolOptions): ToolDefinition {
       const action = normalizeCanvasAction(requiredAction(args));
       assertAllowedAction(action, CANVAS_ACTIONS, "canvas");
       assertCanvasActionParams(action, args);
+      const executionTarget =
+        normalizeCanvasExecutionTarget(args.executionTarget) ?? normalizeCanvasExecutionTarget(args.targetMode);
       const output = await options.execute({ action, args, context });
       return {
         content: output.content,
@@ -347,10 +389,12 @@ export function createCanvasTool(options: CanvasToolOptions): ToolDefinition {
           typeof output.data !== "undefined"
             ? {
                 action,
+                ...(executionTarget ? { target: executionTarget } : {}),
                 result: output.data,
               }
             : {
                 action,
+                ...(executionTarget ? { target: executionTarget } : {}),
               },
       };
     },

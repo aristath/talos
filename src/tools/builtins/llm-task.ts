@@ -149,6 +149,9 @@ export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
         content: JSON.stringify(parsed, null, 2),
         data: {
           json: parsed,
+          details: {
+            json: parsed,
+          },
         },
       };
     },

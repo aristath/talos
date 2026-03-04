@@ -12,8 +12,8 @@ Parity requires matching:
 
 ## Web Tools
 
-- [ ] `web_search`: provider selection parity (Brave/Perplexity/Gemini/Grok/Kimi)
-- [ ] `web_search`: provider auto-detect precedence parity
+- [x] `web_search`: provider selection parity (Brave/Perplexity/Gemini/Grok/Kimi)
+- [x] `web_search`: provider auto-detect precedence parity
 - [x] `web_search`: full locale/freshness behavior parity
 - [ ] `web_search`: output/detail shape parity
 - [ ] `web_fetch`: readability extraction parity
@@ -47,14 +47,14 @@ Parity requires matching:
 - [x] `llm_task`/`llm-task`: model/auth resolution precedence parity
 - [x] `llm_task`/`llm-task`: allowed-model enforcement parity
 - [x] `llm_task`/`llm-task`: schema validation semantics parity
-- [ ] `llm_task`/`llm-task`: output/detail shape parity
+- [x] `llm_task`/`llm-task`: output/detail shape parity
 
 ## Browser and Canvas Tools
 
 - [x] `browser`: action surface parity
 - [x] `browser`: action parameter validation parity
 - [ ] `browser`: output/detail shape parity
-- [ ] `browser`: target/profile routing semantics parity
+- [x] `browser`: target/profile routing semantics parity
 - [x] `canvas`: action surface parity
 - [x] `canvas`: action parameter validation parity
 - [ ] `canvas`: output/detail shape parity

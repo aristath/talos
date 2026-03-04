@@ -265,6 +265,55 @@ describe("createTalos", () => {
     expect(lastProvider).toBe("brave");
   });
 
+  it("auto-detects web_search provider from environment", async () => {
+    const previousBrave = process.env.BRAVE_API_KEY;
+    const previousGemini = process.env.GEMINI_API_KEY;
+    process.env.BRAVE_API_KEY = "brave-key";
+    delete process.env.GEMINI_API_KEY;
+    try {
+      const talos = createTalos({
+        providers: {
+          openaiCompatible: [
+            {
+              id: "openai",
+              baseUrl: "https://api.openai.com/v1",
+              defaultModel: "gpt-4o-mini",
+            },
+          ],
+        },
+      });
+
+      let seenProvider = "";
+      talos.registerWebTools({
+        search: {
+          search: async ({ provider }) => {
+            seenProvider = provider ?? "";
+            return [];
+          },
+        },
+      });
+
+      await talos.executeTool({
+        name: "web_search",
+        args: { query: "hello" },
+        context: { agentId: "main" },
+      });
+
+      expect(seenProvider).toBe("brave");
+    } finally {
+      if (typeof previousBrave === "string") {
+        process.env.BRAVE_API_KEY = previousBrave;
+      } else {
+        delete process.env.BRAVE_API_KEY;
+      }
+      if (typeof previousGemini === "string") {
+        process.env.GEMINI_API_KEY = previousGemini;
+      } else {
+        delete process.env.GEMINI_API_KEY;
+      }
+    }
+  });
+
   it("applies web tool defaults from config", async () => {
     const talos = createTalos({
       providers: {
@@ -538,7 +587,7 @@ describe("createTalos", () => {
     });
     const browserTrace = await talos.executeTool({
       name: "browser",
-      args: { action: "trace.start" },
+      args: { action: "trace.start", profile: "openclaw", target: "host" },
       context: { agentId: "main" },
     });
     const browserCookies = await talos.executeTool({
@@ -555,6 +604,8 @@ describe("createTalos", () => {
     expect(browser.content).toBe("browser:snapshot");
     expect(canvas.content).toBe("canvas:present");
     expect(browserTrace.content).toBe("browser:trace_start");
+    expect((browserTrace.data as { profile?: string }).profile).toBe("openclaw");
+    expect((browserTrace.data as { target?: string }).target).toBe("host");
     expect(browserCookies.content).toBe("browser:cookies_set");
     expect(canvasA2ui.content).toBe("canvas:a2ui_push");
     expect(browserActions).toContain("trace_start");
@@ -627,6 +678,20 @@ describe("createTalos", () => {
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "browser",
+        args: { action: "status", target: "cloud" },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "canvas",
+        args: { action: "present", target: "https://example.com", targetMode: "cloud" },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
   });
 
   it("registers llm_task tool and parses JSON output", async () => {
@@ -665,6 +730,7 @@ describe("createTalos", () => {
 
     expect(result.content).toContain('"ok": true');
     expect((result.data as { json?: { ok?: boolean } }).json?.ok).toBe(true);
+    expect((result.data as { details?: { json?: { ok?: boolean } } }).details?.json?.ok).toBe(true);
 
     const aliasResult = await talos.executeTool({
       name: "llm-task",

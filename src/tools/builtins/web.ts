@@ -151,6 +151,25 @@ function normalizeProvider(value: unknown): "brave" | "perplexity" | "gemini" | 
   return normalized as "brave" | "perplexity" | "gemini" | "grok" | "kimi";
 }
 
+function autoDetectProvider(): "brave" | "perplexity" | "gemini" | "grok" | "kimi" {
+  if (process.env.BRAVE_API_KEY?.trim()) {
+    return "brave";
+  }
+  if (process.env.GEMINI_API_KEY?.trim()) {
+    return "gemini";
+  }
+  if (process.env.KIMI_API_KEY?.trim() || process.env.MOONSHOT_API_KEY?.trim()) {
+    return "kimi";
+  }
+  if (process.env.PERPLEXITY_API_KEY?.trim() || process.env.OPENROUTER_API_KEY?.trim()) {
+    return "perplexity";
+  }
+  if (process.env.XAI_API_KEY?.trim()) {
+    return "grok";
+  }
+  return "brave";
+}
+
 function normalizeSearchResults(items: WebSearchResultItem[]): WebSearchResultItem[] {
   return items
     .map((item) => {
@@ -298,7 +317,7 @@ export function createWebSearchTool(options: WebSearchToolOptions): ToolDefiniti
       const searchLang = normalizeSearchLang(args.search_lang);
       const uiLang = normalizeUiLang(args.ui_lang);
       const freshness = normalizeFreshness(args.freshness);
-      const provider = normalizeProvider(args.provider);
+      const provider = normalizeProvider(args.provider) ?? autoDetectProvider();
       const cacheKey = JSON.stringify({ query, count, provider, country, searchLang, uiLang, freshness });
       const now = Date.now();
       const cached = cache.get(cacheKey);
