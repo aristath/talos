@@ -315,36 +315,39 @@ export function buildPersonaSystemPrompt(
       : DEFAULT_BOOTSTRAP_TOTAL_MAX_CHARS;
   let remaining = totalMaxChars;
 
-  const sections = snapshot.bootstrapFiles
-    .map((file) => {
-      if (remaining <= 0) {
-        return null;
-      }
+  const sections: string[] = [];
+  for (const file of snapshot.bootstrapFiles) {
+    if (remaining <= 0) {
+      break;
+    }
 
-      if (file.missing) {
-        const missingText = clampToBudget(`[MISSING] Expected at: ${file.path}`, remaining);
-        if (!missingText) {
-          return null;
-        }
-        remaining = Math.max(0, remaining - missingText.length);
-        return `## ${file.name}\n${missingText}`;
+    if (file.missing) {
+      const missingText = clampToBudget(`[MISSING] Expected at: ${file.path}`, remaining);
+      if (!missingText) {
+        break;
       }
+      remaining = Math.max(0, remaining - missingText.length);
+      sections.push(`## ${file.name}\n${missingText}`);
+      continue;
+    }
 
-      if (!file.content || remaining < MIN_BOOTSTRAP_FILE_BUDGET_CHARS) {
-        return null;
-      }
+    if (!file.content) {
+      continue;
+    }
 
-      const perFileBudget = Math.max(1, Math.min(maxChars, remaining));
-      const trimmed = trimContent(file.content, file.name, perFileBudget);
-      const capped = clampToBudget(trimmed, remaining);
-      if (!capped) {
-        return null;
-      }
-      remaining = Math.max(0, remaining - capped.length);
-      return `## ${file.name}\n${capped}`;
-    })
-    .filter((entry): entry is string => Boolean(entry))
-    .filter((entry) => entry.trim().length > 0);
+    if (remaining < MIN_BOOTSTRAP_FILE_BUDGET_CHARS) {
+      break;
+    }
+
+    const perFileBudget = Math.max(1, Math.min(maxChars, remaining));
+    const trimmed = trimContent(file.content, file.name, perFileBudget);
+    const capped = clampToBudget(trimmed, remaining);
+    if (!capped) {
+      continue;
+    }
+    remaining = Math.max(0, remaining - capped.length);
+    sections.push(`## ${file.name}\n${capped}`);
+  }
 
   if (sections.length === 0) {
     return undefined;

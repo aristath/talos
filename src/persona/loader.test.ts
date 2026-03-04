@@ -142,4 +142,42 @@ describe("loadPersonaSnapshot", () => {
     expect(prompt).toBeDefined();
     expect(hasLoneSurrogates(prompt ?? "")).toBe(false);
   });
+
+  it("stops processing once remaining budget is below file minimum", () => {
+    const prompt = buildPersonaSystemPrompt(
+      {
+        workspaceDir: "/w",
+        sessionKind: "main",
+        files: {},
+        diagnostics: [],
+        bootstrapFiles: [
+          {
+            name: "AGENTS.md",
+            path: "/w/AGENTS.md",
+            content: "a".repeat(200),
+            missing: false,
+          },
+          {
+            name: "SOUL.md",
+            path: "/w/SOUL.md",
+            content: "soul",
+            missing: false,
+          },
+          {
+            name: "USER.md",
+            path: "/w/USER.md",
+            missing: true,
+          },
+        ],
+      },
+      {
+        bootstrapMaxChars: 60,
+        bootstrapTotalMaxChars: 100,
+      },
+    );
+
+    expect(prompt?.includes("## AGENTS.md")).toBe(true);
+    expect(prompt?.includes("## SOUL.md")).toBe(false);
+    expect(prompt?.includes("## USER.md")).toBe(false);
+  });
 });
