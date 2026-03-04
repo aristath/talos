@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { TalosError } from "../errors.js";
 import type { PersonaFileName } from "./types.js";
 import { DEFAULT_PERSONA_TEMPLATES, DEFAULT_SEEDED_PERSONA_FILES } from "./templates.js";
@@ -60,7 +61,7 @@ async function readState(statePath: string): Promise<PersonaWorkspaceState> {
 async function writeState(statePath: string, state: PersonaWorkspaceState): Promise<void> {
   await fs.mkdir(path.dirname(statePath), { recursive: true });
   const payload = `${JSON.stringify(state, null, 2)}\n`;
-  const tmpPath = `${statePath}.tmp-${process.pid}-${Date.now().toString(36)}`;
+  const tmpPath = `${statePath}.tmp-${process.pid}-${randomUUID()}`;
   await fs.writeFile(tmpPath, payload, "utf8");
   await fs.rename(tmpPath, statePath);
 }
