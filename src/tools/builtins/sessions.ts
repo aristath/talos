@@ -282,6 +282,7 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
             content: `Unknown session: ${sessionId}`,
             data: {
               sessionId,
+              sessionKey: sessionId,
               status: "error",
               error: `Unknown session: ${sessionId}`,
               details: {
@@ -304,6 +305,7 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
             content: `Access denied for session history: ${sessionId}`,
             data: {
               sessionId,
+              sessionKey: sessionId,
               status: "forbidden",
               error: `Access denied for session history: ${sessionId}`,
               details: {
@@ -326,6 +328,7 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
           data: {
             count: capped.items.length,
             sessionId,
+            sessionKey: sessionId,
             messages: capped.items,
             includeTools: Boolean(args.includeTools),
             truncated: capped.dropped || sanitized.some((entry) => entry.truncated),
@@ -361,6 +364,7 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
           content: params.reply ?? params.error ?? "",
           data: {
             ...(params.sessionId ? { sessionId: params.sessionId } : {}),
+            ...(params.sessionId ? { sessionKey: params.sessionId } : {}),
             ...(params.runId ? { runId: params.runId } : {}),
             status: params.status,
             ...(params.reply ? { reply: params.reply } : {}),
@@ -543,6 +547,7 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
           content: spawned.text,
           data: {
             ...spawned,
+            sessionKey: spawned.sessionId,
             details: {
               sessionId: spawned.sessionId,
               runId: spawned.runId,
@@ -628,6 +633,7 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
           content,
           data: {
             ...effectiveStatus,
+            sessionKey: effectiveStatus.sessionId,
             status: "ok",
             ...(requestedModel ? { requestedModel } : {}),
             ...(changedModel ? { changedModel: true } : {}),
