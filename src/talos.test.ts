@@ -1133,6 +1133,27 @@ describe("createTalos", () => {
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
       talos.executeTool({
+        name: "browser",
+        args: { action: "snapshot", snapshotFormat: "xml" },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "browser",
+        args: { action: "snapshot", mode: "full" },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "browser",
+        args: { action: "snapshot", refs: "css" },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
         name: "canvas",
         args: { action: "present" },
         context: { agentId: "main" },

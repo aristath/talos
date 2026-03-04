@@ -544,6 +544,37 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
         message: "browser action 'screenshot' supports type: png, jpeg.",
       });
     }
+    case "snapshot": {
+      if (Object.hasOwn(args, "snapshotFormat")) {
+        const snapshotFormat =
+          typeof args.snapshotFormat === "string" ? args.snapshotFormat.trim().toLowerCase() : "";
+        if (snapshotFormat && snapshotFormat !== "ai" && snapshotFormat !== "aria") {
+          throw new TalosError({
+            code: "TOOL_FAILED",
+            message: "browser action 'snapshot' supports snapshotFormat: ai, aria.",
+          });
+        }
+      }
+      if (Object.hasOwn(args, "mode")) {
+        const mode = typeof args.mode === "string" ? args.mode.trim().toLowerCase() : "";
+        if (mode && mode !== "efficient") {
+          throw new TalosError({
+            code: "TOOL_FAILED",
+            message: "browser action 'snapshot' supports mode: efficient.",
+          });
+        }
+      }
+      if (Object.hasOwn(args, "refs")) {
+        const refs = typeof args.refs === "string" ? args.refs.trim().toLowerCase() : "";
+        if (refs && refs !== "role" && refs !== "aria") {
+          throw new TalosError({
+            code: "TOOL_FAILED",
+            message: "browser action 'snapshot' supports refs: role, aria.",
+          });
+        }
+      }
+      return;
+    }
     case "evaluate":
       requireActionParam(args, "fn", "browser", action);
       return;
