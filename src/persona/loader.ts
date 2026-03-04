@@ -242,14 +242,15 @@ export async function loadExtraPersonaFilesWithDiagnostics(params: {
         filePath: absolutePath,
         fileName: name,
       });
-      files.push(loaded);
       if (loaded.missing) {
         diagnostics.push({
           path: absolutePath,
           reason: "missing",
           detail: "missing",
         });
+        continue;
       }
+      files.push(loaded);
     } catch (error) {
       const reason: PersonaLoadDiagnosticCode =
         error instanceof TalosError && error.code === "PERSONA_FILE_UNSAFE" ? "security" : "io";

@@ -149,6 +149,22 @@ describe("loadPersonaSnapshot", () => {
     expect(snapshot.diagnostics.some((d) => d.reason === "security")).toBe(true);
   });
 
+  it("does not inject missing extra persona files into bootstrap context", async () => {
+    const dir = await createTmpDir();
+    await fs.writeFile(path.join(dir, "SOUL.md"), "root soul", "utf8");
+
+    const snapshot = await loadPersonaSnapshot(dir, {
+      extraPatterns: ["nested/USER.md"],
+    });
+
+    expect(snapshot.diagnostics.some((d) => d.reason === "missing")).toBe(true);
+    expect(snapshot.bootstrapFiles.some((f) => f.path.endsWith(path.join("nested", "USER.md")))).toBe(
+      false,
+    );
+    const prompt = buildPersonaSystemPrompt(snapshot);
+    expect(prompt?.includes("nested/USER.md")).toBe(false);
+  });
+
   it("applies bootstrap context budgets when building prompt", async () => {
     const dir = await createTmpDir();
     await fs.writeFile(path.join(dir, "SOUL.md"), "x".repeat(2000), "utf8");
