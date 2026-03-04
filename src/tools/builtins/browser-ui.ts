@@ -79,6 +79,7 @@ const BROWSER_ACT_KINDS = new Set([
   "wait",
   "evaluate",
   "close",
+  "scrollIntoView",
 ]);
 
 const LEGACY_BROWSER_ACT_REQUEST_KEYS = [
@@ -106,6 +107,29 @@ const LEGACY_BROWSER_ACT_REQUEST_KEYS = [
   "fn",
   "timeoutMs",
 ] as const;
+
+const BROWSER_TOP_LEVEL_ALIASES = {
+  target_url: "targetUrl",
+  target_id: "targetId",
+  tab_id: "tabId",
+  prompt_text: "promptText",
+  timeout_ms: "timeoutMs",
+  output_format: "outputFormat",
+  execution_target: "executionTarget",
+  target_mode: "targetMode",
+} as const;
+
+const BROWSER_REQUEST_ALIASES = {
+  target_id: "targetId",
+  double_click: "doubleClick",
+  delay_ms: "delayMs",
+  start_ref: "startRef",
+  end_ref: "endRef",
+  time_ms: "timeMs",
+  text_gone: "textGone",
+  load_state: "loadState",
+  timeout_ms: "timeoutMs",
+} as const;
 
 function normalizeBrowserAction(action: string): string {
   if (action === "tab.new") {
@@ -253,9 +277,33 @@ function requireActionParam(args: Record<string, unknown>, field: string, toolNa
   });
 }
 
+function normalizeAliasedKeys(
+  args: Record<string, unknown>,
+  aliases: Record<string, string>,
+): Record<string, unknown> {
+  let normalized: Record<string, unknown> | undefined;
+  for (const [from, to] of Object.entries(aliases)) {
+    if (!Object.hasOwn(args, from) || Object.hasOwn(args, to)) {
+      continue;
+    }
+    normalized ??= { ...args };
+    normalized[to] = args[from];
+  }
+  return normalized ?? args;
+}
+
 function readBrowserActRequest(args: Record<string, unknown>): Record<string, unknown> | undefined {
   if (typeof args.request === "object" && args.request && !Array.isArray(args.request)) {
-    return args.request as Record<string, unknown>;
+    const normalized = normalizeAliasedKeys(args.request as Record<string, unknown>, BROWSER_REQUEST_ALIASES);
+    const rawKind = typeof normalized.kind === "string" ? normalized.kind.trim() : "";
+    const kind = rawKind === "scrollintoview" ? "scrollIntoView" : rawKind;
+    if (kind && kind !== rawKind) {
+      return {
+        ...normalized,
+        kind,
+      };
+    }
+    return normalized;
   }
   const kind = typeof args.kind === "string" ? args.kind.trim() : "";
   if (!kind) {
@@ -268,7 +316,19 @@ function readBrowserActRequest(args: Record<string, unknown>): Record<string, un
     }
     request[key] = args[key];
   }
+  if (kind === "scrollintoview") {
+    request.kind = "scrollIntoView";
+  }
   return request;
+}
+
+function assertPositiveNumber(value: unknown, message: string): void {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    throw new TalosError({
+      code: "TOOL_FAILED",
+      message,
+    });
+  }
 }
 
 function normalizeBrowserActionArgs(action: string, args: Record<string, unknown>): Record<string, unknown> {
@@ -363,6 +423,72 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
               allowedKinds: Array.from(BROWSER_ACT_KINDS),
             },
           });
+        }
+        switch (kind) {
+          case "click":
+          case "hover":
+          case "scrollIntoView":
+            requireActionParam(request, "ref", "browser act", kind);
+            break;
+          case "type":
+            requireActionParam(request, "ref", "browser act", kind);
+            requireActionParam(request, "text", "browser act", kind);
+            break;
+          case "press":
+            requireActionParam(request, "key", "browser act", kind);
+            break;
+          case "drag":
+            requireActionParam(request, "startRef", "browser act", kind);
+            requireActionParam(request, "endRef", "browser act", kind);
+            break;
+          case "select": {
+            requireActionParam(request, "ref", "browser act", kind);
+            const values = request.values;
+            if (!Array.isArray(values) || values.length === 0) {
+              throw new TalosError({
+                code: "TOOL_FAILED",
+                message: "browser act 'select' requires a non-empty 'values' array.",
+              });
+            }
+            break;
+          }
+          case "fill": {
+            const fields = request.fields;
+            if (!Array.isArray(fields) || fields.length === 0) {
+              throw new TalosError({
+                code: "TOOL_FAILED",
+                message: "browser act 'fill' requires a non-empty 'fields' array.",
+              });
+            }
+            break;
+          }
+          case "resize":
+            assertPositiveNumber(request.width, "browser act 'resize' requires positive numeric 'width'.");
+            assertPositiveNumber(request.height, "browser act 'resize' requires positive numeric 'height'.");
+            break;
+          case "evaluate":
+            requireActionParam(request, "fn", "browser act", kind);
+            break;
+          case "wait": {
+            if (Object.hasOwn(request, "loadState")) {
+              const loadState = typeof request.loadState === "string" ? request.loadState.trim() : "";
+              if (
+                loadState &&
+                loadState !== "load" &&
+                loadState !== "domcontentloaded" &&
+                loadState !== "networkidle"
+              ) {
+                throw new TalosError({
+                  code: "TOOL_FAILED",
+                  message:
+                    "browser act 'wait' supports loadState: load, domcontentloaded, networkidle.",
+                });
+              }
+            }
+            break;
+          }
+          default:
+            break;
         }
       }
       return;
@@ -552,11 +678,12 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
     name: options.name ?? "browser",
     description: options.description ?? "Run browser/UI automation actions",
     async run(args, context) {
-      const action = normalizeBrowserAction(requiredAction(args));
+      const inputArgs = normalizeAliasedKeys(args, BROWSER_TOP_LEVEL_ALIASES);
+      const action = normalizeBrowserAction(requiredAction(inputArgs));
       assertAllowedAction(action, BROWSER_ACTIONS, "browser");
-      assertBrowserActionParams(action, args);
-      const actRequest = action === "act" ? readBrowserActRequest(args) : undefined;
-      const actionArgs = normalizeBrowserActionArgs(action, args);
+      assertBrowserActionParams(action, inputArgs);
+      const actRequest = action === "act" ? readBrowserActRequest(inputArgs) : undefined;
+      const actionArgs = normalizeBrowserActionArgs(action, inputArgs);
       const normalizedArgs =
         action === "act" && actRequest
           ? {
@@ -565,9 +692,10 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
               request: actRequest,
             }
           : actionArgs;
-      const profile = typeof args.profile === "string" && args.profile.trim() ? args.profile.trim() : undefined;
-      const target = normalizeTarget(args.target);
-      const node = typeof args.node === "string" && args.node.trim() ? args.node.trim() : undefined;
+      const profile =
+        typeof inputArgs.profile === "string" && inputArgs.profile.trim() ? inputArgs.profile.trim() : undefined;
+      const target = normalizeTarget(inputArgs.target);
+      const node = typeof inputArgs.node === "string" && inputArgs.node.trim() ? inputArgs.node.trim() : undefined;
       if (node && target && target !== "node") {
         throw new TalosError({
           code: "TOOL_FAILED",
@@ -575,8 +703,9 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
         });
       }
       const resolvedTarget = target ?? (node ? "node" : profile === "chrome" ? "host" : undefined);
+      const explicitTarget = typeof normalizedArgs.target === "string" ? normalizedArgs.target.trim() : "";
       const executeArgs =
-        resolvedTarget && !Object.hasOwn(normalizedArgs, "target")
+        resolvedTarget && !explicitTarget
           ? {
               ...normalizedArgs,
               target: resolvedTarget,
@@ -622,13 +751,15 @@ export function createCanvasTool(options: CanvasToolOptions): ToolDefinition {
     name: options.name ?? "canvas",
     description: options.description ?? "Run canvas automation actions",
     async run(args, context) {
-      const action = normalizeCanvasAction(requiredAction(args));
+      const inputArgs = normalizeAliasedKeys(args, BROWSER_TOP_LEVEL_ALIASES);
+      const action = normalizeCanvasAction(requiredAction(inputArgs));
       assertAllowedAction(action, CANVAS_ACTIONS, "canvas");
-      assertCanvasActionParams(action, args);
-      const normalizedArgs = normalizeCanvasActionArgs(action, args);
+      assertCanvasActionParams(action, inputArgs);
+      const normalizedArgs = normalizeCanvasActionArgs(action, inputArgs);
       const executionTarget =
-        normalizeCanvasExecutionTarget(args.executionTarget) ?? normalizeCanvasExecutionTarget(args.targetMode);
-      const node = typeof args.node === "string" && args.node.trim() ? args.node.trim() : undefined;
+        normalizeCanvasExecutionTarget(inputArgs.executionTarget) ??
+        normalizeCanvasExecutionTarget(inputArgs.targetMode);
+      const node = typeof inputArgs.node === "string" && inputArgs.node.trim() ? inputArgs.node.trim() : undefined;
       const resolvedExecutionTarget = executionTarget ?? (node ? "node" : undefined);
       const output = await options.execute({ action, args: normalizedArgs, context });
       return {

@@ -749,8 +749,8 @@ describe("createTalos", () => {
     const browserActions: string[] = [];
     const browserStatusArgs: Record<string, unknown>[] = [];
     const browserActArgs: Record<string, unknown>[] = [];
-    let browserOpenArgs: Record<string, unknown> | undefined;
-    let browserFocusArgs: Record<string, unknown> | undefined;
+    const browserOpenArgs: Record<string, unknown>[] = [];
+    const browserFocusArgs: Record<string, unknown>[] = [];
     let browserNavigateArgs: Record<string, unknown> | undefined;
     const browserCloseArgs: Record<string, unknown>[] = [];
     let browserDialogArgs: Record<string, unknown> | undefined;
@@ -769,10 +769,10 @@ describe("createTalos", () => {
           browserStatusArgs.push(args);
         }
         if (action === "open") {
-          browserOpenArgs = args;
+          browserOpenArgs.push(args);
         }
         if (action === "focus") {
-          browserFocusArgs = args;
+          browserFocusArgs.push(args);
         }
         if (action === "navigate") {
           browserNavigateArgs = args;
@@ -829,6 +829,11 @@ describe("createTalos", () => {
       args: { action: "status", profile: "chrome" },
       context: { agentId: "main" },
     });
+    const browserChromeStatusBlankTarget = await talos.executeTool({
+      name: "browser",
+      args: { action: "status", profile: "chrome", target: "   " },
+      context: { agentId: "main" },
+    });
     const browserNodeStatus = await talos.executeTool({
       name: "browser",
       args: { action: "status", node: "edge-1" },
@@ -844,9 +849,24 @@ describe("createTalos", () => {
       args: { action: "act", kind: "press", key: "Enter" },
       context: { agentId: "main" },
     });
+    const browserActSnake = await talos.executeTool({
+      name: "browser",
+      args: { action: "act", request: { kind: "press", key: "Escape", delay_ms: 5 } },
+      context: { agentId: "main" },
+    });
+    const browserActScrollAlias = await talos.executeTool({
+      name: "browser",
+      args: { action: "act", request: { kind: "scrollintoview", ref: "button.cta" } },
+      context: { agentId: "main" },
+    });
     const browserDialog = await talos.executeTool({
       name: "browser",
       args: { action: "dialog" },
+      context: { agentId: "main" },
+    });
+    const browserDialogSnake = await talos.executeTool({
+      name: "browser",
+      args: { action: "dialog", prompt_text: "otp" },
       context: { agentId: "main" },
     });
     const browserOpenAlias = await talos.executeTool({
@@ -854,9 +874,19 @@ describe("createTalos", () => {
       args: { action: "open", targetUrl: "https://example.com/alias" },
       context: { agentId: "main" },
     });
+    const browserOpenSnakeAlias = await talos.executeTool({
+      name: "browser",
+      args: { action: "open", target_url: "https://example.com/snake" },
+      context: { agentId: "main" },
+    });
     const browserFocusAlias = await talos.executeTool({
       name: "browser",
       args: { action: "focus", tabId: "tab-9" },
+      context: { agentId: "main" },
+    });
+    const browserFocusSnakeAlias = await talos.executeTool({
+      name: "browser",
+      args: { action: "focus", tab_id: "tab-10" },
       context: { agentId: "main" },
     });
     const browserNavigateAlias = await talos.executeTool({
@@ -906,7 +936,12 @@ describe("createTalos", () => {
     });
     const canvasSnapshot = await talos.executeTool({
       name: "canvas",
-      args: { action: "snapshot", node: "canvas-node-1" },
+      args: { action: "snapshot", node: "canvas-node-1", target_mode: "node" },
+      context: { agentId: "main" },
+    });
+    const canvasSnapshotSnakeFormat = await talos.executeTool({
+      name: "canvas",
+      args: { action: "snapshot", output_format: "jpg" },
       context: { agentId: "main" },
     });
 
@@ -914,12 +949,18 @@ describe("createTalos", () => {
     expect(canvas.content).toBe("canvas:present");
     expect(browserTrace.content).toBe("browser:trace_start");
     expect(browserChromeStatus.content).toBe("browser:status");
+    expect(browserChromeStatusBlankTarget.content).toBe("browser:status");
     expect(browserNodeStatus.content).toBe("browser:status");
     expect(browserAct.content).toBe("browser:act");
     expect(browserActLegacy.content).toBe("browser:act");
+    expect(browserActSnake.content).toBe("browser:act");
+    expect(browserActScrollAlias.content).toBe("browser:act");
     expect(browserDialog.content).toBe("browser:dialog");
+    expect(browserDialogSnake.content).toBe("browser:dialog");
     expect(browserOpenAlias.content).toBe("browser:open");
+    expect(browserOpenSnakeAlias.content).toBe("browser:open");
     expect(browserFocusAlias.content).toBe("browser:focus");
+    expect(browserFocusSnakeAlias.content).toBe("browser:focus");
     expect(browserNavigateAlias.content).toBe("browser:navigate");
     expect(browserCloseAlias.content).toBe("browser:close");
     expect(browserCloseDefault.content).toBe("browser:close");
@@ -927,21 +968,30 @@ describe("createTalos", () => {
     expect((browserTrace.data as { profile?: string }).profile).toBe("openclaw");
     expect((browserTrace.data as { target?: string }).target).toBe("host");
     expect((browserChromeStatus.data as { target?: string }).target).toBe("host");
+    expect((browserChromeStatusBlankTarget.data as { target?: string }).target).toBe("host");
     expect((browserNodeStatus.data as { node?: string }).node).toBe("edge-1");
     expect((browserNodeStatus.data as { target?: string }).target).toBe("node");
     expect((browserStatusArgs[0] as { target?: string } | undefined)?.target).toBe("host");
-    expect((browserStatusArgs[1] as { target?: string } | undefined)?.target).toBe("node");
+    expect((browserStatusArgs[1] as { target?: string } | undefined)?.target).toBe("host");
+    expect((browserStatusArgs[2] as { target?: string } | undefined)?.target).toBe("node");
     expect((browserTrace.data as { details?: { action?: string } }).details?.action).toBe("trace_start");
     expect((browserActArgs[0]?.request as { kind?: string })?.kind).toBe("click");
     expect((browserActArgs[0] as { kind?: string } | undefined)?.kind).toBe("click");
     expect((browserActArgs[1]?.request as { kind?: string; key?: string })?.kind).toBe("press");
     expect((browserActArgs[1]?.request as { kind?: string; key?: string })?.key).toBe("Enter");
-    expect((browserOpenArgs as { url?: string } | undefined)?.url).toBe("https://example.com/alias");
-    expect((browserFocusArgs as { targetId?: string } | undefined)?.targetId).toBe("tab-9");
+    expect((browserActArgs[2]?.request as { kind?: string; key?: string; delayMs?: number })?.key).toBe("Escape");
+    expect((browserActArgs[2]?.request as { kind?: string; key?: string; delayMs?: number })?.delayMs).toBe(5);
+    expect((browserActArgs[3]?.request as { kind?: string; ref?: string })?.kind).toBe("scrollIntoView");
+    expect((browserActArgs[3]?.request as { kind?: string; ref?: string })?.ref).toBe("button.cta");
+    expect((browserOpenArgs[0] as { url?: string } | undefined)?.url).toBe("https://example.com/alias");
+    expect((browserOpenArgs[1] as { url?: string } | undefined)?.url).toBe("https://example.com/snake");
+    expect((browserFocusArgs[0] as { targetId?: string } | undefined)?.targetId).toBe("tab-9");
+    expect((browserFocusArgs[1] as { targetId?: string } | undefined)?.targetId).toBe("tab-10");
     expect((browserNavigateArgs as { url?: string } | undefined)?.url).toBe("https://example.com/nav");
     expect((browserCloseArgs[0] as { targetId?: string } | undefined)?.targetId).toBe("tab-8");
     expect((browserCloseArgs[1] as { targetId?: string } | undefined)?.targetId).toBeUndefined();
     expect((browserDialogArgs as { accept?: boolean } | undefined)?.accept).toBe(false);
+    expect((browserDialogArgs as { promptText?: string } | undefined)?.promptText).toBe("otp");
     expect((browserUploadArgs as { paths?: string[] } | undefined)?.paths).toEqual(["/tmp/a.txt", "42"]);
     expect(browserCookies.content).toBe("browser:cookies_set");
     expect(canvasA2ui.content).toBe("canvas:a2ui_push");
@@ -949,6 +999,7 @@ describe("createTalos", () => {
     expect(canvasNavigateAlias.content).toBe("canvas:navigate");
     expect(canvasPresentAlias.content).toBe("canvas:present");
     expect(canvasSnapshot.content).toBe("canvas:snapshot");
+    expect(canvasSnapshotSnakeFormat.content).toBe("canvas:snapshot");
     expect((canvasSnapshot.data as { node?: string }).node).toBe("canvas-node-1");
     expect((canvasSnapshot.data as { target?: string }).target).toBe("node");
     expect((canvasNavigateArgs as { url?: string } | undefined)?.url).toBe("https://example.com/canvas");
@@ -1016,6 +1067,34 @@ describe("createTalos", () => {
       talos.executeTool({
         name: "browser",
         args: { action: "act", request: { kind: "noop" } },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "browser",
+        args: { action: "act", request: { kind: "type", ref: "input.email" } },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "browser",
+        args: { action: "act", request: { kind: "select", ref: "select#plan" } },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "browser",
+        args: { action: "act", request: { kind: "fill", fields: [] } },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "browser",
+        args: { action: "act", request: { kind: "wait", loadState: "idle" } },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
