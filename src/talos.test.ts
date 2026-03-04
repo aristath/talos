@@ -453,16 +453,29 @@ describe("createTalos", () => {
       args: {
         pdf: "https://example.com/doc.pdf",
         pages: "3,1-2,2",
+        model: "openai/gpt-4o-mini",
       },
       context: { agentId: "main" },
     });
     expect((pagesResult.data as { pages?: string }).pages).toBe("1,2,3");
+    expect((pagesResult.data as { native?: boolean }).native).toBe(false);
 
     await expect(
       talos.executeTool({
         name: "pdf",
         args: {
           pdf: "ftp://example.com/doc.pdf",
+        },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED", details: { error: "unsupported_pdf_reference" } });
+
+    await expect(
+      talos.executeTool({
+        name: "pdf",
+        args: {
+          pdf: "https://example.com/doc.pdf",
+          pages: "1-two",
         },
         context: { agentId: "main" },
       }),
@@ -473,7 +486,8 @@ describe("createTalos", () => {
         name: "pdf",
         args: {
           pdf: "https://example.com/doc.pdf",
-          pages: "1-two",
+          model: "anthropic/claude-opus-4-6",
+          pages: "1-2",
         },
         context: { agentId: "main" },
       }),

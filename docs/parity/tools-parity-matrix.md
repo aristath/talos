@@ -28,7 +28,7 @@ Parity requires matching:
 - [ ] `image`: input normalization and policy guards parity
 - [ ] `pdf`: native-provider mode parity
 - [ ] `pdf`: extraction fallback mode parity
-- [ ] `pdf`: pages/max-bytes/max-items semantics parity
+- [x] `pdf`: pages/max-bytes/max-items semantics parity
 - [ ] `pdf`: output/detail shape parity
 - [ ] `pdf`: registration/exposure gating parity
 

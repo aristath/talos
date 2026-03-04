@@ -109,6 +109,10 @@ function validateMediaReference(input: string, isPdf: boolean): void {
       throw new TalosError({
         code: "TOOL_FAILED",
         message: `Unsupported ${isPdf ? "PDF" : "image"} reference scheme: ${parsed.protocol}`,
+        details: {
+          error: isPdf ? "unsupported_pdf_reference" : "unsupported_image_reference",
+          scheme: parsed.protocol,
+        },
       });
     }
   }
@@ -124,8 +128,9 @@ function createMediaTool(baseName: string, fallbackDescription: string, options:
   const singleField = isPdf ? "pdf" : "image";
   const multiField = isPdf ? "pdfs" : "images";
   const maxItems = isPdf ? 10 : 20;
-  const maxPages = 20;
-  const defaultMaxBytesMb = isPdf ? 10 : 20;
+  const maxPages = options.pdfMaxPages ?? 20;
+  const defaultMaxBytesMb = isPdf ? (options.defaultPdfMaxBytesMb ?? 10) : 20;
+  const nativePdfProviders = new Set((options.nativePdfProviders ?? ["anthropic", "google"]).map((v) => v.trim()));
   return {
     name: options.name ?? baseName,
     description: options.description ?? fallbackDescription,
@@ -154,6 +159,14 @@ function createMediaTool(baseName: string, fallbackDescription: string, options:
       const pagesRaw = isPdf && typeof args.pages === "string" && args.pages.trim() ? args.pages.trim() : undefined;
       const parsedPages = pagesRaw ? parsePagesExpression(pagesRaw, maxPages) : [];
       const pages = parsedPages.length > 0 ? parsedPages.join(",") : undefined;
+      const modelProvider = model?.split("/")[0]?.trim();
+      const nativePdfMode = Boolean(isPdf && modelProvider && nativePdfProviders.has(modelProvider));
+      if (nativePdfMode && pages) {
+        throw new TalosError({
+          code: "TOOL_FAILED",
+          message: "pages is not supported with native PDF providers",
+        });
+      }
       const analyzed = await options.analyze({
         input,
         ...(collected.length > 0 ? { inputs: collected } : {}),
@@ -170,11 +183,11 @@ function createMediaTool(baseName: string, fallbackDescription: string, options:
             ? {
                 result: analyzed.data,
                 ...(collected.length > 0 ? { inputs: collected } : {}),
-                ...(isPdf ? { maxBytesMb, ...(pages ? { pages } : {}) } : {}),
+                ...(isPdf ? { maxBytesMb, native: nativePdfMode, ...(pages ? { pages } : {}) } : {}),
               }
             : {
                 ...(collected.length > 0 ? { inputs: collected } : {}),
-                ...(isPdf ? { maxBytesMb, ...(pages ? { pages } : {}) } : {}),
+                ...(isPdf ? { maxBytesMb, native: nativePdfMode, ...(pages ? { pages } : {}) } : {}),
               },
       };
     },

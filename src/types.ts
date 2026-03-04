@@ -154,6 +154,9 @@ export type WebFetchToolOptions = {
 export type MediaUnderstandToolOptions = {
   name?: string;
   description?: string;
+  nativePdfProviders?: string[];
+  pdfMaxPages?: number;
+  defaultPdfMaxBytesMb?: number;
   analyze: (params: {
     input: string;
     inputs?: string[];
