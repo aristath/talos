@@ -17,13 +17,20 @@ type OpenAIChatCompletionResponse = {
   }>;
 };
 
+function resolveChatCompletionsUrl(baseUrl: string): string {
+  const parsed = new URL(baseUrl);
+  const normalizedPath = parsed.pathname.replace(/\/+$/, "");
+  parsed.pathname = `${normalizedPath}/chat/completions`;
+  return parsed.toString();
+}
+
 export function createOpenAICompatibleProvider(
   config: OpenAICompatibleProviderConfig,
 ): ModelProviderAdapter {
   return {
     id: config.id,
     async generate(request: ModelRequest): Promise<ModelResponse> {
-      const url = new URL("/chat/completions", config.baseUrl).toString();
+      const url = resolveChatCompletionsUrl(request.baseUrlOverride ?? config.baseUrl);
       const requestedProfileId = request.authProfileId ?? config.defaultAuthProfileId;
       const requestedProfile = requestedProfileId ? config.resolveAuthProfile?.(requestedProfileId) : undefined;
       if (requestedProfileId && !requestedProfile) {
@@ -33,8 +40,9 @@ export function createOpenAICompatibleProvider(
         "content-type": "application/json",
         ...(config.headers ?? {}),
         ...(requestedProfile?.headers ?? {}),
+        ...(request.headersOverride ?? {}),
       };
-      const apiKey = requestedProfile?.apiKey ?? config.apiKey;
+      const apiKey = request.apiKeyOverride ?? requestedProfile?.apiKey ?? config.apiKey;
       if (apiKey) {
         headers.authorization = `Bearer ${apiKey}`;
       }

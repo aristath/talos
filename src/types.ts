@@ -366,6 +366,9 @@ export type ModelRequest = {
   system?: string;
   prompt: string;
   authProfileId?: string;
+  baseUrlOverride?: string;
+  apiKeyOverride?: string;
+  headersOverride?: Record<string, string>;
   temperature?: number;
   maxTokens?: number;
 };

@@ -8,6 +8,7 @@ import {
   buildPersonaSystemPrompt,
   filterPersonaFilesForContextMode,
 } from "./persona/loader.js";
+import { loadAgentRuntimeProfile } from "./persona/agent-config.js";
 import { seedPersonaWorkspace } from "./persona/bootstrap.js";
 import { resolvePersonaSessionKind } from "./persona/session-kind.js";
 import type { PersonaSnapshot } from "./persona/types.js";
@@ -639,8 +640,8 @@ export function createTalos(config: TalosConfig): Talos {
           }
           const normalized = model.trim();
           if (!normalized || normalized.toLowerCase() === "default") {
-            session.providerOverride = undefined;
-            session.modelOverride = undefined;
+            delete session.providerOverride;
+            delete session.modelOverride;
             sessions.set(session.sessionId, session);
             return {
               ...session,
@@ -653,7 +654,11 @@ export function createTalos(config: TalosConfig): Talos {
             session.modelOverride = normalized.slice(slashIndex + 1);
           } else {
             const providerFromLastRun = session.providerId ?? parsed.data.providers.openaiCompatible[0]?.id;
-            session.providerOverride = providerFromLastRun;
+            if (providerFromLastRun) {
+              session.providerOverride = providerFromLastRun;
+            } else {
+              delete session.providerOverride;
+            }
             session.modelOverride = normalized;
           }
           sessions.set(session.sessionId, session);
@@ -1292,14 +1297,27 @@ export function createTalos(config: TalosConfig): Talos {
       assertRunNotAborted(signal, runId);
       const agent = agents.resolve(input.agentId);
       const primaryProvider = parsed.data.providers.openaiCompatible[0];
+      const agentRuntimeProfile =
+        input.workspaceDir && input.workspaceDir.trim()
+          ? await loadAgentRuntimeProfile({
+              workspaceDir: input.workspaceDir,
+              agentId: input.agentId,
+            })
+          : null;
       const sessionOverride =
         typeof input.sessionId === "string" && input.sessionId.trim()
           ? sessions.get(input.sessionId.trim())
           : undefined;
       const primaryProviderId =
-        sessionOverride?.providerOverride ?? agent.model?.providerId ?? primaryProvider?.id;
+        sessionOverride?.providerOverride ??
+        agentRuntimeProfile?.providerId ??
+        agent.model?.providerId ??
+        primaryProvider?.id;
       const primaryModelId =
-        sessionOverride?.modelOverride ?? agent.model?.modelId ?? primaryProvider?.defaultModel;
+        sessionOverride?.modelOverride ??
+        agentRuntimeProfile?.modelId ??
+        agent.model?.modelId ??
+        primaryProvider?.defaultModel;
       if (!primaryProviderId || !primaryModelId) {
         throw new TalosError({
           code: "PROVIDER_NOT_FOUND",
@@ -1349,11 +1367,12 @@ export function createTalos(config: TalosConfig): Talos {
           : undefined;
       let loadedPersona: PersonaSnapshot | undefined;
       if (input.workspaceDir) {
+        const personaWorkspace = agentRuntimeProfile?.personaDir ?? input.workspaceDir;
         if (personaCacheKey) {
           loadedPersona = personaSnapshotCache.get(personaCacheKey);
         }
         if (!loadedPersona) {
-          loadedPersona = await loadPersonaSnapshot(input.workspaceDir, {
+          loadedPersona = await loadPersonaSnapshot(personaWorkspace, {
             sessionKind: resolvedSessionKind,
             ...(parsed.data.persona?.extraFiles
               ? { extraPatterns: parsed.data.persona.extraFiles }
@@ -1412,11 +1431,35 @@ export function createTalos(config: TalosConfig): Talos {
                   modelId: attempt.modelId,
                   prompt: promptText,
                   system: systemPrompt,
+                  ...(agentRuntimeProfile?.baseUrl &&
+                  (!agentRuntimeProfile.providerId || agentRuntimeProfile.providerId === attempt.providerId)
+                    ? { baseUrlOverride: agentRuntimeProfile.baseUrl }
+                    : {}),
+                  ...(agentRuntimeProfile?.apiKey &&
+                  (!agentRuntimeProfile.providerId || agentRuntimeProfile.providerId === attempt.providerId)
+                    ? { apiKeyOverride: agentRuntimeProfile.apiKey }
+                    : {}),
+                  ...(agentRuntimeProfile?.headers &&
+                  (!agentRuntimeProfile.providerId || agentRuntimeProfile.providerId === attempt.providerId)
+                    ? { headersOverride: agentRuntimeProfile.headers }
+                    : {}),
                 }
               : {
                   providerId: attempt.providerId,
                   modelId: attempt.modelId,
                   prompt: promptText,
+                  ...(agentRuntimeProfile?.baseUrl &&
+                  (!agentRuntimeProfile.providerId || agentRuntimeProfile.providerId === attempt.providerId)
+                    ? { baseUrlOverride: agentRuntimeProfile.baseUrl }
+                    : {}),
+                  ...(agentRuntimeProfile?.apiKey &&
+                  (!agentRuntimeProfile.providerId || agentRuntimeProfile.providerId === attempt.providerId)
+                    ? { apiKeyOverride: agentRuntimeProfile.apiKey }
+                    : {}),
+                  ...(agentRuntimeProfile?.headers &&
+                  (!agentRuntimeProfile.providerId || agentRuntimeProfile.providerId === attempt.providerId)
+                    ? { headersOverride: agentRuntimeProfile.headers }
+                    : {}),
                 },
           );
           await events.emit({

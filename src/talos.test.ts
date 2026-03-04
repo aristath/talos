@@ -1,10 +1,103 @@
 import { describe, expect, it } from "vitest";
+import { vi } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createTalos } from "./talos.js";
 
 describe("createTalos", () => {
+  it("loads per-agent SOUL and static upstream auth from agents/<id>/agent.json", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-agent-profile-"));
+    await fs.writeFile(path.join(workspaceDir, "SOUL.md"), "Root soul", "utf8");
+    const agentDir = path.join(workspaceDir, "agents", "main");
+    await fs.mkdir(agentDir, { recursive: true });
+    await fs.writeFile(path.join(agentDir, "SOUL.md"), "Designer soul", "utf8");
+    await fs.writeFile(
+      path.join(agentDir, "agent.json"),
+      JSON.stringify(
+        {
+          upstream: {
+            providerId: "openai",
+            baseURL: "https://openrouter.ai/api/v1",
+            headers: {
+              "x-agent": "designer",
+            },
+            auth: {
+              type: "static",
+              apiKey: "sk-hardcoded",
+            },
+          },
+          model: {
+            default: "openai/gpt-4.1",
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const fetchMock = vi.fn(async () => {
+      return {
+        ok: true,
+        async json() {
+          return {
+            choices: [
+              {
+                message: {
+                  content: "ok",
+                },
+              },
+            ],
+          };
+        },
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+    talos.registerAgent({ id: "main" });
+
+    const result = await talos.run({
+      agentId: "main",
+      prompt: "hello",
+      workspaceDir,
+    });
+
+    expect(result.providerId).toBe("openai");
+    expect(result.modelId).toBe("openai/gpt-4.1");
+
+    const calls = fetchMock.mock.calls as unknown as Array<[unknown, unknown?]>;
+    const url = String(calls[0]?.[0] ?? "");
+    const init = (calls[0]?.[1] ?? {}) as {
+      headers?: Record<string, string>;
+      body?: string;
+    };
+    const payload = JSON.parse(init.body ?? "{}") as {
+      model?: string;
+      messages?: Array<{ role?: string; content?: string }>;
+    };
+    expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
+    expect(init.headers?.authorization).toBe("Bearer sk-hardcoded");
+    expect(init.headers?.["x-agent"]).toBe("designer");
+    expect(payload.model).toBe("openai/gpt-4.1");
+    expect(payload.messages?.[0]?.role).toBe("system");
+    expect(payload.messages?.[0]?.content).toContain("Designer soul");
+    expect(payload.messages?.[0]?.content).not.toContain("Root soul");
+
+    vi.unstubAllGlobals();
+  });
+
   it("creates an engine with registration APIs", () => {
     const talos = createTalos({
       providers: {
