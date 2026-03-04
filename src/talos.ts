@@ -212,6 +212,7 @@ export function createTalos(config: TalosConfig): Talos {
   >();
   const pluginOwnedTools = new Map<string, Set<string>>();
   const pluginOwnedProviders = new Map<string, Set<string>>();
+  const personaSnapshotCache = new Map<string, PersonaSnapshot>();
   const pluginTeardowns = new Map<string, () => void | Promise<void>>();
   const pluginCapabilities = new Map<string, PluginCapability[]>();
   const pluginApiVersions = new Map<string, number>();
@@ -912,17 +913,41 @@ export function createTalos(config: TalosConfig): Talos {
         ...(agent.model?.fallbacks ?? []),
       ];
 
-      const loadedPersona = input.workspaceDir
-        ? await loadPersonaSnapshot(input.workspaceDir, {
-            sessionKind: resolvePersonaSessionKind({
-              ...(input.sessionKind ? { sessionKind: input.sessionKind } : {}),
-              ...(input.sessionId ? { sessionId: input.sessionId } : {}),
-            }),
-            ...(parsed.data.persona?.extraFiles ? { extraPatterns: parsed.data.persona.extraFiles } : {}),
-          })
-        : undefined;
+      const resolvedSessionKind = resolvePersonaSessionKind({
+        ...(input.sessionKind ? { sessionKind: input.sessionKind } : {}),
+        ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      });
+      const personaCacheKey =
+        input.workspaceDir && input.sessionId
+          ? `${input.workspaceDir.trim()}::${input.sessionId.trim().toLowerCase()}`
+          : undefined;
+      let loadedPersona: PersonaSnapshot | undefined;
+      if (input.workspaceDir) {
+        if (personaCacheKey) {
+          loadedPersona = personaSnapshotCache.get(personaCacheKey);
+        }
+        if (!loadedPersona) {
+          loadedPersona = await loadPersonaSnapshot(input.workspaceDir, {
+            sessionKind: resolvedSessionKind,
+            ...(parsed.data.persona?.extraFiles
+              ? { extraPatterns: parsed.data.persona.extraFiles }
+              : {}),
+          });
+          if (personaCacheKey) {
+            personaSnapshotCache.set(personaCacheKey, loadedPersona);
+          }
+        }
+      }
       const persona = loadedPersona
-        ? sanitizePersonaSnapshot(await plugins.runBeforePersonaLoad(loadedPersona))
+        ? sanitizePersonaSnapshot(
+            await plugins.runBeforePersonaLoad(loadedPersona, {
+              workspaceDir: loadedPersona.workspaceDir,
+              agentId: input.agentId,
+              ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+              sessionKind: resolvedSessionKind,
+              config,
+            }),
+          )
         : undefined;
       const systemPrompt = [
         agent.promptPrefix,

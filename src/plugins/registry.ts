@@ -161,10 +161,11 @@ export class PluginRegistry {
 
   async runBeforePersonaLoad(
     snapshot: Parameters<PluginHooks["beforePersonaLoad"]>[0],
+    context: Parameters<PluginHooks["beforePersonaLoad"]>[1],
   ): Promise<Parameters<PluginHooks["beforePersonaLoad"]>[0]> {
     let current = snapshot;
     for (const hook of this.hooks.beforePersonaLoad) {
-      const next = await hook.handler(current);
+      const next = await hook.handler(current, context);
       if (next) {
         current = next;
       }

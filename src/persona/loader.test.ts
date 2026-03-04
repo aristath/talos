@@ -99,36 +99,33 @@ describe("loadPersonaSnapshot", () => {
     expect(prompt?.includes("## BOOTSTRAP.md\n[MISSING]")).toBe(true);
   });
 
-  it("rejects symlinked persona files", async () => {
+  it("treats symlinked core persona files as missing", async () => {
     const dir = await createTmpDir();
     const outside = await createTmpDir();
     await fs.writeFile(path.join(outside, "outside.md"), "external", "utf8");
     await fs.symlink(path.join(outside, "outside.md"), path.join(dir, "AGENTS.md"));
 
-    await expect(loadPersonaSnapshot(dir)).rejects.toMatchObject({
-      code: "PERSONA_FILE_UNSAFE",
-    });
+    const snapshot = await loadPersonaSnapshot(dir);
+    expect(snapshot.bootstrapFiles.some((file) => file.name === "AGENTS.md" && file.missing)).toBe(true);
   });
 
-  it("rejects hard-linked persona files", async () => {
+  it("treats hard-linked core persona files as missing", async () => {
     const dir = await createTmpDir();
     const outside = await createTmpDir();
     const source = path.join(outside, "source.md");
     await fs.writeFile(source, "external", "utf8");
     await fs.link(source, path.join(dir, "AGENTS.md"));
 
-    await expect(loadPersonaSnapshot(dir)).rejects.toMatchObject({
-      code: "PERSONA_FILE_UNSAFE",
-    });
+    const snapshot = await loadPersonaSnapshot(dir);
+    expect(snapshot.bootstrapFiles.some((file) => file.name === "AGENTS.md" && file.missing)).toBe(true);
   });
 
-  it("rejects oversized persona files", async () => {
+  it("treats oversized core persona files as missing", async () => {
     const dir = await createTmpDir();
     await fs.writeFile(path.join(dir, "AGENTS.md"), "x".repeat(2 * 1024 * 1024 + 1), "utf8");
 
-    await expect(loadPersonaSnapshot(dir)).rejects.toMatchObject({
-      code: "PERSONA_FILE_UNSAFE",
-    });
+    const snapshot = await loadPersonaSnapshot(dir);
+    expect(snapshot.bootstrapFiles.some((file) => file.name === "AGENTS.md" && file.missing)).toBe(true);
   });
 
   it("loads extra patterns and reports diagnostics", async () => {

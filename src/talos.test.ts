@@ -1139,6 +1139,74 @@ describe("createTalos", () => {
     }
   });
 
+  it("passes run context to beforePersonaLoad hooks", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-hook-context-"));
+    try {
+      await fs.writeFile(path.join(workspace, "SOUL.md"), "original soul", "utf8");
+
+      const talos = createTalos({
+        providers: {
+          openaiCompatible: [],
+        },
+      });
+
+      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      talos.registerModelProvider({
+        id: "provider",
+        async generate(request) {
+          return {
+            text: request.system ?? "",
+            providerId: request.providerId,
+            modelId: request.modelId,
+          };
+        },
+      });
+
+      type PersonaHookContextCapture = {
+        workspaceDir: string;
+        agentId: string;
+        sessionId?: string;
+        sessionKind: string;
+        hasProviders: boolean;
+      };
+      const seen: PersonaHookContextCapture[] = [];
+
+      await talos.registerPlugin({
+        id: "persona-hook-context",
+        capabilities: ["hooks"],
+        setup(api) {
+          api.on("beforePersonaLoad", (snapshot, context) => {
+            seen.push({
+              workspaceDir: context.workspaceDir,
+              agentId: context.agentId,
+              ...(context.sessionId ? { sessionId: context.sessionId } : {}),
+              sessionKind: context.sessionKind,
+              hasProviders: context.config.providers.openaiCompatible.length > 0,
+            });
+            return snapshot;
+          });
+        },
+      });
+
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+        sessionId: "agent:main:main",
+      });
+
+      expect(seen.length).toBe(1);
+      const captured = seen[0] as PersonaHookContextCapture;
+      expect(captured.workspaceDir.endsWith(path.basename(workspace))).toBe(true);
+      expect(captured.agentId).toBe("main");
+      expect(captured.sessionId).toBe("agent:main:main");
+      expect(captured.sessionKind).toBe("main");
+      expect(captured.hasProviders).toBe(false);
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true });
+    }
+  });
+
   it("ignores malformed bootstrap file paths from beforePersonaLoad hooks", async () => {
     const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-hook-path-"));
     try {
@@ -1293,6 +1361,62 @@ describe("createTalos", () => {
       expect(systems[0]?.includes("main memory")).toBe(true);
       expect(systems[1]?.includes("main memory")).toBe(false);
       expect(systems[2]?.includes("main memory")).toBe(false);
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("caches persona snapshots by session id", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-cache-"));
+    try {
+      await fs.writeFile(path.join(workspace, "SOUL.md"), "v1", "utf8");
+
+      const talos = createTalos({
+        providers: {
+          openaiCompatible: [],
+        },
+      });
+      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+
+      const systems: string[] = [];
+      talos.registerModelProvider({
+        id: "provider",
+        async generate(request) {
+          systems.push(request.system ?? "");
+          return {
+            text: "ok",
+            providerId: request.providerId,
+            modelId: request.modelId,
+          };
+        },
+      });
+
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+        sessionId: "agent:main:main",
+      });
+
+      await fs.writeFile(path.join(workspace, "SOUL.md"), "v2", "utf8");
+
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+        sessionId: "agent:main:main",
+      });
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+        sessionId: "agent:main:other",
+      });
+
+      expect(systems[0]?.includes("v1")).toBe(true);
+      expect(systems[1]?.includes("v1")).toBe(true);
+      expect(systems[1]?.includes("v2")).toBe(false);
+      expect(systems[2]?.includes("v2")).toBe(true);
     } finally {
       await fs.rm(workspace, { recursive: true, force: true });
     }

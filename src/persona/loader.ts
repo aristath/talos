@@ -80,104 +80,214 @@ async function readSafePersonaFile(params: {
   workspaceRealPath: string;
   filePath: string;
   fileName: PersonaFileName;
-}): Promise<PersonaBootstrapFile> {
+}): Promise<{
+  file: PersonaBootstrapFile;
+  reason?: PersonaLoadDiagnosticCode;
+  detail?: string;
+}> {
   const candidatePath = path.resolve(params.filePath);
   let stat;
   try {
     stat = await fs.lstat(candidatePath);
   } catch {
     return {
-      name: params.fileName,
-      path: candidatePath,
-      missing: true,
+      file: {
+        name: params.fileName,
+        path: candidatePath,
+        missing: true,
+      },
+      reason: "missing",
+      detail: "missing",
     };
   }
 
   if (stat.isSymbolicLink()) {
-    throw new TalosError({
-      code: "PERSONA_FILE_UNSAFE",
-      message: `Persona file cannot be a symlink: ${params.fileName}`,
-    });
+    return {
+      file: {
+        name: params.fileName,
+        path: candidatePath,
+        missing: true,
+      },
+      reason: "security",
+      detail: `Persona file cannot be a symlink: ${params.fileName}`,
+    };
   }
 
   if (!stat.isFile()) {
     return {
-      name: params.fileName,
-      path: candidatePath,
-      missing: true,
+      file: {
+        name: params.fileName,
+        path: candidatePath,
+        missing: true,
+      },
+      reason: "missing",
+      detail: "missing",
     };
   }
 
-  const candidateRealPath = await fs.realpath(candidatePath);
-  if (!isWithinRoot(params.workspaceRealPath, candidateRealPath)) {
-    throw new TalosError({
-      code: "PERSONA_FILE_UNSAFE",
-      message: `Persona file escapes workspace boundary: ${params.fileName}`,
-    });
+  let candidateRealPath = "";
+  try {
+    candidateRealPath = await fs.realpath(candidatePath);
+  } catch (error) {
+    return {
+      file: {
+        name: params.fileName,
+        path: candidatePath,
+        missing: true,
+      },
+      reason: "io",
+      detail: error instanceof Error ? error.message : String(error),
+    };
   }
 
-  const preOpenStat = await fs.lstat(candidateRealPath);
+  if (!isWithinRoot(params.workspaceRealPath, candidateRealPath)) {
+    return {
+      file: {
+        name: params.fileName,
+        path: candidatePath,
+        missing: true,
+      },
+      reason: "security",
+      detail: `Persona file escapes workspace boundary: ${params.fileName}`,
+    };
+  }
+
+  let preOpenStat;
+  try {
+    preOpenStat = await fs.lstat(candidateRealPath);
+  } catch (error) {
+    return {
+      file: {
+        name: params.fileName,
+        path: candidatePath,
+        missing: true,
+      },
+      reason: "io",
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+
   if (!preOpenStat.isFile()) {
     return {
-      name: params.fileName,
-      path: candidatePath,
-      missing: true,
+      file: {
+        name: params.fileName,
+        path: candidatePath,
+        missing: true,
+      },
+      reason: "missing",
+      detail: "missing",
     };
   }
   if (preOpenStat.nlink > 1) {
-    throw new TalosError({
-      code: "PERSONA_FILE_UNSAFE",
-      message: `Persona file cannot be hard-linked: ${params.fileName}`,
-    });
+    return {
+      file: {
+        name: params.fileName,
+        path: candidatePath,
+        missing: true,
+      },
+      reason: "security",
+      detail: `Persona file cannot be hard-linked: ${params.fileName}`,
+    };
   }
   if (preOpenStat.size > MAX_PERSONA_FILE_BYTES) {
-    throw new TalosError({
-      code: "PERSONA_FILE_UNSAFE",
-      message: `Persona file exceeds max size (${MAX_PERSONA_FILE_BYTES} bytes): ${params.fileName}`,
-    });
+    return {
+      file: {
+        name: params.fileName,
+        path: candidatePath,
+        missing: true,
+      },
+      reason: "security",
+      detail: `Persona file exceeds max size (${MAX_PERSONA_FILE_BYTES} bytes): ${params.fileName}`,
+    };
   }
 
   const openFlags =
     syncFs.constants.O_RDONLY |
     (typeof syncFs.constants.O_NOFOLLOW === "number" ? syncFs.constants.O_NOFOLLOW : 0);
-  const handle = await fs.open(candidateRealPath, openFlags);
+  let handle;
+  try {
+    handle = await fs.open(candidateRealPath, openFlags);
+  } catch (error) {
+    return {
+      file: {
+        name: params.fileName,
+        path: candidatePath,
+        missing: true,
+      },
+      reason: "io",
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+
   let content = "";
   try {
     const openedStat = await handle.stat();
     if (!openedStat.isFile()) {
-      throw new TalosError({
-        code: "PERSONA_FILE_UNSAFE",
-        message: `Persona file is not a regular file: ${params.fileName}`,
-      });
+      return {
+        file: {
+          name: params.fileName,
+          path: candidatePath,
+          missing: true,
+        },
+        reason: "security",
+        detail: `Persona file is not a regular file: ${params.fileName}`,
+      };
     }
     if (openedStat.nlink > 1) {
-      throw new TalosError({
-        code: "PERSONA_FILE_UNSAFE",
-        message: `Persona file cannot be hard-linked: ${params.fileName}`,
-      });
+      return {
+        file: {
+          name: params.fileName,
+          path: candidatePath,
+          missing: true,
+        },
+        reason: "security",
+        detail: `Persona file cannot be hard-linked: ${params.fileName}`,
+      };
     }
     if (openedStat.size > MAX_PERSONA_FILE_BYTES) {
-      throw new TalosError({
-        code: "PERSONA_FILE_UNSAFE",
-        message: `Persona file exceeds max size (${MAX_PERSONA_FILE_BYTES} bytes): ${params.fileName}`,
-      });
+      return {
+        file: {
+          name: params.fileName,
+          path: candidatePath,
+          missing: true,
+        },
+        reason: "security",
+        detail: `Persona file exceeds max size (${MAX_PERSONA_FILE_BYTES} bytes): ${params.fileName}`,
+      };
     }
     if (!sameFileIdentity(preOpenStat, openedStat)) {
-      throw new TalosError({
-        code: "PERSONA_FILE_UNSAFE",
-        message: `Persona file changed while opening: ${params.fileName}`,
-      });
+      return {
+        file: {
+          name: params.fileName,
+          path: candidatePath,
+          missing: true,
+        },
+        reason: "security",
+        detail: `Persona file changed while opening: ${params.fileName}`,
+      };
     }
     content = await handle.readFile({ encoding: "utf8" });
+  } catch (error) {
+    return {
+      file: {
+        name: params.fileName,
+        path: candidatePath,
+        missing: true,
+      },
+      reason: "io",
+      detail: error instanceof Error ? error.message : String(error),
+    };
   } finally {
     await handle.close();
   }
 
   return {
-    name: params.fileName,
-    path: candidatePath,
-    content,
-    missing: false,
+    file: {
+      name: params.fileName,
+      path: candidatePath,
+      content,
+      missing: false,
+    },
   };
 }
 
@@ -242,15 +352,15 @@ export async function loadExtraPersonaFilesWithDiagnostics(params: {
         filePath: absolutePath,
         fileName: name,
       });
-      if (loaded.missing) {
+      if (loaded.file.missing) {
         diagnostics.push({
           path: absolutePath,
-          reason: "missing",
-          detail: "missing",
+          reason: loaded.reason ?? "missing",
+          detail: loaded.detail ?? "missing",
         });
         continue;
       }
-      files.push(loaded);
+      files.push(loaded.file);
     } catch (error) {
       const reason: PersonaLoadDiagnosticCode =
         error instanceof TalosError && error.code === "PERSONA_FILE_UNSAFE" ? "security" : "io";
@@ -307,10 +417,10 @@ export async function loadPersonaSnapshot(
       filePath: path.join(normalizedWorkspace, name),
       fileName: name,
     });
-    if (loaded.missing && SKIP_MISSING_PERSONA_FILE_SET.has(name)) {
+    if (loaded.file.missing && SKIP_MISSING_PERSONA_FILE_SET.has(name)) {
       continue;
     }
-    loadedFiles.push(loaded);
+    loadedFiles.push(loaded.file);
   }
 
   const extra = await loadExtraPersonaFilesWithDiagnostics({

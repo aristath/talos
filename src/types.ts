@@ -196,7 +196,16 @@ export type PluginCapability = "tools" | "providers" | "hooks";
 
 export type PluginHooks = {
   beforeRun: (input: RunInput) => Promise<void> | void;
-  beforePersonaLoad: (snapshot: PersonaSnapshot) =>
+  beforePersonaLoad: (
+    snapshot: PersonaSnapshot,
+    context: {
+      workspaceDir: string;
+      agentId: string;
+      sessionId?: string;
+      sessionKind: PersonaSessionKind;
+      config: TalosConfig;
+    },
+  ) =>
     | Promise<PersonaSnapshot | void>
     | PersonaSnapshot
     | void;
