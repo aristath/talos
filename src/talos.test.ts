@@ -786,7 +786,7 @@ describe("createTalos", () => {
     });
     const browserNodeStatus = await talos.executeTool({
       name: "browser",
-      args: { action: "status", target: "node", node: "edge-1" },
+      args: { action: "status", node: "edge-1" },
       context: { agentId: "main" },
     });
     const browserAct = await talos.executeTool({
@@ -814,6 +814,11 @@ describe("createTalos", () => {
       args: { action: "a2ui.pushJSONL", jsonl: "{}" },
       context: { agentId: "main" },
     });
+    const canvasSnapshot = await talos.executeTool({
+      name: "canvas",
+      args: { action: "snapshot", node: "canvas-node-1" },
+      context: { agentId: "main" },
+    });
 
     expect(browser.content).toBe("browser:snapshot");
     expect(canvas.content).toBe("canvas:present");
@@ -825,6 +830,7 @@ describe("createTalos", () => {
     expect((browserTrace.data as { profile?: string }).profile).toBe("openclaw");
     expect((browserTrace.data as { target?: string }).target).toBe("host");
     expect((browserNodeStatus.data as { node?: string }).node).toBe("edge-1");
+    expect((browserNodeStatus.data as { target?: string }).target).toBe("node");
     expect((browserTrace.data as { details?: { action?: string } }).details?.action).toBe("trace_start");
     expect((browserActArgs[0]?.request as { kind?: string })?.kind).toBe("click");
     expect((browserActArgs[0] as { kind?: string } | undefined)?.kind).toBe("click");
@@ -832,6 +838,8 @@ describe("createTalos", () => {
     expect((browserActArgs[1]?.request as { kind?: string; key?: string })?.key).toBe("Enter");
     expect(browserCookies.content).toBe("browser:cookies_set");
     expect(canvasA2ui.content).toBe("canvas:a2ui_push");
+    expect(canvasSnapshot.content).toBe("canvas:snapshot");
+    expect((canvasSnapshot.data as { node?: string }).node).toBe("canvas-node-1");
     expect((canvasA2ui.data as { details?: { action?: string } }).details?.action).toBe("a2ui_push");
     expect(browserActions).toContain("trace_start");
     expect(browserActions).toContain("dialog");
@@ -922,6 +930,13 @@ describe("createTalos", () => {
       talos.executeTool({
         name: "canvas",
         args: { action: "eval" },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "canvas",
+        args: { action: "snapshot", outputFormat: "webp" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });

@@ -428,6 +428,19 @@ function assertCanvasActionParams(action: string, args: Record<string, unknown>)
       }
       return;
     }
+    case "snapshot": {
+      if (!Object.hasOwn(args, "outputFormat")) {
+        return;
+      }
+      const outputFormat = typeof args.outputFormat === "string" ? args.outputFormat.trim().toLowerCase() : "";
+      if (outputFormat === "png" || outputFormat === "jpg" || outputFormat === "jpeg") {
+        return;
+      }
+      throw new TalosError({
+        code: "TOOL_FAILED",
+        message: "canvas action 'snapshot' supports outputFormat: png, jpg, jpeg.",
+      });
+    }
     default:
       return;
   }
@@ -459,6 +472,7 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
           message: 'browser parameter "node" requires target="node" when target is provided.',
         });
       }
+      const resolvedTarget = target ?? (node ? "node" : undefined);
       const output = await options.execute({ action, args: normalizedArgs, context });
       return {
         content: output.content,
@@ -467,25 +481,25 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
             ? {
                 action,
                 ...(profile ? { profile } : {}),
-                ...(target ? { target } : {}),
+                ...(resolvedTarget ? { target: resolvedTarget } : {}),
                 ...(node ? { node } : {}),
                 result: output.data,
                 details: {
                   action,
                   profile,
-                  target,
+                  target: resolvedTarget,
                   node,
                 },
               }
             : {
                 action,
                 ...(profile ? { profile } : {}),
-                ...(target ? { target } : {}),
+                ...(resolvedTarget ? { target: resolvedTarget } : {}),
                 ...(node ? { node } : {}),
                 details: {
                   action,
                   profile,
-                  target,
+                  target: resolvedTarget,
                   node,
                 },
               },
@@ -504,6 +518,7 @@ export function createCanvasTool(options: CanvasToolOptions): ToolDefinition {
       assertCanvasActionParams(action, args);
       const executionTarget =
         normalizeCanvasExecutionTarget(args.executionTarget) ?? normalizeCanvasExecutionTarget(args.targetMode);
+      const node = typeof args.node === "string" && args.node.trim() ? args.node.trim() : undefined;
       const output = await options.execute({ action, args, context });
       return {
         content: output.content,
@@ -512,18 +527,22 @@ export function createCanvasTool(options: CanvasToolOptions): ToolDefinition {
             ? {
                 action,
                 ...(executionTarget ? { target: executionTarget } : {}),
+                ...(node ? { node } : {}),
                 result: output.data,
                 details: {
                   action,
                   target: executionTarget,
+                  node,
                 },
               }
             : {
                 action,
                 ...(executionTarget ? { target: executionTarget } : {}),
+                ...(node ? { node } : {}),
                 details: {
                   action,
                   target: executionTarget,
+                  node,
                 },
               },
       };
