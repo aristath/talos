@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { saveStateSnapshot } from "./persistence.js";
+import { loadStateSnapshot, saveStateSnapshot } from "./persistence.js";
 import type { TalosStateSnapshot } from "../types.js";
 
 const tmpDirs: string[] = [];
@@ -46,5 +46,25 @@ describe("saveStateSnapshot", () => {
     const raw = await fs.readFile(filePath, "utf8");
     expect(raw.includes("secret-token")).toBe(false);
     expect(raw.includes("[REDACTED]")).toBe(true);
+  });
+
+  it("rejects invalid state JSON payloads", async () => {
+    const dir = await createTmpDir();
+    const filePath = path.join(dir, "bad.json");
+    await fs.writeFile(filePath, "{ not-json", "utf8");
+
+    await expect(loadStateSnapshot(filePath)).rejects.toMatchObject({
+      code: "CONFIG_INVALID",
+    });
+  });
+
+  it("rejects state snapshots with invalid shape", async () => {
+    const dir = await createTmpDir();
+    const filePath = path.join(dir, "bad-shape.json");
+    await fs.writeFile(filePath, JSON.stringify({ events: {}, runs: [] }), "utf8");
+
+    await expect(loadStateSnapshot(filePath)).rejects.toMatchObject({
+      code: "CONFIG_INVALID",
+    });
   });
 });

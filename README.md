@@ -62,3 +62,5 @@ Further docs:
 - `docs/architecture.md`
 - `docs/plugins.md`
 - `docs/security.md`
+- `docs/migration.md`
+- `docs/support-policy.md`
