@@ -152,6 +152,7 @@ describe("createTalos", () => {
       capabilities: ["hooks"],
       setup(api) {
         api.on("beforeRun", () => undefined);
+        api.on("beforePersonaLoad", (snapshot) => snapshot);
       },
     });
 
@@ -194,6 +195,7 @@ describe("createTalos", () => {
           },
         });
         api.on("beforeRun", () => undefined);
+        api.on("beforePersonaLoad", (snapshot) => snapshot);
       },
     });
 
@@ -206,6 +208,7 @@ describe("createTalos", () => {
     expect(summary?.apiVersion).toBe(1);
     expect(summary?.capabilities).toContain("hooks");
     expect(summary?.hooks).toContain("beforeRun");
+    expect(summary?.hooks).toContain("beforePersonaLoad");
   });
 
   it("unregisters plugins and cleans plugin-owned resources", async () => {
@@ -280,6 +283,7 @@ describe("createTalos", () => {
     });
 
     let beforeRunCalls = 0;
+    let beforePersonaLoadCalls = 0;
     const unregistered: string[] = [];
     talos.onEvent((event) => {
       if (event.type === "plugin.unregistered") {
@@ -294,17 +298,30 @@ describe("createTalos", () => {
         api.on("beforeRun", () => {
           beforeRunCalls += 1;
         });
+        api.on("beforePersonaLoad", (snapshot) => {
+          beforePersonaLoadCalls += 1;
+          return snapshot;
+        });
       },
     });
 
-    await talos.run({ agentId: "main", prompt: "one" });
-    expect(beforeRunCalls).toBe(1);
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-plugin-hook-stop-"));
+    try {
+      await fs.writeFile(path.join(workspace, "SOUL.md"), "soul", "utf8");
 
-    expect(await talos.removePlugin("ephemeral")).toBe(true);
-    expect(unregistered).toContain("ephemeral");
+      await talos.run({ agentId: "main", prompt: "one", workspaceDir: workspace });
+      expect(beforeRunCalls).toBe(1);
+      expect(beforePersonaLoadCalls).toBe(1);
 
-    await talos.run({ agentId: "main", prompt: "two" });
-    expect(beforeRunCalls).toBe(1);
+      expect(await talos.removePlugin("ephemeral")).toBe(true);
+      expect(unregistered).toContain("ephemeral");
+
+      await talos.run({ agentId: "main", prompt: "two", workspaceDir: workspace });
+      expect(beforeRunCalls).toBe(1);
+      expect(beforePersonaLoadCalls).toBe(1);
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true });
+    }
   });
 
   it("runs plugin teardown during unload", async () => {
