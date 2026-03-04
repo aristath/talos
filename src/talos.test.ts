@@ -398,6 +398,37 @@ describe("createTalos", () => {
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+
+    const pagesResult = await talos.executeTool({
+      name: "pdf",
+      args: {
+        pdf: "https://example.com/doc.pdf",
+        pages: "3,1-2,2",
+      },
+      context: { agentId: "main" },
+    });
+    expect((pagesResult.data as { pages?: string }).pages).toBe("1,2,3");
+
+    await expect(
+      talos.executeTool({
+        name: "pdf",
+        args: {
+          pdf: "ftp://example.com/doc.pdf",
+        },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+
+    await expect(
+      talos.executeTool({
+        name: "pdf",
+        args: {
+          pdf: "https://example.com/doc.pdf",
+          pages: "1-two",
+        },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
   });
 
   it("registers browser and canvas tools and routes actions", async () => {

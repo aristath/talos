@@ -44,6 +44,76 @@ function toPositiveNumber(value: unknown): number | undefined {
   return value;
 }
 
+function parsePagesExpression(raw: string, maxPages: number): number[] {
+  const normalized = raw.trim();
+  if (!normalized) {
+    return [];
+  }
+  const pages = new Set<number>();
+  const chunks = normalized.split(",").map((entry) => entry.trim()).filter(Boolean);
+  for (const chunk of chunks) {
+    const range = chunk.match(/^(\d+)-(\d+)$/);
+    if (range) {
+      const start = Number.parseInt(range[1] ?? "", 10);
+      const end = Number.parseInt(range[2] ?? "", 10);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start <= 0 || end <= 0 || end < start) {
+        throw new TalosError({
+          code: "TOOL_FAILED",
+          message: `Invalid pages range: ${chunk}`,
+        });
+      }
+      for (let page = start; page <= end; page += 1) {
+        pages.add(page);
+        if (pages.size >= maxPages) {
+          break;
+        }
+      }
+      continue;
+    }
+
+    if (!/^\d+$/.test(chunk)) {
+      throw new TalosError({
+        code: "TOOL_FAILED",
+        message: `Invalid pages token: ${chunk}`,
+      });
+    }
+    const page = Number.parseInt(chunk, 10);
+    if (!Number.isFinite(page) || page <= 0) {
+      throw new TalosError({
+        code: "TOOL_FAILED",
+        message: `Invalid page number: ${chunk}`,
+      });
+    }
+    pages.add(page);
+    if (pages.size >= maxPages) {
+      break;
+    }
+  }
+
+  return Array.from(pages).sort((a, b) => a - b);
+}
+
+function validateMediaReference(input: string, isPdf: boolean): void {
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(input)) {
+    let parsed: URL;
+    try {
+      parsed = new URL(input);
+    } catch {
+      throw new TalosError({
+        code: "TOOL_FAILED",
+        message: `Invalid ${isPdf ? "PDF" : "image"} URL: ${input}`,
+      });
+    }
+    const allowed = new Set(["http:", "https:", "file:"]);
+    if (!allowed.has(parsed.protocol)) {
+      throw new TalosError({
+        code: "TOOL_FAILED",
+        message: `Unsupported ${isPdf ? "PDF" : "image"} reference scheme: ${parsed.protocol}`,
+      });
+    }
+  }
+}
+
 function optionalPrompt(args: Record<string, unknown>): string | undefined {
   const value = typeof args.prompt === "string" ? args.prompt.trim() : "";
   return value || undefined;
@@ -54,6 +124,8 @@ function createMediaTool(baseName: string, fallbackDescription: string, options:
   const singleField = isPdf ? "pdf" : "image";
   const multiField = isPdf ? "pdfs" : "images";
   const maxItems = isPdf ? 10 : 20;
+  const maxPages = 20;
+  const defaultMaxBytesMb = isPdf ? 10 : 20;
   return {
     name: options.name ?? baseName,
     description: options.description ?? fallbackDescription,
@@ -61,6 +133,9 @@ function createMediaTool(baseName: string, fallbackDescription: string, options:
       const collected = collectInputs(args, singleField, multiField);
       const fallbackSingle = isPdf ? "document" : "image";
       const input = collected[0] ?? requireInput(args, fallbackSingle);
+      for (const reference of collected.length > 0 ? collected : [input]) {
+        validateMediaReference(reference, isPdf);
+      }
       if (collected.length > maxItems) {
         throw new TalosError({
           code: "TOOL_FAILED",
@@ -74,8 +149,11 @@ function createMediaTool(baseName: string, fallbackDescription: string, options:
       }
       const prompt = optionalPrompt(args);
       const model = typeof args.model === "string" && args.model.trim() ? args.model.trim() : undefined;
-      const maxBytesMb = toPositiveNumber(args.maxBytesMb);
-      const pages = isPdf && typeof args.pages === "string" && args.pages.trim() ? args.pages.trim() : undefined;
+      const requestedMaxBytesMb = toPositiveNumber(args.maxBytesMb);
+      const maxBytesMb = requestedMaxBytesMb ?? defaultMaxBytesMb;
+      const pagesRaw = isPdf && typeof args.pages === "string" && args.pages.trim() ? args.pages.trim() : undefined;
+      const parsedPages = pagesRaw ? parsePagesExpression(pagesRaw, maxPages) : [];
+      const pages = parsedPages.length > 0 ? parsedPages.join(",") : undefined;
       const analyzed = await options.analyze({
         input,
         ...(collected.length > 0 ? { inputs: collected } : {}),
@@ -92,9 +170,11 @@ function createMediaTool(baseName: string, fallbackDescription: string, options:
             ? {
                 result: analyzed.data,
                 ...(collected.length > 0 ? { inputs: collected } : {}),
+                ...(isPdf ? { maxBytesMb, ...(pages ? { pages } : {}) } : {}),
               }
             : {
                 ...(collected.length > 0 ? { inputs: collected } : {}),
+                ...(isPdf ? { maxBytesMb, ...(pages ? { pages } : {}) } : {}),
               },
       };
     },
