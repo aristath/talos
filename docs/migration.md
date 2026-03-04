@@ -7,7 +7,6 @@ This repository is a focused extraction of core runtime concerns from the larger
 - agents and orchestration
 - persona bootstrapping and loading (`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`)
 - OpenAI-compatible model providers
-- tool runtime and policy layers
 - plugin runtime and plugin SDK helpers
 
 ## Not included
@@ -30,4 +29,3 @@ When migrating an existing plugin:
 
 - Move long-lived diagnostics persistence to `runtime.stateFile`.
 - Configure `security.redactKeys` before enabling state persistence in production.
-- Use `tools.executionMode = "sandbox"` + allowlists for command execution tools.

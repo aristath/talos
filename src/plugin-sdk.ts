@@ -4,7 +4,6 @@ import type { PluginCapability, TalosPlugin } from "./types.js";
 export const TALOS_PLUGIN_API_VERSION = 1;
 
 const ALLOWED_CAPABILITIES: ReadonlySet<PluginCapability> = new Set([
-  "tools",
   "providers",
   "hooks",
 ]);

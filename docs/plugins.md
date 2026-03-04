@@ -4,7 +4,7 @@ Talos exposes a lightweight plugin contract:
 
 - `id` (required)
 - `apiVersion` (optional, defaults to current SDK version)
-- `capabilities` (optional list of `tools`, `providers`, `hooks`)
+- `capabilities` (optional list of `providers`, `hooks`)
 - `setup(api)`
 
 Use SDK helpers:
@@ -41,8 +41,6 @@ Hook-capable plugins (`capabilities: ["hooks"]`) can register:
 - `beforePersonaLoad`
 - `beforeModel`
 - `afterModel`
-- `beforeTool`
-- `afterTool`
 - `afterRun`
 
 `beforePersonaLoad(snapshot, context)` receives runtime context with:
@@ -60,4 +58,4 @@ Talos can expose plugin metadata through:
 - `listPluginSummaries()`
 - `getPluginSummary(pluginId)`
 
-Summaries include API version, declared capabilities, owned tools/providers, and registered hook names.
+Summaries include API version, declared capabilities, owned providers, and registered hook names.
