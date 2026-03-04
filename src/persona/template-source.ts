@@ -27,15 +27,16 @@ function resolveTemplateDir(): string {
 }
 
 let cached: Readonly<Record<PersonaFileName, string>> | null = null;
+let cachedDir: string | null = null;
 
 export async function loadPersonaTemplates(options?: {
   forceReload?: boolean;
 }): Promise<Readonly<Record<PersonaFileName, string>>> {
-  if (cached && !options?.forceReload) {
+  const dir = resolveTemplateDir();
+  if (cached && !options?.forceReload && cachedDir === dir) {
     return cached;
   }
 
-  const dir = resolveTemplateDir();
   const next: Record<PersonaFileName, string> = {
     ...DEFAULT_PERSONA_TEMPLATES,
   };
@@ -51,5 +52,6 @@ export async function loadPersonaTemplates(options?: {
   }
 
   cached = next;
+  cachedDir = dir;
   return cached;
 }

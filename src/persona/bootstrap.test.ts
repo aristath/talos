@@ -15,6 +15,7 @@ async function createTmpDir() {
 
 afterEach(async () => {
   await Promise.all(tmpDirs.splice(0).map(async (dir) => fs.rm(dir, { recursive: true, force: true })));
+  delete process.env.TALOS_PERSONA_TEMPLATE_DIR;
 });
 
 describe("seedPersonaWorkspace", () => {
@@ -121,5 +122,17 @@ describe("seedPersonaWorkspace", () => {
     expect(second.created).toContain("SOUL.md");
     const soulAfter = await fs.readFile(path.join(dir, "SOUL.md"), "utf8");
     expect(soulAfter).not.toBe(userContent);
+  });
+
+  it("uses external template directory when TALOS_PERSONA_TEMPLATE_DIR is set", async () => {
+    const dir = await createTmpDir();
+    const templatesDir = await createTmpDir();
+    await fs.writeFile(path.join(templatesDir, "SOUL.md"), "# SOUL.md\n\nexternal soul\n", "utf8");
+
+    process.env.TALOS_PERSONA_TEMPLATE_DIR = templatesDir;
+    await seedPersonaWorkspace(dir, { overwrite: true });
+
+    const soul = await fs.readFile(path.join(dir, "SOUL.md"), "utf8");
+    expect(soul).toBe("# SOUL.md\n\nexternal soul\n");
   });
 });
