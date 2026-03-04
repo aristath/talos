@@ -1165,6 +1165,7 @@ describe("createTalos", () => {
       type PersonaHookContextCapture = {
         workspaceDir: string;
         agentId: string;
+        sessionKey?: string;
         sessionId?: string;
         sessionKind: string;
         hasProviders: boolean;
@@ -1179,6 +1180,7 @@ describe("createTalos", () => {
             seen.push({
               workspaceDir: context.workspaceDir,
               agentId: context.agentId,
+              ...(context.sessionKey ? { sessionKey: context.sessionKey } : {}),
               ...(context.sessionId ? { sessionId: context.sessionId } : {}),
               sessionKind: context.sessionKind,
               hasProviders: context.config.providers.openaiCompatible.length > 0,
@@ -1199,6 +1201,7 @@ describe("createTalos", () => {
       const captured = seen[0] as PersonaHookContextCapture;
       expect(captured.workspaceDir.endsWith(path.basename(workspace))).toBe(true);
       expect(captured.agentId).toBe("main");
+      expect(captured.sessionKey).toBe("agent:main:main");
       expect(captured.sessionId).toBe("agent:main:main");
       expect(captured.sessionKind).toBe("main");
       expect(captured.hasProviders).toBe(false);

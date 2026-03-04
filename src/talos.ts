@@ -918,8 +918,8 @@ export function createTalos(config: TalosConfig): Talos {
         ...(input.sessionId ? { sessionId: input.sessionId } : {}),
       });
       const personaCacheKey =
-        input.workspaceDir && input.sessionId
-          ? `${input.workspaceDir.trim()}::${input.sessionId.trim().toLowerCase()}`
+        input.sessionId && input.sessionId.trim()
+          ? input.sessionId.trim().toLowerCase()
           : undefined;
       let loadedPersona: PersonaSnapshot | undefined;
       if (input.workspaceDir) {
@@ -943,6 +943,7 @@ export function createTalos(config: TalosConfig): Talos {
             await plugins.runBeforePersonaLoad(loadedPersona, {
               workspaceDir: loadedPersona.workspaceDir,
               agentId: input.agentId,
+              ...(input.sessionId ? { sessionKey: input.sessionId } : {}),
               ...(input.sessionId ? { sessionId: input.sessionId } : {}),
               sessionKind: resolvedSessionKind,
               config,

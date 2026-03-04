@@ -201,6 +201,7 @@ export type PluginHooks = {
     context: {
       workspaceDir: string;
       agentId: string;
+      sessionKey?: string;
       sessionId?: string;
       sessionKind: PersonaSessionKind;
       config: TalosConfig;

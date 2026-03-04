@@ -45,6 +45,14 @@ Hook-capable plugins (`capabilities: ["hooks"]`) can register:
 - `afterTool`
 - `afterRun`
 
+`beforePersonaLoad(snapshot, context)` receives runtime context with:
+
+- `workspaceDir`
+- `agentId`
+- optional `sessionKey` / `sessionId`
+- `sessionKind`
+- full resolved Talos `config`
+
 ## Metadata
 
 Talos can expose plugin metadata through:

@@ -31,6 +31,8 @@ Talos keeps diagnostics in memory by default:
 
 If `runtime.stateFile` is configured, Talos auto-loads state at startup and auto-persists updates.
 
+Persona snapshots are cached per `sessionId` to keep bootstrap context stable across turns in the same session.
+
 ## Plugin boundary
 
 Plugins can register:
