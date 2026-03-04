@@ -56,3 +56,9 @@ Current core API:
 `run(input)` also supports cancellation via `AbortSignal` (`input.signal`).
 
 This repository intentionally excludes channel integrations, UI apps, and CLI surfaces.
+
+Further docs:
+
+- `docs/architecture.md`
+- `docs/plugins.md`
+- `docs/security.md`
