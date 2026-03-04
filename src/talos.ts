@@ -525,13 +525,59 @@ export function createTalos(config: TalosConfig): Talos {
               message: `Unknown session: ${params.sessionId}`,
             });
           }
-          const result = await run({
+          const runParams = {
             agentId: target.agentId,
             prompt: params.message,
             sessionId: target.sessionId,
             sessionKind: target.kind,
             ...(params.workspaceDir ? { workspaceDir: params.workspaceDir } : {}),
-          });
+          } as const;
+          if (params.timeoutSeconds === 0) {
+            const acceptedRunId = randomUUID();
+            void run(runParams)
+              .then((result) => {
+                const existing = sessions.get(target.sessionId);
+                if (existing) {
+                  existing.providerId = result.providerId;
+                  existing.modelId = result.modelId;
+                  sessions.set(existing.sessionId, existing);
+                }
+              })
+              .catch(() => {
+                // Best-effort fire-and-forget flow for timeoutSeconds=0.
+              });
+            return {
+              runId: acceptedRunId,
+              status: "accepted" as const,
+              reply: "Message accepted.",
+              delivery: {
+                status: "pending",
+                mode: "announce",
+              },
+            };
+          }
+          let result: RunResult;
+          try {
+            if (typeof params.timeoutSeconds === "number" && params.timeoutSeconds > 0) {
+              result = await withTimeout(
+                run(runParams),
+                params.timeoutSeconds * 1000,
+                `sessions_send timed out after ${params.timeoutSeconds}s`,
+                "MODEL_TIMEOUT",
+              );
+            } else {
+              result = await run(runParams);
+            }
+          } catch (error) {
+            if (error instanceof TalosError && error.code === "MODEL_TIMEOUT") {
+              return {
+                runId: randomUUID(),
+                status: "timeout" as const,
+                error: error.message,
+              };
+            }
+            throw error;
+          }
           return {
             runId: result.runId,
             text: result.text,

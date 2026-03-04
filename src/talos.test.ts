@@ -1620,6 +1620,15 @@ describe("createTalos", () => {
       },
       context: { agentId: "main", sessionId: "main" },
     });
+    const sendAccepted = await talos.executeTool({
+      name: "sessions_send",
+      args: {
+        sessionKey: "main",
+        text: "ping-async",
+        timeoutSeconds: 0,
+      },
+      context: { agentId: "main", sessionId: "main" },
+    });
     const spawnAlias = await talos.executeTool({
       name: "sessions_spawn",
       args: {
@@ -1633,6 +1642,7 @@ describe("createTalos", () => {
 
     expect(sendAlias.content).toContain("echo:ping-2");
     expect((sendAlias.data as { modelId?: string }).modelId).toBe("gpt-4o");
+    expect((sendAccepted.data as { status?: string }).status).toBe("accepted");
     expect(spawnAlias.content).toContain("echo:sub task alias");
     expect((sendAlias.data as { details?: { sessionId?: string } }).details?.sessionId).toBe("main");
     expect((spawnAlias.data as { details?: { sessionId?: string } }).details?.sessionId).toContain("agent:main:acp:");
