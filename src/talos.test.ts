@@ -316,6 +316,89 @@ describe("createTalos", () => {
     }
   });
 
+  it("prefers configured default web_search provider over env autodetect", async () => {
+    const prevBrave = process.env.BRAVE_API_KEY;
+    process.env.BRAVE_API_KEY = "brave-key";
+    try {
+      const talos = createTalos({
+        providers: {
+          openaiCompatible: [
+            {
+              id: "openai",
+              baseUrl: "https://api.openai.com/v1",
+              defaultModel: "gpt-4o-mini",
+            },
+          ],
+        },
+      });
+
+      let seenProvider = "";
+      let seenApiKey = "";
+      talos.registerWebTools({
+        search: {
+          defaultProvider: "gemini",
+          providerApiKeys: {
+            gemini: "gemini-key",
+          },
+          search: async ({ provider, providerApiKey }) => {
+            seenProvider = provider ?? "";
+            seenApiKey = providerApiKey ?? "";
+            return [];
+          },
+        },
+      });
+
+      await talos.executeTool({
+        name: "web_search",
+        args: { query: "hello" },
+        context: { agentId: "main" },
+      });
+
+      expect(seenProvider).toBe("gemini");
+      expect(seenApiKey).toBe("gemini-key");
+    } finally {
+      if (typeof prevBrave === "string") {
+        process.env.BRAVE_API_KEY = prevBrave;
+      } else {
+        delete process.env.BRAVE_API_KEY;
+      }
+    }
+  });
+
+  it("normalizes google redirect result URLs in web_search", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerWebTools({
+      search: {
+        search: async () => [
+          {
+            title: "Redirect",
+            url: "https://www.google.com/url?q=https%3A%2F%2Fexample.org%2Farticle",
+          },
+        ],
+      },
+    });
+
+    const result = await talos.executeTool({
+      name: "web_search",
+      args: { query: "citation" },
+      context: { agentId: "main" },
+    });
+
+    const rows = (result.data as { results: Array<{ url: string }> }).results;
+    expect(rows[0]?.url).toBe("https://example.org/article");
+  });
+
   it("applies web tool defaults from config", async () => {
     const talos = createTalos({
       providers: {

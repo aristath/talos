@@ -399,6 +399,12 @@ export function createTalos(config: TalosConfig): Talos {
     if (typeof search.cacheTtlMs !== "number" && typeof parsed.data.tools?.web?.search?.cacheTtlMs === "number") {
       search.cacheTtlMs = parsed.data.tools.web.search.cacheTtlMs;
     }
+    if (
+      typeof search.defaultProvider !== "string" &&
+      typeof parsed.data.tools?.web?.search?.defaultProvider === "string"
+    ) {
+      search.defaultProvider = parsed.data.tools.web.search.defaultProvider;
+    }
 
     const fetch: Parameters<typeof createWebFetchTool>[0] = {
       ...(options.fetch ?? {}),

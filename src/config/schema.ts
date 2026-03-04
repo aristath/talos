@@ -47,6 +47,7 @@ export const talosConfigSchema = z.object({
           search: z
             .object({
               cacheTtlMs: z.number().int().positive().optional(),
+              defaultProvider: z.enum(["brave", "perplexity", "gemini", "grok", "kimi"]).optional(),
             })
             .optional(),
           fetch: z

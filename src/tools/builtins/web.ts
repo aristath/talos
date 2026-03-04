@@ -170,11 +170,41 @@ function autoDetectProvider(): "brave" | "perplexity" | "gemini" | "grok" | "kim
   return "brave";
 }
 
+function resolveProviderApiKey(provider: "brave" | "perplexity" | "gemini" | "grok" | "kimi"): string | undefined {
+  switch (provider) {
+    case "brave":
+      return process.env.BRAVE_API_KEY?.trim() || undefined;
+    case "perplexity":
+      return process.env.PERPLEXITY_API_KEY?.trim() || process.env.OPENROUTER_API_KEY?.trim() || undefined;
+    case "gemini":
+      return process.env.GEMINI_API_KEY?.trim() || undefined;
+    case "grok":
+      return process.env.XAI_API_KEY?.trim() || undefined;
+    case "kimi":
+      return process.env.KIMI_API_KEY?.trim() || process.env.MOONSHOT_API_KEY?.trim() || undefined;
+  }
+}
+
 function normalizeSearchResults(items: WebSearchResultItem[]): WebSearchResultItem[] {
+  const normalizeResultUrl = (rawUrl: string): string => {
+    try {
+      const parsed = new URL(rawUrl);
+      if (parsed.hostname.endsWith("google.com") && parsed.pathname === "/url") {
+        const q = parsed.searchParams.get("q");
+        if (q) {
+          return q;
+        }
+      }
+      return parsed.toString();
+    } catch {
+      return rawUrl;
+    }
+  };
+
   return items
     .map((item) => {
       const title = item.title.trim();
-      const url = item.url.trim();
+      const url = normalizeResultUrl(item.url.trim());
       if (!title || !url) {
         return null;
       }
@@ -329,7 +359,8 @@ export function createWebSearchTool(options: WebSearchToolOptions): ToolDefiniti
       const searchLang = normalizeSearchLang(args.search_lang);
       const uiLang = normalizeUiLang(args.ui_lang);
       const freshness = normalizeFreshness(args.freshness);
-      const provider = normalizeProvider(args.provider) ?? autoDetectProvider();
+      const provider = normalizeProvider(args.provider) ?? options.defaultProvider ?? autoDetectProvider();
+      const providerApiKey = options.providerApiKeys?.[provider] ?? resolveProviderApiKey(provider);
       const cacheKey = JSON.stringify({ query, count, provider, country, searchLang, uiLang, freshness });
       const now = Date.now();
       const cached = cache.get(cacheKey);
@@ -341,6 +372,7 @@ export function createWebSearchTool(options: WebSearchToolOptions): ToolDefiniti
                 query,
                 count,
                 ...(provider ? { provider } : {}),
+                ...(providerApiKey ? { providerApiKey } : {}),
                 ...(country ? { country } : {}),
                 ...(searchLang ? { searchLang } : {}),
                 ...(uiLang ? { uiLang } : {}),
