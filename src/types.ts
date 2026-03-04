@@ -267,6 +267,16 @@ export type SessionToolsCallbacks = {
     mode?: "run" | "session";
     label?: string;
     timeoutSeconds?: number;
+    thread?: boolean;
+    cleanup?: "delete" | "keep";
+    sandbox?: "inherit" | "require";
+    attachments?: Array<{
+      name: string;
+      content: string;
+      encoding?: "utf8" | "base64";
+      mimeType?: string;
+    }>;
+    attachMountPath?: string;
   }) => Promise<{ sessionId: string; runId: string; text: string; providerId: string; modelId: string }>;
   getStatus: (sessionId: string) => SessionRecord | undefined;
 };

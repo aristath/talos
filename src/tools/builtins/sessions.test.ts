@@ -300,4 +300,59 @@ describe("createSessionTools", () => {
     expect(data.reply).toBe("queued");
     expect(data.details?.status).toBe("accepted");
   });
+
+  it("enforces sessions_spawn transport guardrails", async () => {
+    const spawnCalls: Array<Record<string, unknown>> = [];
+    const tools = createSessionTools({
+      callbacks: {
+        listSessions: () => [],
+        getHistory: () => [],
+        sendToSession: async () => ({ runId: "r", text: "ok" }),
+        spawnSession: async (params) => {
+          spawnCalls.push(params as Record<string, unknown>);
+          return {
+            sessionId: "agent:main:subagent:xyz",
+            runId: "r2",
+            text: "ok",
+            providerId: "p",
+            modelId: "m",
+          };
+        },
+        getStatus: () => undefined,
+      },
+    });
+
+    const spawnTool = tools.find((tool) => tool.name === "sessions_spawn");
+    expect(spawnTool).toBeTruthy();
+
+    await expect(
+      spawnTool!.run({ task: "x", channel: "slack" }, { agentId: "main" }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+
+    await expect(
+      spawnTool!.run(
+        {
+          task: "x",
+          runtime: "acp",
+          attachments: [{ name: "a.txt", content: "a" }],
+        },
+        { agentId: "main" },
+      ),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+
+    await spawnTool!.run(
+      {
+        task: "x",
+        timeoutSeconds: 12,
+        thread: true,
+        cleanup: "delete",
+        sandbox: "require",
+      },
+      { agentId: "main" },
+    );
+    expect(spawnCalls[0]?.timeoutSeconds).toBe(12);
+    expect(spawnCalls[0]?.thread).toBe(true);
+    expect(spawnCalls[0]?.cleanup).toBe("delete");
+    expect(spawnCalls[0]?.sandbox).toBe("require");
+  });
 });

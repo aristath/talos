@@ -177,6 +177,16 @@ function trimMessages(messages: Array<{ role: string; text: string; at: string; 
 
 export function createSessionTools(options: SessionToolsOptions): ToolDefinition[] {
   const names = options.names ?? {};
+  const unsupportedSpawnParamKeys = [
+    "target",
+    "transport",
+    "channel",
+    "to",
+    "threadId",
+    "thread_id",
+    "replyTo",
+    "reply_to",
+  ] as const;
   return [
     {
       name: names.list ?? "sessions_list",
@@ -393,11 +403,49 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
       name: names.spawn ?? "sessions_spawn",
       description: "Spawn a sub-session run",
       async run(args, context) {
+        const unsupportedParam = unsupportedSpawnParamKeys.find((key) => Object.hasOwn(args, key));
+        if (unsupportedParam) {
+          throw new TalosError({
+            code: "TOOL_FAILED",
+            message: `sessions_spawn does not support '${unsupportedParam}'. Use sessions_send for delivery.`,
+          });
+        }
         const task = resolveFirstString(args, ["task", "prompt", "message"]) ?? requiredString(args, "task");
         const agentId = typeof args.agentId === "string" && args.agentId.trim() ? args.agentId.trim() : context.agentId;
         const runtime = args.runtime === "acp" ? "acp" : "subagent";
         const mode = args.mode === "run" || args.mode === "session" ? args.mode : undefined;
+        const cleanup = args.cleanup === "delete" ? "delete" : "keep";
+        const sandbox = args.sandbox === "require" ? "require" : "inherit";
+        const thread = args.thread === true;
         const label = typeof args.label === "string" && args.label.trim() ? args.label.trim() : undefined;
+        const timeoutSecondsCandidate =
+          typeof args.runTimeoutSeconds === "number"
+            ? args.runTimeoutSeconds
+            : typeof args.timeoutSeconds === "number"
+              ? args.timeoutSeconds
+              : undefined;
+        const runTimeoutSeconds =
+          typeof timeoutSecondsCandidate === "number" && Number.isFinite(timeoutSecondsCandidate)
+            ? Math.max(0, Math.floor(timeoutSecondsCandidate))
+            : undefined;
+        const attachments = Array.isArray(args.attachments)
+          ? (args.attachments as Array<{
+              name: string;
+              content: string;
+              encoding?: "utf8" | "base64";
+              mimeType?: string;
+            }>)
+          : undefined;
+        if (runtime === "acp" && Array.isArray(attachments) && attachments.length > 0) {
+          throw new TalosError({
+            code: "TOOL_FAILED",
+            message: "sessions_spawn runtime=acp does not support attachments.",
+          });
+        }
+        const attachMountPath =
+          args.attachAs && typeof args.attachAs === "object"
+            ? optionalString(args.attachAs as Record<string, unknown>, "mountPath")
+            : undefined;
         if (options.canAccessSession && context.sessionId) {
           const requester = options.callbacks.getStatus(context.sessionId);
           if (
@@ -423,9 +471,12 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
           runtime,
           ...(mode ? { mode } : {}),
           ...(label ? { label } : {}),
-          ...(typeof args.runTimeoutSeconds === "number" && Number.isFinite(args.runTimeoutSeconds)
-            ? { timeoutSeconds: Math.max(0, Math.floor(args.runTimeoutSeconds)) }
-            : {}),
+          ...(typeof runTimeoutSeconds === "number" ? { timeoutSeconds: runTimeoutSeconds } : {}),
+          ...(thread ? { thread } : {}),
+          cleanup,
+          sandbox,
+          ...(attachments ? { attachments } : {}),
+          ...(attachMountPath ? { attachMountPath } : {}),
         });
         return {
           content: spawned.text,
