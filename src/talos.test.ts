@@ -1139,6 +1139,57 @@ describe("createTalos", () => {
     }
   });
 
+  it("ignores malformed bootstrap file paths from beforePersonaLoad hooks", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-hook-path-"));
+    try {
+      await fs.writeFile(path.join(workspace, "SOUL.md"), "original soul", "utf8");
+
+      const talos = createTalos({
+        providers: {
+          openaiCompatible: [],
+        },
+      });
+
+      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+
+      let seenSystem = "";
+      talos.registerModelProvider({
+        id: "provider",
+        async generate(request) {
+          seenSystem = request.system ?? "";
+          return {
+            text: "ok",
+            providerId: request.providerId,
+            modelId: request.modelId,
+          };
+        },
+      });
+
+      await talos.registerPlugin({
+        id: "persona-malformed-path",
+        capabilities: ["hooks"],
+        setup(api) {
+          api.on("beforePersonaLoad", (snapshot) => ({
+            ...snapshot,
+            bootstrapFiles: snapshot.bootstrapFiles.map((file) =>
+              file.name === "SOUL.md" ? { ...file, path: "   ", content: "patched soul" } : file,
+            ),
+          }));
+        },
+      });
+
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+      });
+
+      expect(seenSystem.includes("patched soul")).toBe(false);
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true });
+    }
+  });
+
   it("infers cron/subagent session kinds from canonical session ids", async () => {
     const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-session-"));
     try {

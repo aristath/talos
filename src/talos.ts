@@ -6,6 +6,7 @@ import { createOpenAICompatibleProvider } from "./models/openai-compatible.js";
 import { loadPersonaSnapshot, buildPersonaSystemPrompt } from "./persona/loader.js";
 import { seedPersonaWorkspace } from "./persona/bootstrap.js";
 import { resolvePersonaSessionKind } from "./persona/session-kind.js";
+import type { PersonaSnapshot } from "./persona/types.js";
 import { PluginRegistry } from "./plugins/registry.js";
 import { discoverPluginEntryPaths, loadPluginFromPath } from "./plugins/loader.js";
 import { TALOS_PLUGIN_API_VERSION, assertPluginCompatibility } from "./plugin-sdk.js";
@@ -71,6 +72,16 @@ function assertToolNotAborted(signal: AbortSignal | undefined, toolName: string)
     code: "TOOL_CANCELLED",
     message: `Tool execution was cancelled: ${toolName}`,
   });
+}
+
+function sanitizePersonaSnapshot(snapshot: PersonaSnapshot): PersonaSnapshot {
+  const bootstrapFiles = snapshot.bootstrapFiles
+    .filter((file) => typeof file.path === "string" && file.path.trim().length > 0)
+    .map((file) => ({ ...file, path: file.path.trim() }));
+  return {
+    ...snapshot,
+    bootstrapFiles,
+  };
 }
 
 async function withTimeout<T>(
@@ -910,7 +921,9 @@ export function createTalos(config: TalosConfig): Talos {
             ...(parsed.data.persona?.extraFiles ? { extraPatterns: parsed.data.persona.extraFiles } : {}),
           })
         : undefined;
-      const persona = loadedPersona ? await plugins.runBeforePersonaLoad(loadedPersona) : undefined;
+      const persona = loadedPersona
+        ? sanitizePersonaSnapshot(await plugins.runBeforePersonaLoad(loadedPersona))
+        : undefined;
       const systemPrompt = [
         agent.promptPrefix,
         buildPersonaSystemPrompt(persona, {
