@@ -194,6 +194,10 @@ export type SessionRecord = {
   sessionId: string;
   agentId: string;
   kind: PersonaSessionKind;
+  runtime?: "subagent" | "acp";
+  mode?: "run" | "session";
+  label?: string;
+  spawnedBy?: string;
   createdAt: string;
   updatedAt: string;
   lastRunId?: string;

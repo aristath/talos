@@ -497,8 +497,21 @@ export function createTalos(config: TalosConfig): Talos {
           };
         },
         spawnSession: async (params) => {
-          const runtime = params.runtime === "acp" ? "subagent" : "subagent";
+          const runtime = params.runtime === "acp" ? "acp" : "subagent";
           const sessionId = `agent:${params.agentId}:${runtime}:${randomUUID().slice(0, 8)}`;
+          const now = new Date().toISOString();
+          sessions.set(sessionId, {
+            sessionId,
+            agentId: params.agentId,
+            kind: "subagent",
+            runtime,
+            ...(params.mode ? { mode: params.mode } : {}),
+            ...(params.label ? { label: params.label } : {}),
+            ...(params.requesterSessionId ? { spawnedBy: params.requesterSessionId } : {}),
+            createdAt: now,
+            updatedAt: now,
+            messages: [],
+          });
           const result = await run({
             agentId: params.agentId,
             prompt: params.task,

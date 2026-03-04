@@ -38,6 +38,16 @@ function toLimit(value: unknown, fallback: number, max: number): number {
   return Math.min(asInt, max);
 }
 
+function classifySessionKindForFilter(kind: string): string {
+  if (kind === "main") {
+    return "main";
+  }
+  if (kind === "cron") {
+    return "cron";
+  }
+  return "other";
+}
+
 export function createSessionTools(options: SessionToolsOptions): ToolDefinition[] {
   const names = options.names ?? {};
   return [
@@ -56,7 +66,7 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
           activeMinutes > 0 ? Date.now() - activeMinutes * 60_000 : undefined;
         const filtered = sessions
           .filter((session) => {
-            if (kinds && kinds.size > 0 && !kinds.has(session.kind)) {
+            if (kinds && kinds.size > 0 && !kinds.has(classifySessionKindForFilter(session.kind))) {
               return false;
             }
             if (typeof activeAfterEpoch === "number") {
@@ -71,7 +81,9 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
           .slice(0, limit);
         const content = filtered
           .map((session) => {
-            return `${session.sessionId} [${session.kind}] agent=${session.agentId} messages=${session.messages.length}`;
+            const label = session.label ? ` label=${session.label}` : "";
+            const runtime = session.runtime ? ` runtime=${session.runtime}` : "";
+            return `${session.sessionId} [${session.kind}] agent=${session.agentId} messages=${session.messages.length}${label}${runtime}`;
           })
           .join("\n");
         return {

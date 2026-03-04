@@ -909,12 +909,24 @@ describe("createTalos", () => {
       name: "sessions_spawn",
       args: {
         prompt: "sub task alias",
+        runtime: "acp",
+        label: "worker-alpha",
+        mode: "session",
       },
       context: { agentId: "main", sessionId: "main" },
     });
 
     expect(sendAlias.content).toContain("echo:ping-2");
     expect(spawnAlias.content).toContain("echo:sub task alias");
+
+    const spawnedStatus = await talos.executeTool({
+      name: "session_status",
+      args: {
+        sessionId: (spawnAlias.data as { sessionId: string }).sessionId,
+      },
+      context: { agentId: "main", sessionId: "main" },
+    });
+    expect(spawnedStatus.content).toContain("agent:main:acp:");
   });
 
   it("lists registered plugins", async () => {
