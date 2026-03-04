@@ -4,7 +4,7 @@ import { TalosError } from "../errors.js";
 import type { PersonaFileName } from "./types.js";
 import { DEFAULT_PERSONA_TEMPLATES, DEFAULT_SEEDED_PERSONA_FILES } from "./templates.js";
 
-const STATE_DIRNAME = ".talos";
+const STATE_DIRNAME = ".openclaw";
 const STATE_FILENAME = "workspace-state.json";
 const STATE_VERSION = 1;
 

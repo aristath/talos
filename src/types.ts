@@ -25,6 +25,10 @@ export type TalosConfig = {
     retryDelayMs?: number;
     toolLoopMaxSteps?: number;
   };
+  persona?: {
+    bootstrapMaxChars?: number;
+    bootstrapTotalMaxChars?: number;
+  };
   tools?: {
     allow?: string[];
     deny?: string[];
@@ -191,6 +195,10 @@ export type PluginCapability = "tools" | "providers" | "hooks";
 
 export type PluginHooks = {
   beforeRun: (input: RunInput) => Promise<void> | void;
+  beforePersonaLoad: (snapshot: PersonaSnapshot) =>
+    | Promise<PersonaSnapshot | void>
+    | PersonaSnapshot
+    | void;
   afterRun: (result: RunResult) => Promise<void> | void;
   beforeModel: (request: ModelRequest) => Promise<ModelRequest | void> | ModelRequest | void;
   afterModel: (params: {

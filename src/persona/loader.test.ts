@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadPersonaSnapshot } from "./loader.js";
+import { buildPersonaSystemPrompt, loadPersonaSnapshot } from "./loader.js";
 
 const tmpDirs: string[] = [];
 
@@ -75,5 +75,19 @@ describe("loadPersonaSnapshot", () => {
 
     expect(snapshot.files["SOUL.md"]).toBe("soul");
     expect(snapshot.diagnostics.some((d) => d.reason === "invalid-persona-filename")).toBe(true);
+  });
+
+  it("applies bootstrap context budgets when building prompt", async () => {
+    const dir = await createTmpDir();
+    await fs.writeFile(path.join(dir, "SOUL.md"), "x".repeat(2000), "utf8");
+
+    const snapshot = await loadPersonaSnapshot(dir, { sessionKind: "main" });
+    const prompt = buildPersonaSystemPrompt(snapshot, {
+      bootstrapMaxChars: 200,
+      bootstrapTotalMaxChars: 300,
+    });
+
+    expect(prompt?.length ?? 0).toBeLessThanOrEqual(300 + 200);
+    expect(prompt?.includes("truncated")).toBe(true);
   });
 });

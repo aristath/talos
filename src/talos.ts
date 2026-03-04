@@ -5,6 +5,7 @@ import { ModelRegistry } from "./models/registry.js";
 import { createOpenAICompatibleProvider } from "./models/openai-compatible.js";
 import { loadPersonaSnapshot, buildPersonaSystemPrompt } from "./persona/loader.js";
 import { seedPersonaWorkspace } from "./persona/bootstrap.js";
+import { resolvePersonaSessionKind } from "./persona/session-kind.js";
 import { PluginRegistry } from "./plugins/registry.js";
 import { discoverPluginEntryPaths, loadPluginFromPath } from "./plugins/loader.js";
 import { TALOS_PLUGIN_API_VERSION, assertPluginCompatibility } from "./plugin-sdk.js";
@@ -70,26 +71,6 @@ function assertToolNotAborted(signal: AbortSignal | undefined, toolName: string)
     code: "TOOL_CANCELLED",
     message: `Tool execution was cancelled: ${toolName}`,
   });
-}
-
-function resolvePersonaSessionKind(input: {
-  sessionKind?: "main" | "subagent" | "cron";
-  sessionId?: string;
-}): "main" | "subagent" | "cron" {
-  if (input.sessionKind) {
-    return input.sessionKind;
-  }
-  const rawSessionId = input.sessionId?.trim().toLowerCase();
-  if (!rawSessionId) {
-    return "main";
-  }
-  if (rawSessionId.includes("cron")) {
-    return "cron";
-  }
-  if (rawSessionId.includes("subagent")) {
-    return "subagent";
-  }
-  return "main";
 }
 
 async function withTimeout<T>(
@@ -920,7 +901,7 @@ export function createTalos(config: TalosConfig): Talos {
         ...(agent.model?.fallbacks ?? []),
       ];
 
-      const persona = input.workspaceDir
+      const loadedPersona = input.workspaceDir
         ? await loadPersonaSnapshot(input.workspaceDir, {
             sessionKind: resolvePersonaSessionKind({
               ...(input.sessionKind ? { sessionKind: input.sessionKind } : {}),
@@ -928,7 +909,18 @@ export function createTalos(config: TalosConfig): Talos {
             }),
           })
         : undefined;
-      const systemPrompt = [agent.promptPrefix, buildPersonaSystemPrompt(persona)]
+      const persona = loadedPersona ? await plugins.runBeforePersonaLoad(loadedPersona) : undefined;
+      const systemPrompt = [
+        agent.promptPrefix,
+        buildPersonaSystemPrompt(persona, {
+          ...(typeof parsed.data.persona?.bootstrapMaxChars === "number"
+            ? { bootstrapMaxChars: parsed.data.persona.bootstrapMaxChars }
+            : {}),
+          ...(typeof parsed.data.persona?.bootstrapTotalMaxChars === "number"
+            ? { bootstrapTotalMaxChars: parsed.data.persona.bootstrapTotalMaxChars }
+            : {}),
+        }),
+      ]
         .filter(Boolean)
         .join("\n\n");
       const generateWithFallback = async (promptText: string): Promise<ModelResponse> => {

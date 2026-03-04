@@ -4,6 +4,7 @@ import { TalosError } from "../errors.js";
 export class PluginRegistry {
   private readonly hooks: {
     beforeRun: Array<{ pluginId: string; handler: PluginHooks["beforeRun"] }>;
+    beforePersonaLoad: Array<{ pluginId: string; handler: PluginHooks["beforePersonaLoad"] }>;
     afterRun: Array<{ pluginId: string; handler: PluginHooks["afterRun"] }>;
     beforeModel: Array<{ pluginId: string; handler: PluginHooks["beforeModel"] }>;
     afterModel: Array<{ pluginId: string; handler: PluginHooks["afterModel"] }>;
@@ -11,6 +12,7 @@ export class PluginRegistry {
     afterTool: Array<{ pluginId: string; handler: PluginHooks["afterTool"] }>;
   } = {
     beforeRun: [],
+    beforePersonaLoad: [],
     afterRun: [],
     beforeModel: [],
     afterModel: [],
@@ -57,6 +59,9 @@ export class PluginRegistry {
     if (this.hooks.beforeRun.some((entry) => entry.pluginId === normalizedId)) {
       hooks.push("beforeRun");
     }
+    if (this.hooks.beforePersonaLoad.some((entry) => entry.pluginId === normalizedId)) {
+      hooks.push("beforePersonaLoad");
+    }
     if (this.hooks.afterRun.some((entry) => entry.pluginId === normalizedId)) {
       hooks.push("afterRun");
     }
@@ -83,6 +88,9 @@ export class PluginRegistry {
 
     this.plugins.delete(normalizedId);
     this.hooks.beforeRun = this.hooks.beforeRun.filter((entry) => entry.pluginId !== normalizedId);
+    this.hooks.beforePersonaLoad = this.hooks.beforePersonaLoad.filter(
+      (entry) => entry.pluginId !== normalizedId,
+    );
     this.hooks.afterRun = this.hooks.afterRun.filter((entry) => entry.pluginId !== normalizedId);
     this.hooks.beforeModel = this.hooks.beforeModel.filter((entry) => entry.pluginId !== normalizedId);
     this.hooks.afterModel = this.hooks.afterModel.filter((entry) => entry.pluginId !== normalizedId);
@@ -104,6 +112,13 @@ export class PluginRegistry {
     }
     if (name === "beforeRun") {
       this.hooks.beforeRun.push({ pluginId, handler: handler as PluginHooks["beforeRun"] });
+      return;
+    }
+    if (name === "beforePersonaLoad") {
+      this.hooks.beforePersonaLoad.push({
+        pluginId,
+        handler: handler as PluginHooks["beforePersonaLoad"],
+      });
       return;
     }
     if (name === "afterRun") {
@@ -142,6 +157,19 @@ export class PluginRegistry {
     for (const hook of this.hooks.afterRun) {
       await hook.handler(result);
     }
+  }
+
+  async runBeforePersonaLoad(
+    snapshot: Parameters<PluginHooks["beforePersonaLoad"]>[0],
+  ): Promise<Parameters<PluginHooks["beforePersonaLoad"]>[0]> {
+    let current = snapshot;
+    for (const hook of this.hooks.beforePersonaLoad) {
+      const next = await hook.handler(current);
+      if (next) {
+        current = next;
+      }
+    }
+    return current;
   }
 
   async runBeforeTool(input: Parameters<PluginHooks["beforeTool"]>[0]): Promise<void> {

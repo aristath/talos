@@ -12,6 +12,11 @@ import type {
 import { MINIMAL_PERSONA_ALLOWLIST, PERSONA_LOAD_ORDER } from "./templates.js";
 
 const VALID_PERSONA_NAMES: ReadonlySet<string> = new Set(PERSONA_LOAD_ORDER);
+const DEFAULT_BOOTSTRAP_MAX_CHARS = 20_000;
+const DEFAULT_BOOTSTRAP_TOTAL_MAX_CHARS = 150_000;
+const MIN_BOOTSTRAP_FILE_BUDGET_CHARS = 64;
+const BOOTSTRAP_HEAD_RATIO = 0.7;
+const BOOTSTRAP_TAIL_RATIO = 0.2;
 
 function isWithinRoot(root: string, candidate: string): boolean {
   if (candidate === root) {
@@ -221,13 +226,87 @@ export async function loadPersonaSnapshot(
   };
 }
 
-export function buildPersonaSystemPrompt(snapshot?: PersonaSnapshot): string | undefined {
+export function buildPersonaSystemPrompt(
+  snapshot?: PersonaSnapshot,
+  options?: {
+    bootstrapMaxChars?: number;
+    bootstrapTotalMaxChars?: number;
+  },
+): string | undefined {
   if (!snapshot) {
     return undefined;
   }
+
+  const trimContent = (content: string, fileName: string, maxChars: number) => {
+    const trimmed = content.trimEnd();
+    if (trimmed.length <= maxChars) {
+      return trimmed;
+    }
+    const headChars = Math.floor(maxChars * BOOTSTRAP_HEAD_RATIO);
+    const tailChars = Math.floor(maxChars * BOOTSTRAP_TAIL_RATIO);
+    const head = trimmed.slice(0, headChars);
+    const tail = trimmed.slice(-tailChars);
+    const marker = [
+      "",
+      `[...truncated, read ${fileName} for full content...]`,
+      `…(truncated ${fileName}: kept ${headChars}+${tailChars} chars of ${trimmed.length})…`,
+      "",
+    ].join("\n");
+    return [head, marker, tail].join("\n");
+  };
+
+  const clampToBudget = (content: string, budget: number) => {
+    if (budget <= 0) {
+      return "";
+    }
+    if (content.length <= budget) {
+      return content;
+    }
+    if (budget <= 1) {
+      return content.slice(0, budget);
+    }
+    return `${content.slice(0, budget - 1)}…`;
+  };
+
+  const maxChars =
+    typeof options?.bootstrapMaxChars === "number" && options.bootstrapMaxChars > 0
+      ? Math.floor(options.bootstrapMaxChars)
+      : DEFAULT_BOOTSTRAP_MAX_CHARS;
+  const totalMaxChars =
+    typeof options?.bootstrapTotalMaxChars === "number" && options.bootstrapTotalMaxChars > 0
+      ? Math.floor(options.bootstrapTotalMaxChars)
+      : DEFAULT_BOOTSTRAP_TOTAL_MAX_CHARS;
+  let remaining = totalMaxChars;
+
   const sections = snapshot.bootstrapFiles
-    .filter((file) => !file.missing && typeof file.content === "string")
-    .map((file) => `## ${file.name}\n${file.content?.trim() ?? ""}`)
+    .map((file) => {
+      if (remaining <= 0) {
+        return null;
+      }
+
+      if (file.missing) {
+        const missingText = clampToBudget(`[MISSING] Expected at: ${file.path}`, remaining);
+        if (!missingText) {
+          return null;
+        }
+        remaining = Math.max(0, remaining - missingText.length);
+        return `## ${file.name}\n${missingText}`;
+      }
+
+      if (!file.content || remaining < MIN_BOOTSTRAP_FILE_BUDGET_CHARS) {
+        return null;
+      }
+
+      const perFileBudget = Math.max(1, Math.min(maxChars, remaining));
+      const trimmed = trimContent(file.content, file.name, perFileBudget);
+      const capped = clampToBudget(trimmed, remaining);
+      if (!capped) {
+        return null;
+      }
+      remaining = Math.max(0, remaining - capped.length);
+      return `## ${file.name}\n${capped}`;
+    })
+    .filter((entry): entry is string => Boolean(entry))
     .filter((entry) => entry.trim().length > 0);
 
   if (sections.length === 0) {

@@ -1066,6 +1066,115 @@ describe("createTalos", () => {
     expect(result.modelId).toBe("model-b");
   });
 
+  it("applies beforePersonaLoad hooks", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-hook-"));
+    try {
+      await fs.writeFile(path.join(workspace, "SOUL.md"), "original soul", "utf8");
+
+      const talos = createTalos({
+        providers: {
+          openaiCompatible: [],
+        },
+      });
+
+      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+
+      let seenSystem = "";
+      talos.registerModelProvider({
+        id: "provider",
+        async generate(request) {
+          seenSystem = request.system ?? "";
+          return {
+            text: "ok",
+            providerId: request.providerId,
+            modelId: request.modelId,
+          };
+        },
+      });
+
+      await talos.registerPlugin({
+        id: "persona-hook",
+        capabilities: ["hooks"],
+        setup(api) {
+          api.on("beforePersonaLoad", (snapshot) => ({
+            ...snapshot,
+            files: {
+              ...snapshot.files,
+              "SOUL.md": "patched soul",
+            },
+            bootstrapFiles: snapshot.bootstrapFiles.map((file) =>
+              file.name === "SOUL.md" ? { ...file, content: "patched soul", missing: false } : file,
+            ),
+          }));
+        },
+      });
+
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+      });
+
+      expect(seenSystem.includes("patched soul")).toBe(true);
+      expect(seenSystem.includes("original soul")).toBe(false);
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("infers cron/subagent session kinds from canonical session ids", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-session-"));
+    try {
+      await fs.writeFile(path.join(workspace, "MEMORY.md"), "main memory", "utf8");
+      await fs.writeFile(path.join(workspace, "AGENTS.md"), "agents", "utf8");
+
+      const talos = createTalos({
+        providers: {
+          openaiCompatible: [],
+        },
+      });
+      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+
+      const systems: string[] = [];
+      talos.registerModelProvider({
+        id: "provider",
+        async generate(request) {
+          systems.push(request.system ?? "");
+          return {
+            text: "ok",
+            providerId: request.providerId,
+            modelId: request.modelId,
+          };
+        },
+      });
+
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+        sessionId: "agent:main:main",
+      });
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+        sessionId: "agent:main:subagent:child-1",
+      });
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+        sessionId: "agent:main:cron:daily",
+      });
+
+      expect(systems[0]?.includes("main memory")).toBe(true);
+      expect(systems[1]?.includes("main memory")).toBe(false);
+      expect(systems[2]?.includes("main memory")).toBe(false);
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true });
+    }
+  });
+
   it("emits model lifecycle events", async () => {
     const talos = createTalos({
       providers: {

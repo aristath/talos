@@ -29,6 +29,12 @@ export const talosConfigSchema = z.object({
       toolLoopMaxSteps: z.number().int().min(0).max(20).optional(),
     })
     .optional(),
+  persona: z
+    .object({
+      bootstrapMaxChars: z.number().int().positive().optional(),
+      bootstrapTotalMaxChars: z.number().int().positive().optional(),
+    })
+    .optional(),
   tools: z
     .object({
       allow: z.array(z.string().min(1)).optional(),
