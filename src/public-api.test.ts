@@ -13,6 +13,7 @@ describe("public API contract", () => {
       "createCanvasTool",
       "createImageTool",
       "createLlmTaskTool",
+      "createOpenAICompatibleProxy",
       "createPdfTool",
       "createSessionTools",
       "createTalos",

@@ -6,6 +6,8 @@ export { createImageTool, createPdfTool } from "./tools/builtins/media.js";
 export { createBrowserTool, createCanvasTool } from "./tools/builtins/browser-ui.js";
 export { createSessionTools } from "./tools/builtins/sessions.js";
 export { createLlmTaskTool } from "./tools/builtins/llm-task.js";
+export { createOpenAICompatibleProxy } from "./proxy/openai-compatible-proxy.js";
+export type { OpenAIProxyOptions } from "./proxy/openai-compatible-proxy.js";
 export { redactValue } from "./security/redaction.js";
 export { discoverPluginEntryPaths, loadPluginFromPath } from "./plugins/loader.js";
 export { seedPersonaWorkspace } from "./persona/bootstrap.js";

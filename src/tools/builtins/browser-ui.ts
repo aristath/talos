@@ -408,6 +408,12 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
     case "act":
       {
         const request = readBrowserActRequest(args);
+        if (!request) {
+          throw new TalosError({
+            code: "TOOL_FAILED",
+            message: "browser action 'act' requires request.kind or kind.",
+          });
+        }
         const kind = typeof request?.kind === "string" ? request.kind.trim() : "";
         if (!kind) {
           throw new TalosError({

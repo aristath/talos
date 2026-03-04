@@ -1,0 +1,354 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import { TalosError } from "../errors.js";
+import { loadAgentRuntimeProfile, type AgentRuntimeProfile } from "../persona/agent-config.js";
+
+type InboundAuthRule = {
+  defaultAgentId: string;
+  allowedAgentIds?: string[];
+};
+
+export type OpenAIProxyOptions = {
+  workspaceDir: string;
+  defaultAgentId: string;
+  inboundAuth?: Record<string, InboundAuthRule>;
+  agentsDir?: string;
+  profileConfigFileName?: string;
+  upstreamTimeoutMs?: number;
+  cacheTtlMs?: number;
+};
+
+type CachedAgentProfile = {
+  expiresAt: number;
+  profile: ResolvedAgentProfile;
+};
+
+type ResolvedAgentProfile = AgentRuntimeProfile & {
+  agentId: string;
+  prompt: string;
+};
+
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+function openAIError(status: number, message: string, type = "invalid_request_error"): Response {
+  return new Response(
+    JSON.stringify({
+      error: {
+        message,
+        type,
+      },
+    }),
+    {
+      status,
+      headers: {
+        "content-type": "application/json",
+      },
+    },
+  );
+}
+
+function readBearerToken(request: Request): string | undefined {
+  const auth = request.headers.get("authorization")?.trim();
+  if (!auth) {
+    return undefined;
+  }
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+  const token = match?.[1]?.trim();
+  return token || undefined;
+}
+
+function extractRequestedAgentId(request: Request): string | undefined {
+  const value = request.headers.get("x-agent-id")?.trim();
+  return value || undefined;
+}
+
+function parseJsonBody(raw: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Request body must be a JSON object.");
+    }
+    return parsed as Record<string, unknown>;
+  } catch (error) {
+    throw new TalosError({
+      code: "TOOL_FAILED",
+      message: "Invalid JSON request body.",
+      cause: error,
+    });
+  }
+}
+
+async function readPersonaPrompt(agentDir: string): Promise<string> {
+  const sections: string[] = [];
+  const fileNames = ["SOUL.md", "STYLE.md", "RULES.md"];
+  for (const fileName of fileNames) {
+    const filePath = path.join(agentDir, fileName);
+    const content = await fs.readFile(filePath, "utf8").catch(() => "");
+    const trimmed = content.trim();
+    if (!trimmed) {
+      continue;
+    }
+    sections.push(`## ${fileName}\n${trimmed}`);
+  }
+  if (sections.length === 0) {
+    throw new TalosError({
+      code: "CONFIG_INVALID",
+      message: `Agent persona files are empty in: ${agentDir}`,
+    });
+  }
+  return ["Use this agent persona context when answering:", ...sections].join("\n\n");
+}
+
+function mergePersonaIntoChatMessages(
+  personaPrompt: string,
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  const messages = Array.isArray(payload.messages) ? payload.messages : [];
+  return {
+    ...payload,
+    messages: [{ role: "system", content: personaPrompt }, ...messages],
+  };
+}
+
+function mergePersonaIntoResponsesInput(
+  personaPrompt: string,
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  const instructions =
+    typeof payload.instructions === "string" && payload.instructions.trim()
+      ? `${personaPrompt}\n\n${payload.instructions}`
+      : personaPrompt;
+  return {
+    ...payload,
+    instructions,
+  };
+}
+
+function ensureModel(payload: Record<string, unknown>, modelId?: string): Record<string, unknown> {
+  if (typeof payload.model === "string" && payload.model.trim()) {
+    return payload;
+  }
+  if (!modelId?.trim()) {
+    throw new TalosError({
+      code: "CONFIG_INVALID",
+      message: "No model resolved for upstream request.",
+    });
+  }
+  return {
+    ...payload,
+    model: modelId,
+  };
+}
+
+function buildProxyHeaders(params: {
+  apiKey?: string;
+  extraHeaders?: Record<string, string>;
+}): Record<string, string> {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    ...(params.extraHeaders ?? {}),
+  };
+  if (params.apiKey?.trim()) {
+    headers.authorization = `Bearer ${params.apiKey.trim()}`;
+  }
+  return headers;
+}
+
+async function listAgentIds(workspaceDir: string, agentsDir: string): Promise<string[]> {
+  const root = path.join(workspaceDir, agentsDir);
+  const entries = await fs.readdir(root, { withFileTypes: true }).catch(() => []);
+  return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+}
+
+export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
+  handle: (request: Request) => Promise<Response>;
+} {
+  const workspaceDir = options.workspaceDir.trim();
+  const defaultAgentId = options.defaultAgentId.trim();
+  const agentsDir = options.agentsDir?.trim() || "agents";
+  const profileConfigFileName = options.profileConfigFileName?.trim() || "agent.json";
+  const upstreamTimeoutMs = options.upstreamTimeoutMs ?? 60_000;
+  const cacheTtlMs = options.cacheTtlMs ?? 5_000;
+  const cache = new Map<string, CachedAgentProfile>();
+
+  const resolveAgentId = (request: Request): string | Response => {
+    const requestedAgentId = extractRequestedAgentId(request);
+    if (!options.inboundAuth) {
+      return requestedAgentId ?? defaultAgentId;
+    }
+    const token = readBearerToken(request);
+    if (!token) {
+      return openAIError(401, "Missing bearer token.", "authentication_error");
+    }
+    const rule = options.inboundAuth[token];
+    if (!rule) {
+      return openAIError(403, "Invalid API token.", "authentication_error");
+    }
+    const allowedAgentIds = (rule.allowedAgentIds ?? [rule.defaultAgentId]).map((entry) => entry.trim());
+    const selected = requestedAgentId ?? rule.defaultAgentId;
+    if (!allowedAgentIds.includes(selected)) {
+      return openAIError(403, `Agent access denied: ${selected}`, "permission_error");
+    }
+    return selected;
+  };
+
+  const resolveProfile = async (agentId: string): Promise<ResolvedAgentProfile> => {
+    const now = Date.now();
+    const cached = cache.get(agentId);
+    if (cached && cached.expiresAt > now) {
+      return cached.profile;
+    }
+    try {
+      const runtime = await loadAgentRuntimeProfile({
+        workspaceDir,
+        agentId,
+        agentsDir,
+        configFileName: profileConfigFileName,
+      });
+      if (!runtime) {
+        throw new TalosError({
+          code: "AGENT_NOT_FOUND",
+          message: `Agent persona not found: ${agentId}`,
+        });
+      }
+      const prompt = await readPersonaPrompt(runtime.personaDir);
+      const profile: ResolvedAgentProfile = {
+        ...runtime,
+        agentId,
+        prompt,
+      };
+      cache.set(agentId, {
+        expiresAt: now + cacheTtlMs,
+        profile,
+      });
+      return profile;
+    } catch (error) {
+      if (cached) {
+        return cached.profile;
+      }
+      throw error;
+    }
+  };
+
+  const proxyJson = async (params: {
+    endpoint: "/chat/completions" | "/responses";
+    payload: Record<string, unknown>;
+    profile: ResolvedAgentProfile;
+  }): Promise<Response> => {
+    const baseUrl = trimTrailingSlash(params.profile.baseUrl ?? "");
+    if (!baseUrl) {
+      return openAIError(500, `Agent ${params.profile.agentId} has no upstream baseURL configured.`);
+    }
+    const url = `${baseUrl}${params.endpoint}`;
+    const headers = buildProxyHeaders({
+      ...(params.profile.apiKey ? { apiKey: params.profile.apiKey } : {}),
+      ...(params.profile.headers ? { extraHeaders: params.profile.headers } : {}),
+    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), upstreamTimeoutMs);
+    try {
+      const upstream = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(params.payload),
+        signal: controller.signal,
+      });
+      return new Response(upstream.body, {
+        status: upstream.status,
+        headers: upstream.headers,
+      });
+    } catch (error) {
+      return openAIError(
+        502,
+        error instanceof Error ? `Upstream request failed: ${error.message}` : "Upstream request failed.",
+        "api_error",
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
+  const listModels = async (): Promise<Response> => {
+    const agentIds = await listAgentIds(workspaceDir, agentsDir);
+    const rows = await Promise.all(
+      agentIds.map(async (agentId) => {
+        try {
+          const profile = await resolveProfile(agentId);
+          return {
+            id: `agent:${agentId}`,
+            object: "model",
+            owned_by: "talos",
+            ...(profile.modelId ? { root: profile.modelId } : {}),
+          };
+        } catch {
+          return null;
+        }
+      }),
+    );
+    return new Response(
+      JSON.stringify({
+        object: "list",
+        data: rows.filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    );
+  };
+
+  return {
+    handle: async (request: Request): Promise<Response> => {
+      const url = new URL(request.url);
+      if (request.method === "GET" && url.pathname === "/v1/models") {
+        return await listModels();
+      }
+      const resolvedAgentId = resolveAgentId(request);
+      if (resolvedAgentId instanceof Response) {
+        return resolvedAgentId;
+      }
+      let profile: ResolvedAgentProfile;
+      try {
+        profile = await resolveProfile(resolvedAgentId);
+      } catch (error) {
+        return openAIError(
+          404,
+          error instanceof Error ? error.message : `Agent not found: ${resolvedAgentId}`,
+        );
+      }
+      if (request.method !== "POST") {
+        return openAIError(405, "Method not allowed.");
+      }
+      const rawBody = await request.text();
+      let payload: Record<string, unknown>;
+      try {
+        payload = parseJsonBody(rawBody);
+      } catch (error) {
+        return openAIError(400, error instanceof Error ? error.message : "Invalid JSON body.");
+      }
+      if (url.pathname === "/v1/chat/completions") {
+        const withPersona = mergePersonaIntoChatMessages(profile.prompt, payload);
+        const withModel = ensureModel(withPersona, profile.modelId);
+        return await proxyJson({
+          endpoint: "/chat/completions",
+          payload: withModel,
+          profile,
+        });
+      }
+      if (url.pathname === "/v1/responses") {
+        const withPersona = mergePersonaIntoResponsesInput(profile.prompt, payload);
+        const withModel = ensureModel(withPersona, profile.modelId);
+        return await proxyJson({
+          endpoint: "/responses",
+          payload: withModel,
+          profile,
+        });
+      }
+      return openAIError(404, `Unsupported endpoint: ${url.pathname}`);
+    },
+  };
+}

@@ -135,12 +135,16 @@ function capMessagesByBytes(messages: Array<{ role: string; text: string; at: st
   const capped: Array<{ role: string; text: string; at: string; runId?: string }> = [];
   let dropped = false;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const candidate = [messages[index], ...capped];
+    const next = messages[index];
+    if (!next) {
+      continue;
+    }
+    const candidate = [next, ...capped];
     if (jsonUtf8Bytes(candidate) > SESSIONS_HISTORY_MAX_BYTES) {
       dropped = true;
       continue;
     }
-    capped.unshift(messages[index]);
+    capped.unshift(next);
   }
   if (capped.length > 0) {
     return {
@@ -452,16 +456,28 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
         }
         const status = sent.status ?? "ok";
         const reply = sent.reply ?? sent.text ?? "";
-        return asStatusResult({
+        const sendResult: {
+          sessionId: string;
+          runId: string;
+          status: "ok" | "accepted" | "timeout" | "error";
+          reply?: string;
+          error?: string;
+          providerId?: string;
+          modelId?: string;
+          delivery?: { status: string; mode?: string };
+        } = {
           sessionId,
           runId: sent.runId,
           status,
-          reply: reply || (status === "accepted" ? "Message accepted." : undefined),
-          error: sent.error,
-          providerId: sent.providerId,
-          modelId: sent.modelId,
-          delivery: sent.delivery,
-        });
+          ...(reply || status === "accepted"
+            ? { reply: reply || "Message accepted." }
+            : {}),
+          ...(sent.error ? { error: sent.error } : {}),
+          ...(sent.providerId ? { providerId: sent.providerId } : {}),
+          ...(sent.modelId ? { modelId: sent.modelId } : {}),
+          ...(sent.delivery ? { delivery: sent.delivery } : {}),
+        };
+        return asStatusResult(sendResult);
       },
     },
     {

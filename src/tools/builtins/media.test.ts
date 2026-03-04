@@ -15,7 +15,8 @@ describe("media builtins", () => {
     );
 
     expect(analyze).toHaveBeenCalledTimes(1);
-    expect(analyze.mock.calls[0]?.[0]?.inputs).toEqual(["/tmp/a.png", "/tmp/b.png"]);
+    const firstCall = analyze.mock.calls[0] as [{ inputs?: string[] }] | undefined;
+    expect(firstCall?.[0]?.inputs).toEqual(["/tmp/a.png", "/tmp/b.png"]);
   });
 
   it("rejects unsupported URI schemes", async () => {
