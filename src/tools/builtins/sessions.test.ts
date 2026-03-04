@@ -182,9 +182,11 @@ describe("createSessionTools", () => {
     await expect(
       historyTool!.run({ sessionId: "agent:main:subagent:blocked" }, { agentId: "main" }),
     ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
-    await expect(
-      sendTool!.run({ sessionId: "agent:main:subagent:blocked", message: "hi" }, { agentId: "main" }),
-    ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
+    const deniedSend = await sendTool!.run(
+      { sessionId: "agent:main:subagent:blocked", message: "hi" },
+      { agentId: "main" },
+    );
+    expect((deniedSend.data as { status?: string }).status).toBe("forbidden");
     await expect(
       statusTool!.run({ sessionId: "agent:main:subagent:blocked" }, { agentId: "main" }),
     ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });

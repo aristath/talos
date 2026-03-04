@@ -327,13 +327,43 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
       name: names.send ?? "sessions_send",
       description: "Send a message to another session",
       async run(args, context) {
+        const asStatusResult = (params: {
+          sessionId?: string;
+          runId?: string;
+          status: "ok" | "accepted" | "timeout" | "error" | "forbidden";
+          reply?: string;
+          error?: string;
+          providerId?: string;
+          modelId?: string;
+          delivery?: { status: string; mode?: string };
+        }) => ({
+          content: params.reply ?? params.error ?? "",
+          data: {
+            ...(params.sessionId ? { sessionId: params.sessionId } : {}),
+            ...(params.runId ? { runId: params.runId } : {}),
+            status: params.status,
+            ...(params.reply ? { reply: params.reply } : {}),
+            ...(params.error ? { error: params.error } : {}),
+            ...(params.providerId ? { providerId: params.providerId } : {}),
+            ...(params.modelId ? { modelId: params.modelId } : {}),
+            ...(params.delivery ? { delivery: params.delivery } : {}),
+            details: {
+              sessionId: params.sessionId,
+              runId: params.runId,
+              status: params.status,
+              error: params.error,
+              providerId: params.providerId,
+              modelId: params.modelId,
+            },
+          },
+        });
         const sessionIdFromInput = resolveFirstString(args, ["sessionKey", "sessionId"]);
         const label = optionalString(args, "label");
         const labelAgentId = optionalString(args, "agentId");
         if (sessionIdFromInput && label) {
-          throw new TalosError({
-            code: "TOOL_FAILED",
-            message: "Provide either sessionKey/sessionId or label, not both.",
+          return asStatusResult({
+            status: "error",
+            error: "Provide either sessionKey/sessionId or label, not both.",
           });
         }
         const sessionId =
@@ -351,9 +381,10 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
         const message = resolveFirstString(args, ["message", "text", "prompt"]) ?? requiredString(args, "message");
         const session = options.callbacks.getStatus(sessionId);
         if (!session) {
-          throw new TalosError({
-            code: "TOOL_FAILED",
-            message: `Unknown session: ${sessionId}`,
+          return asStatusResult({
+            sessionId,
+            status: "error",
+            error: `Unknown session: ${sessionId}`,
           });
         }
         if (
@@ -365,38 +396,42 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
             session,
           })
         ) {
-          throw new TalosError({
-            code: "TOOL_NOT_ALLOWED",
-            message: `Access denied for sessions_send: ${sessionId}`,
+          return asStatusResult({
+            sessionId,
+            status: "forbidden",
+            error: `Access denied for sessions_send: ${sessionId}`,
           });
         }
-        const sent = await options.callbacks.sendToSession({
-          sessionId,
-          message,
-          requesterAgentId: context.agentId,
-          ...(context.workspaceDir ? { workspaceDir: context.workspaceDir } : {}),
-          ...(typeof args.timeoutSeconds === "number" && Number.isFinite(args.timeoutSeconds)
-            ? { timeoutSeconds: Math.max(0, Math.floor(args.timeoutSeconds)) }
-            : {}),
-        });
+        let sent: Awaited<ReturnType<typeof options.callbacks.sendToSession>>;
+        try {
+          sent = await options.callbacks.sendToSession({
+            sessionId,
+            message,
+            requesterAgentId: context.agentId,
+            ...(context.workspaceDir ? { workspaceDir: context.workspaceDir } : {}),
+            ...(typeof args.timeoutSeconds === "number" && Number.isFinite(args.timeoutSeconds)
+              ? { timeoutSeconds: Math.max(0, Math.floor(args.timeoutSeconds)) }
+              : {}),
+          });
+        } catch (error) {
+          return asStatusResult({
+            sessionId,
+            status: "error",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
         const status = sent.status ?? "ok";
         const reply = sent.reply ?? sent.text ?? "";
-        return {
-          content: reply || (status === "accepted" ? "Message accepted." : "No reply."),
-          data: {
-            sessionId,
-            status,
-            ...sent,
-            details: {
-              sessionId,
-              runId: sent.runId,
-              providerId: sent.providerId,
-              modelId: sent.modelId,
-              status,
-              error: sent.error,
-            },
-          },
-        };
+        return asStatusResult({
+          sessionId,
+          runId: sent.runId,
+          status,
+          reply: reply || (status === "accepted" ? "Message accepted." : undefined),
+          error: sent.error,
+          providerId: sent.providerId,
+          modelId: sent.modelId,
+          delivery: sent.delivery,
+        });
       },
     },
     {
