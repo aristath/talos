@@ -313,6 +313,9 @@ describe("createSessionTools", () => {
     expect(data.status).toBe("accepted");
     expect(data.reply).toBe("queued");
     expect(data.details?.status).toBe("accepted");
+
+    const missing = await sendTool!.run({ label: "missing", message: "hello" }, { agentId: "main" });
+    expect((missing.data as { status?: string }).status).toBe("error");
   });
 
   it("enforces sessions_spawn transport guardrails", async () => {

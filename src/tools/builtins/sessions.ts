@@ -387,9 +387,8 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
             error: "Provide either sessionKey/sessionId or label, not both.",
           });
         }
-        const sessionId =
-          sessionIdFromInput ??
-          (label && options.callbacks.resolveSessionByLabel
+        const resolvedByLabel =
+          label && options.callbacks.resolveSessionByLabel
             ? options.callbacks.resolveSessionByLabel({
                 label,
                 ...(labelAgentId ? { agentId: labelAgentId } : {}),
@@ -397,8 +396,14 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
                   ? { spawnedBy: args.spawnedBy.trim() }
                   : {}),
               })
-            : undefined) ??
-          requiredString(args, "sessionId");
+            : undefined;
+        if (label && !sessionIdFromInput && !resolvedByLabel) {
+          return asStatusResult({
+            status: "error",
+            error: `No session found with label: ${label}`,
+          });
+        }
+        const sessionId = sessionIdFromInput ?? resolvedByLabel ?? requiredString(args, "sessionId");
         const message = resolveFirstString(args, ["message", "text", "prompt"]) ?? requiredString(args, "message");
         const session = options.callbacks.getStatus(sessionId);
         if (!session) {
