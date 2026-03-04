@@ -1249,13 +1249,18 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.run({
+      const result = await talos.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
       });
 
       expect(seenSystem.includes("patched soul")).toBe(false);
+      expect(
+        result.persona?.diagnostics.some((entry) =>
+          entry.detail.includes("invalid path from hook override"),
+        ),
+      ).toBe(true);
     } finally {
       await fs.rm(workspace, { recursive: true, force: true });
     }

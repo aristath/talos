@@ -79,12 +79,25 @@ function assertToolNotAborted(signal: AbortSignal | undefined, toolName: string)
 }
 
 function sanitizePersonaSnapshot(snapshot: PersonaSnapshot): PersonaSnapshot {
+  const diagnostics = [...snapshot.diagnostics];
   const bootstrapFiles = snapshot.bootstrapFiles
-    .filter((file) => typeof file.path === "string" && file.path.trim().length > 0)
+    .filter((file) => {
+      const pathValue = typeof file.path === "string" ? file.path.trim() : "";
+      if (pathValue.length > 0) {
+        return true;
+      }
+      diagnostics.push({
+        path: "",
+        reason: "io",
+        detail: `skipping bootstrap file \"${file.name}\" due to invalid path from hook override`,
+      });
+      return false;
+    })
     .map((file) => ({ ...file, path: file.path.trim() }));
   return {
     ...snapshot,
     bootstrapFiles,
+    diagnostics,
   };
 }
 
