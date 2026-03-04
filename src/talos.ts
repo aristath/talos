@@ -645,6 +645,7 @@ export function createTalos(config: TalosConfig): Talos {
             "Return ONLY a valid JSON value.",
             "Do not wrap in markdown fences.",
             "Do not include commentary.",
+            "Do not call tools.",
           ].join(" ");
           const fullPrompt = `TASK:\n${params.prompt}\n\nINPUT_JSON:\n${inputJson}\n`;
           const timeoutMs =
