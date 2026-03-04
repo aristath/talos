@@ -300,4 +300,49 @@ describe("createOpenAICompatibleProxy", () => {
     const body = JSON.parse(init.body ?? "{}") as { model?: string };
     expect(body.model).toBe("openai/gpt-4.1");
   });
+
+  it("passes through upstream streaming responses", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-stream-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const fetchMock = vi.fn(async () => {
+      return new Response("data: {\"id\":\"chunk_1\"}\n\n", {
+        status: 200,
+        headers: {
+          "content-type": "text/event-stream",
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proxy = createOpenAICompatibleProxy({
+      workspaceDir,
+      defaultAgentId: "designer",
+    });
+
+    const response = await proxy.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          stream: true,
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    const payload = await response.text();
+    expect(payload).toContain("chunk_1");
+  });
 });
