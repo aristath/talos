@@ -753,6 +753,7 @@ describe("createTalos", () => {
     let browserNavigateArgs: Record<string, unknown> | undefined;
     const browserCloseArgs: Record<string, unknown>[] = [];
     let browserDialogArgs: Record<string, unknown> | undefined;
+    let browserUploadArgs: Record<string, unknown> | undefined;
     const canvasActions: string[] = [];
     let canvasPresentArgs: Record<string, unknown> | undefined;
     let canvasNavigateArgs: Record<string, unknown> | undefined;
@@ -777,6 +778,9 @@ describe("createTalos", () => {
         }
         if (action === "dialog") {
           browserDialogArgs = args;
+        }
+        if (action === "upload") {
+          browserUploadArgs = args;
         }
         return {
           content: `browser:${action}`,
@@ -866,6 +870,11 @@ describe("createTalos", () => {
       args: { action: "close" },
       context: { agentId: "main" },
     });
+    const browserUpload = await talos.executeTool({
+      name: "browser",
+      args: { action: "upload", paths: ["/tmp/a.txt", 42] },
+      context: { agentId: "main" },
+    });
     const browserCookies = await talos.executeTool({
       name: "browser",
       args: { action: "cookies.set" },
@@ -910,6 +919,7 @@ describe("createTalos", () => {
     expect(browserNavigateAlias.content).toBe("browser:navigate");
     expect(browserCloseAlias.content).toBe("browser:close");
     expect(browserCloseDefault.content).toBe("browser:close");
+    expect(browserUpload.content).toBe("browser:upload");
     expect((browserTrace.data as { profile?: string }).profile).toBe("openclaw");
     expect((browserTrace.data as { target?: string }).target).toBe("host");
     expect((browserChromeStatus.data as { target?: string }).target).toBe("host");
@@ -926,6 +936,7 @@ describe("createTalos", () => {
     expect((browserCloseArgs[0] as { targetId?: string } | undefined)?.targetId).toBe("tab-8");
     expect((browserCloseArgs[1] as { targetId?: string } | undefined)?.targetId).toBeUndefined();
     expect((browserDialogArgs as { accept?: boolean } | undefined)?.accept).toBe(false);
+    expect((browserUploadArgs as { paths?: string[] } | undefined)?.paths).toEqual(["/tmp/a.txt", "42"]);
     expect(browserCookies.content).toBe("browser:cookies_set");
     expect(canvasA2ui.content).toBe("canvas:a2ui_push");
     expect(canvasA2uiPath.content).toBe("canvas:a2ui_push");
@@ -1019,6 +1030,13 @@ describe("createTalos", () => {
       talos.executeTool({
         name: "browser",
         args: { action: "upload" },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "browser",
+        args: { action: "screenshot", type: "webp" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });

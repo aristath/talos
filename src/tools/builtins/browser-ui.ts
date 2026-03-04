@@ -296,6 +296,12 @@ function normalizeBrowserActionArgs(action: string, args: Record<string, unknown
       accept: typeof args.accept === "boolean" ? args.accept : false,
     };
   }
+  if (action === "upload" && Array.isArray(args.paths)) {
+    return {
+      ...args,
+      paths: args.paths.map((entry) => String(entry)),
+    };
+  }
   return args;
 }
 
@@ -398,6 +404,19 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
         });
       }
       return;
+    }
+    case "screenshot": {
+      if (!Object.hasOwn(args, "type")) {
+        return;
+      }
+      const type = typeof args.type === "string" ? args.type.trim().toLowerCase() : "";
+      if (type === "png" || type === "jpeg") {
+        return;
+      }
+      throw new TalosError({
+        code: "TOOL_FAILED",
+        message: "browser action 'screenshot' supports type: png, jpeg.",
+      });
     }
     case "evaluate":
       requireActionParam(args, "fn", "browser", action);
