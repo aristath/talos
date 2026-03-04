@@ -1190,6 +1190,61 @@ describe("createTalos", () => {
     }
   });
 
+  it("trims bootstrap file paths from beforePersonaLoad hooks", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-hook-trim-"));
+    try {
+      const talos = createTalos({
+        providers: {
+          openaiCompatible: [],
+        },
+      });
+
+      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+
+      let seenSystem = "";
+      talos.registerModelProvider({
+        id: "provider",
+        async generate(request) {
+          seenSystem = request.system ?? "";
+          return {
+            text: "ok",
+            providerId: request.providerId,
+            modelId: request.modelId,
+          };
+        },
+      });
+
+      await talos.registerPlugin({
+        id: "persona-trimmed-path",
+        capabilities: ["hooks"],
+        setup(api) {
+          api.on("beforePersonaLoad", (snapshot) => ({
+            ...snapshot,
+            bootstrapFiles: [
+              ...snapshot.bootstrapFiles,
+              {
+                name: "USER.md",
+                path: "   /virtual/missing-user.md   ",
+                missing: true,
+              },
+            ],
+          }));
+        },
+      });
+
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+      });
+
+      expect(seenSystem.includes("   /virtual/missing-user.md   ")).toBe(false);
+      expect(seenSystem.includes("[MISSING] Expected at: /virtual/missing-user.md")).toBe(true);
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true });
+    }
+  });
+
   it("infers cron/subagent session kinds from canonical session ids", async () => {
     const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-session-"));
     try {
