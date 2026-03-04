@@ -14,6 +14,7 @@ const DEFAULT_WEB_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 const PRIVATE_HOSTNAME_PATTERN =
   /^(localhost|127\.|10\.|192\.168\.|169\.254\.|0\.|::1$|fc00:|fd00:|fe80:)/i;
+const SEARCH_PROVIDERS = new Set(["brave", "perplexity", "gemini", "grok", "kimi"]);
 
 function requireString(value: unknown, field: string): string {
   const normalized = typeof value === "string" ? value.trim() : "";
@@ -133,6 +134,23 @@ function normalizeFreshness(value: unknown): string | undefined {
   });
 }
 
+function normalizeProvider(value: unknown): "brave" | "perplexity" | "gemini" | "grok" | "kimi" | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  if (!SEARCH_PROVIDERS.has(normalized)) {
+    throw new TalosError({
+      code: "TOOL_FAILED",
+      message: `Unsupported web_search provider: ${normalized}`,
+    });
+  }
+  return normalized as "brave" | "perplexity" | "gemini" | "grok" | "kimi";
+}
+
 function normalizeSearchResults(items: WebSearchResultItem[]): WebSearchResultItem[] {
   return items
     .map((item) => {
@@ -177,6 +195,7 @@ async function defaultFetchContent(params: {
   maxResponseBytes: number;
   maxRedirects: number;
   userAgent: string;
+  allowPrivateNetwork: boolean;
 }): Promise<{ content: string; title?: string }> {
   const timeoutController = new AbortController();
   const timeout = setTimeout(() => timeoutController.abort(), params.timeoutMs);
@@ -208,6 +227,7 @@ async function defaultFetchContent(params: {
           });
         }
         currentUrl = new URL(location, currentUrl).toString();
+        currentUrl = normalizeUrl(currentUrl, params.allowPrivateNetwork);
         continue;
       }
       if (!response.ok) {
@@ -219,6 +239,7 @@ async function defaultFetchContent(params: {
       const reader = response.body?.getReader();
       const chunks: Uint8Array[] = [];
       let totalBytes = 0;
+      let responseTruncated = false;
       if (reader) {
         while (true) {
           const chunk = await reader.read();
@@ -228,10 +249,12 @@ async function defaultFetchContent(params: {
           if (chunk.value) {
             totalBytes += chunk.value.byteLength;
             if (totalBytes > params.maxResponseBytes) {
-              throw new TalosError({
-                code: "TOOL_FAILED",
-                message: `web_fetch response exceeded maxResponseBytes (${params.maxResponseBytes}).`,
-              });
+              responseTruncated = true;
+              const remaining = Math.max(0, params.maxResponseBytes - (totalBytes - chunk.value.byteLength));
+              if (remaining > 0) {
+                chunks.push(chunk.value.subarray(0, remaining));
+              }
+              break;
             }
             chunks.push(chunk.value);
           }
@@ -242,9 +265,14 @@ async function defaultFetchContent(params: {
       const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
       const title = titleMatch?.[1]?.trim();
       const text = htmlToText(html);
-      const capped = text.slice(0, Math.max(1, params.maxChars));
+      const outputLimit = Math.max(1, params.maxChars);
+      const outputTruncated = text.length > outputLimit;
+      const capped = text.slice(0, outputLimit);
       return {
-        content: capped,
+        content:
+          responseTruncated || outputTruncated
+            ? `${capped}\n\n[TRUNCATED]`
+            : capped,
         ...(title ? { title } : {}),
       };
     }
@@ -270,7 +298,8 @@ export function createWebSearchTool(options: WebSearchToolOptions): ToolDefiniti
       const searchLang = normalizeSearchLang(args.search_lang);
       const uiLang = normalizeUiLang(args.ui_lang);
       const freshness = normalizeFreshness(args.freshness);
-      const cacheKey = JSON.stringify({ query, count, country, searchLang, uiLang, freshness });
+      const provider = normalizeProvider(args.provider);
+      const cacheKey = JSON.stringify({ query, count, provider, country, searchLang, uiLang, freshness });
       const now = Date.now();
       const cached = cache.get(cacheKey);
       const results =
@@ -280,6 +309,7 @@ export function createWebSearchTool(options: WebSearchToolOptions): ToolDefiniti
               await options.search({
                 query,
                 count,
+                ...(provider ? { provider } : {}),
                 ...(country ? { country } : {}),
                 ...(searchLang ? { searchLang } : {}),
                 ...(uiLang ? { uiLang } : {}),
@@ -303,6 +333,7 @@ export function createWebSearchTool(options: WebSearchToolOptions): ToolDefiniti
         data: {
           query,
           count,
+          ...(provider ? { provider } : {}),
           ...(country ? { country } : {}),
           ...(searchLang ? { search_lang: searchLang } : {}),
           ...(uiLang ? { ui_lang: uiLang } : {}),
@@ -347,6 +378,7 @@ export function createWebFetchTool(options?: WebFetchToolOptions): ToolDefinitio
               maxResponseBytes,
               maxRedirects,
               userAgent,
+              allowPrivateNetwork,
             });
       if (!cached || cached.expiresAt <= now) {
         cache.set(cacheKey, {
@@ -354,13 +386,17 @@ export function createWebFetchTool(options?: WebFetchToolOptions): ToolDefinitio
           data: fetched,
         });
       }
+      const contentLimit = Math.max(1, maxChars);
+      const contentTruncated = fetched.content.length > contentLimit;
+      const content = contentTruncated ? `${fetched.content.slice(0, contentLimit)}\n\n[TRUNCATED]` : fetched.content;
       return {
-        content: fetched.title ? `${fetched.title}\n\n${fetched.content}` : fetched.content,
+        content: fetched.title ? `${fetched.title}\n\n${content}` : content,
         data: {
           url,
           extractMode,
           maxChars,
           cached: Boolean(cached && cached.expiresAt > now),
+          truncated: contentTruncated,
           ...(fetched.title ? { title: fetched.title } : {}),
         },
       };

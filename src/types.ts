@@ -119,6 +119,7 @@ export type WebSearchToolOptions = {
   search: (params: {
     query: string;
     count: number;
+    provider?: "brave" | "perplexity" | "gemini" | "grok" | "kimi";
     country?: string;
     searchLang?: string;
     uiLang?: string;
@@ -138,6 +139,7 @@ export type WebFetchToolOptions = {
     maxResponseBytes: number;
     maxRedirects: number;
     userAgent: string;
+    allowPrivateNetwork: boolean;
   }) => Promise<{ content: string; title?: string }>;
   defaultMaxChars?: number;
   maxCharsCap?: number;

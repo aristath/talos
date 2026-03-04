@@ -194,6 +194,17 @@ describe("createTalos", () => {
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+
+    await expect(
+      talos.executeTool({
+        name: "web_search",
+        args: {
+          query: "talos",
+          provider: "bing",
+        },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
   });
 
   it("caches web_search and web_fetch responses", async () => {
@@ -211,29 +222,31 @@ describe("createTalos", () => {
 
     let searchCalls = 0;
     let fetchCalls = 0;
+    let lastProvider = "";
     talos.registerWebTools({
       search: {
-        search: async ({ query }) => {
+        search: async ({ query, provider }) => {
           searchCalls += 1;
+          lastProvider = provider ?? "";
           return [{ title: query, url: "https://example.com" }];
         },
       },
       fetch: {
-        fetchContent: async ({ url }) => {
+        fetchContent: async ({ url, maxResponseBytes }) => {
           fetchCalls += 1;
-          return { content: `body:${url}` };
+          return { content: `body:${url}:${maxResponseBytes}` };
         },
       },
     });
 
     await talos.executeTool({
       name: "web_search",
-      args: { query: "cache-me" },
+      args: { query: "cache-me", provider: "brave" },
       context: { agentId: "main" },
     });
     await talos.executeTool({
       name: "web_search",
-      args: { query: "cache-me" },
+      args: { query: "cache-me", provider: "brave" },
       context: { agentId: "main" },
     });
     await talos.executeTool({
@@ -249,6 +262,7 @@ describe("createTalos", () => {
 
     expect(searchCalls).toBe(1);
     expect(fetchCalls).toBe(1);
+    expect(lastProvider).toBe("brave");
   });
 
   it("applies web tool defaults from config", async () => {
@@ -306,6 +320,41 @@ describe("createTalos", () => {
 
     expect(seenMaxChars).toBe(1234);
     expect(seenUserAgent).toBe("TalosTest/1.0");
+  });
+
+  it("marks default web_fetch extraction as truncated when limits are hit", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerWebTools({
+      search: {
+        search: async () => [],
+      },
+      fetch: {
+        fetchContent: async () => ({ content: "x".repeat(3000), title: "Title" }),
+        maxCharsCap: 50,
+      },
+    });
+
+    const result = await talos.executeTool({
+      name: "web_fetch",
+      args: {
+        url: "https://example.com",
+        maxChars: 500,
+      },
+      context: { agentId: "main" },
+    });
+
+    expect(result.content.includes("[TRUNCATED]")).toBe(true);
   });
 
   it("registers media tools and executes image/pdf analysis", async () => {

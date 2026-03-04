@@ -14,12 +14,12 @@ Parity requires matching:
 
 - [ ] `web_search`: provider selection parity (Brave/Perplexity/Gemini/Grok/Kimi)
 - [ ] `web_search`: provider auto-detect precedence parity
-- [ ] `web_search`: full locale/freshness behavior parity
+- [x] `web_search`: full locale/freshness behavior parity
 - [ ] `web_search`: output/detail shape parity
 - [ ] `web_fetch`: readability extraction parity
 - [ ] `web_fetch`: Firecrawl fallback parity
-- [ ] `web_fetch`: redirect/response caps and truncation semantics parity
-- [ ] `web_fetch`: SSRF policy parity (initial + redirect destinations)
+- [x] `web_fetch`: redirect/response caps and truncation semantics parity
+- [x] `web_fetch`: SSRF policy parity (initial + redirect destinations)
 - [ ] `web_fetch`: output/detail shape parity
 
 ## Media Tools
