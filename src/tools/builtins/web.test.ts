@@ -109,4 +109,39 @@ describe("web builtins", () => {
     expect(result.content).toContain("long fallback content from firecrawl");
     expect((result.data as { usedFallback?: boolean }).usedFallback).toBe(true);
   });
+
+  it("returns fetch detail metadata for parity", async () => {
+    const tool = createWebFetchTool({
+      fetchContent: async () => ({
+        content: "payload",
+        title: "Title",
+        sourceUrl: "https://example.com/final",
+        statusCode: 200,
+        contentType: "text/html",
+        rawLength: 1234,
+        wrappedLength: 456,
+        truncated: false,
+      }),
+    });
+
+    const result = await tool.run({ url: "https://example.com" }, { agentId: "main" });
+    const data = result.data as {
+      sourceUrl?: string;
+      statusCode?: number;
+      contentType?: string;
+      rawLength?: number;
+      wrappedLength?: number;
+      details?: {
+        sourceUrl?: string;
+        statusCode?: number;
+        contentType?: string;
+      };
+    };
+    expect(data.sourceUrl).toBe("https://example.com/final");
+    expect(data.statusCode).toBe(200);
+    expect(data.contentType).toBe("text/html");
+    expect(data.rawLength).toBe(1234);
+    expect(data.wrappedLength).toBe(456);
+    expect(data.details?.sourceUrl).toBe("https://example.com/final");
+  });
 });

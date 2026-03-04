@@ -143,13 +143,29 @@ export type WebFetchToolOptions = {
     maxRedirects: number;
     userAgent: string;
     allowPrivateNetwork: boolean;
-  }) => Promise<{ content: string; title?: string }>;
+  }) => Promise<{
+    content: string;
+    title?: string;
+    sourceUrl?: string;
+    statusCode?: number;
+    contentType?: string;
+    rawLength?: number;
+    wrappedLength?: number;
+    truncated?: boolean;
+  }>;
   firecrawlFallback?: (params: {
     url: string;
     extractMode: "markdown" | "text";
     maxChars: number;
     timeoutMs: number;
-  }) => Promise<{ content: string; title?: string }>;
+  }) => Promise<{
+    content: string;
+    title?: string;
+    sourceUrl?: string;
+    rawLength?: number;
+    wrappedLength?: number;
+    truncated?: boolean;
+  }>;
   defaultMaxChars?: number;
   maxCharsCap?: number;
   timeoutMs?: number;

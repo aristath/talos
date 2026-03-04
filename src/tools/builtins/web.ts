@@ -449,7 +449,7 @@ async function defaultFirecrawlFallback(params: {
   extractMode: "markdown" | "text";
   maxChars: number;
   timeoutMs: number;
-}): Promise<{ content: string; title?: string }> {
+}): Promise<{ content: string; title?: string; sourceUrl?: string; rawLength?: number; wrappedLength?: number; truncated?: boolean }> {
   const apiKey = process.env.FIRECRAWL_API_KEY?.trim();
   if (!apiKey) {
     throw new TalosError({
@@ -490,9 +490,16 @@ async function defaultFirecrawlFallback(params: {
       });
     }
     const content = params.extractMode === "text" ? htmlToText(markdown) : markdown;
+    const maxChars = Math.max(1, params.maxChars);
+    const truncated = content.length > maxChars;
+    const wrapped = content.slice(0, maxChars);
     return {
-      content: content.slice(0, Math.max(1, params.maxChars)),
+      content: truncated ? `${wrapped}\n\n[TRUNCATED]` : wrapped,
       ...(payload.data?.metadata?.title?.trim() ? { title: payload.data.metadata.title.trim() } : {}),
+      sourceUrl: params.url,
+      rawLength: markdown.length,
+      wrappedLength: content.length,
+      truncated,
     };
   } finally {
     clearTimeout(timer);
@@ -508,7 +515,16 @@ async function defaultFetchContent(params: {
   maxRedirects: number;
   userAgent: string;
   allowPrivateNetwork: boolean;
-}): Promise<{ content: string; title?: string }> {
+}): Promise<{
+  content: string;
+  title?: string;
+  sourceUrl?: string;
+  statusCode?: number;
+  contentType?: string;
+  rawLength?: number;
+  wrappedLength?: number;
+  truncated?: boolean;
+}> {
   const timeoutController = new AbortController();
   const timeout = setTimeout(() => timeoutController.abort(), params.timeoutMs);
   try {
@@ -580,12 +596,17 @@ async function defaultFetchContent(params: {
       const outputLimit = Math.max(1, params.maxChars);
       const outputTruncated = text.length > outputLimit;
       const capped = text.slice(0, outputLimit);
+      const contentType = response.headers.get("content-type") ?? undefined;
+      const truncated = responseTruncated || outputTruncated;
       return {
-        content:
-          responseTruncated || outputTruncated
-            ? `${capped}\n\n[TRUNCATED]`
-            : capped,
+        content: truncated ? `${capped}\n\n[TRUNCATED]` : capped,
         ...(title ? { title } : {}),
+        sourceUrl: currentUrl,
+        statusCode: response.status,
+        ...(contentType ? { contentType } : {}),
+        rawLength: html.length,
+        wrappedLength: text.length,
+        truncated,
       };
     }
     throw new TalosError({
@@ -682,7 +703,19 @@ export function createWebFetchTool(options?: WebFetchToolOptions): ToolDefinitio
   const userAgent = options?.userAgent ?? DEFAULT_WEB_USER_AGENT;
   const cacheTtlMs = options?.cacheTtlMs ?? 15 * 60_000;
   const allowPrivateNetwork = options?.allowPrivateNetwork === true;
-  const cache = new Map<string, { expiresAt: number; data: { content: string; title?: string } }>();
+  const cache = new Map<string, {
+    expiresAt: number;
+    data: {
+      content: string;
+      title?: string;
+      sourceUrl?: string;
+      statusCode?: number;
+      contentType?: string;
+      rawLength?: number;
+      wrappedLength?: number;
+      truncated?: boolean;
+    };
+  }>();
   const firecrawlFallback = options?.firecrawlFallback ?? (process.env.FIRECRAWL_API_KEY?.trim() ? defaultFirecrawlFallback : undefined);
   return {
     name: options?.name ?? "web_fetch",
@@ -728,7 +761,7 @@ export function createWebFetchTool(options?: WebFetchToolOptions): ToolDefinitio
         });
       }
       const contentLimit = Math.max(1, maxChars);
-      const contentTruncated = resolved.content.length > contentLimit;
+      const contentTruncated = Boolean(resolved.truncated) || resolved.content.length > contentLimit;
       const content = contentTruncated ? `${resolved.content.slice(0, contentLimit)}\n\n[TRUNCATED]` : resolved.content;
       return {
         content: resolved.title ? `${resolved.title}\n\n${content}` : content,
@@ -739,6 +772,11 @@ export function createWebFetchTool(options?: WebFetchToolOptions): ToolDefinitio
           cached: Boolean(cached && cached.expiresAt > now),
           usedFallback,
           truncated: contentTruncated,
+          ...(resolved.sourceUrl ? { sourceUrl: resolved.sourceUrl } : {}),
+          ...(typeof resolved.statusCode === "number" ? { statusCode: resolved.statusCode } : {}),
+          ...(resolved.contentType ? { contentType: resolved.contentType } : {}),
+          ...(typeof resolved.rawLength === "number" ? { rawLength: resolved.rawLength } : {}),
+          ...(typeof resolved.wrappedLength === "number" ? { wrappedLength: resolved.wrappedLength } : {}),
           ...(resolved.title ? { title: resolved.title } : {}),
           details: {
             url,
@@ -747,6 +785,11 @@ export function createWebFetchTool(options?: WebFetchToolOptions): ToolDefinitio
             cached: Boolean(cached && cached.expiresAt > now),
             usedFallback,
             truncated: contentTruncated,
+            sourceUrl: resolved.sourceUrl,
+            statusCode: resolved.statusCode,
+            contentType: resolved.contentType,
+            rawLength: resolved.rawLength,
+            wrappedLength: resolved.wrappedLength,
             title: resolved.title,
           },
         },
