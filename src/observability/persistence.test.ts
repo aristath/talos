@@ -67,4 +67,14 @@ describe("saveStateSnapshot", () => {
       code: "CONFIG_INVALID",
     });
   });
+
+  it("rejects state snapshots when sessions is not an array", async () => {
+    const dir = await createTmpDir();
+    const filePath = path.join(dir, "bad-sessions.json");
+    await fs.writeFile(filePath, JSON.stringify({ events: [], runs: [], sessions: {} }), "utf8");
+
+    await expect(loadStateSnapshot(filePath)).rejects.toMatchObject({
+      code: "CONFIG_INVALID",
+    });
+  });
 });

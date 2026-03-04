@@ -756,7 +756,10 @@ export function createTalos(config: TalosConfig): Talos {
 
   const saveState = async (filePath?: string): Promise<string> => {
     const target = resolveStateFilePath(filePath);
-    const snapshot = events.snapshot();
+    const snapshot = {
+      ...events.snapshot(),
+      sessions: listSessionsSnapshot(),
+    };
     return await saveStateSnapshot(target, snapshot, {
       ...(redactKeys ? { redactKeys } : {}),
     });
@@ -766,6 +769,20 @@ export function createTalos(config: TalosConfig): Talos {
     const target = resolveStateFilePath(filePath);
     const loaded = await loadStateSnapshot(target);
     events.replace(loaded.snapshot);
+    sessions.clear();
+    if (Array.isArray(loaded.snapshot.sessions)) {
+      for (const session of loaded.snapshot.sessions) {
+        const sessionId = session.sessionId.trim();
+        if (!sessionId) {
+          continue;
+        }
+        sessions.set(sessionId, {
+          ...session,
+          sessionId,
+          messages: Array.isArray(session.messages) ? session.messages : [],
+        });
+      }
+    }
     return loaded.path;
   };
 

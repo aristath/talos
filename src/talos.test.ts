@@ -2845,7 +2845,8 @@ describe("createTalos", () => {
           };
         },
       });
-      await talosA.run({ agentId: "main", prompt: "hello" });
+      talosA.registerSessionTools();
+      await talosA.run({ agentId: "main", prompt: "hello", sessionId: "main" });
       await talosA.saveState(statePath);
 
       const talosB = createTalos({
@@ -2853,10 +2854,17 @@ describe("createTalos", () => {
           openaiCompatible: [],
         },
       });
+      talosB.registerSessionTools();
       const loadedPath = await talosB.loadState(statePath);
       expect(loadedPath.endsWith("state.json")).toBe(true);
       expect(talosB.getRunStats().total).toBeGreaterThanOrEqual(1);
       expect(talosB.listEvents(10).length).toBeGreaterThan(0);
+      const sessions = await talosB.executeTool({
+        name: "sessions_list",
+        args: {},
+        context: { agentId: "main" },
+      });
+      expect(sessions.content).toContain("main");
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });
     }

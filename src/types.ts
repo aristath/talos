@@ -546,6 +546,7 @@ export type TalosDiagnostics = {
 export type TalosStateSnapshot = {
   events: RunLifecycleEvent[];
   runs: RunSummary[];
+  sessions?: SessionRecord[];
 };
 
 export type DiagnosticsResetResult = {

@@ -16,6 +16,7 @@ function ensureSnapshotShape(input: unknown): TalosStateSnapshot {
   const candidate = input as {
     events?: unknown;
     runs?: unknown;
+    sessions?: unknown;
   };
 
   if (!Array.isArray(candidate.events)) {
@@ -32,10 +33,21 @@ function ensureSnapshotShape(input: unknown): TalosStateSnapshot {
     });
   }
 
-  return {
+  if (typeof candidate.sessions !== "undefined" && !Array.isArray(candidate.sessions)) {
+    throw new TalosError({
+      code: "CONFIG_INVALID",
+      message: "State snapshot field 'sessions' must be an array when present.",
+    });
+  }
+
+  const snapshot: TalosStateSnapshot = {
     events: candidate.events as TalosStateSnapshot["events"],
     runs: candidate.runs as TalosStateSnapshot["runs"],
   };
+  if (Array.isArray(candidate.sessions)) {
+    snapshot.sessions = candidate.sessions as NonNullable<TalosStateSnapshot["sessions"]>;
+  }
+  return snapshot;
 }
 
 export async function saveStateSnapshot(
