@@ -1,7 +1,9 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { DEFAULT_PERSONA_TEMPLATES } from "./templates.js";
 import { loadPersonaTemplates, stripLeadingMarkdownFrontmatter } from "./template-source.js";
 
 const TMP_DIRS: string[] = [];
@@ -66,5 +68,23 @@ describe("loadPersonaTemplates", () => {
 
     expect(templates["MEMORY.md"]).toBe("# MEMORY.md\n\ncustom memory\n");
     expect(templates["memory.md"].trimStart().startsWith("# memory.md")).toBe(true);
+  });
+
+  it("keeps shipped docs templates aligned with embedded defaults", async () => {
+    const docsDir = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../../docs/reference/templates",
+    );
+    const entries = await fs.readdir(docsDir);
+    for (const name of entries) {
+      if (!name.endsWith(".md") || !(name in DEFAULT_PERSONA_TEMPLATES)) {
+        continue;
+      }
+      const raw = await fs.readFile(path.join(docsDir, name), "utf8");
+      const normalized = stripLeadingMarkdownFrontmatter(raw);
+      expect(DEFAULT_PERSONA_TEMPLATES[name as keyof typeof DEFAULT_PERSONA_TEMPLATES].trimStart()).toBe(
+        normalized.trimStart(),
+      );
+    }
   });
 });
