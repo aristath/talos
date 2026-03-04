@@ -348,16 +348,15 @@ describe("createSessionTools", () => {
       spawnTool!.run({ task: "x", channel: "slack" }, { agentId: "main" }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
 
-    await expect(
-      spawnTool!.run(
-        {
-          task: "x",
-          runtime: "acp",
-          attachments: [{ name: "a.txt", content: "a" }],
-        },
-        { agentId: "main" },
-      ),
-    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    const acpAttachmentResult = await spawnTool!.run(
+      {
+        task: "x",
+        runtime: "acp",
+        attachments: [{ name: "a.txt", content: "a" }],
+      },
+      { agentId: "main" },
+    );
+    expect((acpAttachmentResult.data as { status?: string }).status).toBe("error");
 
     await spawnTool!.run(
       {

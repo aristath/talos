@@ -502,10 +502,16 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
             }>)
           : undefined;
         if (runtime === "acp" && Array.isArray(attachments) && attachments.length > 0) {
-          throw new TalosError({
-            code: "TOOL_FAILED",
-            message: "sessions_spawn runtime=acp does not support attachments.",
-          });
+          return {
+            content: "attachments are currently unsupported for runtime=acp",
+            data: {
+              status: "error",
+              error: "attachments are currently unsupported for runtime=acp",
+              details: {
+                status: "error",
+              },
+            },
+          };
         }
         const attachMountPath =
           args.attachAs && typeof args.attachAs === "object"
