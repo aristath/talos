@@ -24,13 +24,13 @@ Parity requires matching:
 
 ## Media Tools
 
-- [ ] `image`: model resolution and fallback parity
-- [ ] `image`: input normalization and policy guards parity
-- [ ] `pdf`: native-provider mode parity
-- [ ] `pdf`: extraction fallback mode parity
+- [x] `image`: model resolution and fallback parity
+- [x] `image`: input normalization and policy guards parity
+- [x] `pdf`: native-provider mode parity
+- [x] `pdf`: extraction fallback mode parity
 - [x] `pdf`: pages/max-bytes/max-items semantics parity
-- [ ] `pdf`: output/detail shape parity
-- [ ] `pdf`: registration/exposure gating parity
+- [x] `pdf`: output/detail shape parity
+- [x] `pdf`: registration/exposure gating parity
 
 ## Session Orchestration Tools
 

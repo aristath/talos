@@ -441,11 +441,15 @@ export function createTalos(config: TalosConfig): Talos {
   };
 
   const registerMediaTools = (options: {
-    image: Parameters<typeof createImageTool>[0];
-    pdf: Parameters<typeof createPdfTool>[0];
+    image?: Parameters<typeof createImageTool>[0];
+    pdf?: Parameters<typeof createPdfTool>[0];
   }) => {
-    registerTool(createImageTool(options.image));
-    registerTool(createPdfTool(options.pdf));
+    if (options.image && options.image.enabled !== false && options.image.isAvailable?.() !== false) {
+      registerTool(createImageTool(options.image));
+    }
+    if (options.pdf && options.pdf.enabled !== false && options.pdf.isAvailable?.() !== false) {
+      registerTool(createPdfTool(options.pdf));
+    }
   };
 
   const registerBrowserTools = (options: Parameters<typeof createBrowserTool>[0]) => {

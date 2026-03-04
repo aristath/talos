@@ -153,7 +153,15 @@ function createMediaTool(baseName: string, fallbackDescription: string, options:
         });
       }
       const prompt = optionalPrompt(args);
-      const model = typeof args.model === "string" && args.model.trim() ? args.model.trim() : undefined;
+      const explicitModel = typeof args.model === "string" && args.model.trim() ? args.model.trim() : undefined;
+      const candidateModels = [
+        explicitModel,
+        options.defaultModel,
+        ...(options.modelFallbacks ?? []),
+      ]
+        .map((value) => (typeof value === "string" ? value.trim() : ""))
+        .filter(Boolean);
+      const model = candidateModels[0];
       const requestedMaxBytesMb = toPositiveNumber(args.maxBytesMb);
       const maxBytesMb = requestedMaxBytesMb ?? defaultMaxBytesMb;
       const pagesRaw = isPdf && typeof args.pages === "string" && args.pages.trim() ? args.pages.trim() : undefined;
@@ -167,15 +175,46 @@ function createMediaTool(baseName: string, fallbackDescription: string, options:
           message: "pages is not supported with native PDF providers",
         });
       }
-      const analyzed = await options.analyze({
-        input,
-        ...(collected.length > 0 ? { inputs: collected } : {}),
-        ...(prompt ? { prompt } : {}),
-        ...(model ? { model } : {}),
-        ...(typeof maxBytesMb === "number" ? { maxBytesMb } : {}),
-        ...(pages ? { pages } : {}),
-        context,
-      });
+      const attempts: Array<{ model?: string; error: string }> = [];
+      let analyzed: Awaited<ReturnType<typeof options.analyze>> | undefined;
+      const runAnalyze = async (candidateModel?: string) => {
+        return await options.analyze({
+          input,
+          ...(collected.length > 0 ? { inputs: collected } : {}),
+          ...(prompt ? { prompt } : {}),
+          ...(candidateModel ? { model: candidateModel } : {}),
+          ...(typeof maxBytesMb === "number" ? { maxBytesMb } : {}),
+          ...(pages ? { pages } : {}),
+          context,
+        });
+      };
+
+      if (candidateModels.length > 0) {
+        for (const candidateModel of candidateModels) {
+          try {
+            analyzed = await runAnalyze(candidateModel);
+            break;
+          } catch (error) {
+            attempts.push({
+              model: candidateModel,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+      } else {
+        analyzed = await runAnalyze(undefined);
+      }
+
+      if (!analyzed) {
+        throw new TalosError({
+          code: "TOOL_FAILED",
+          message: `${baseName} analysis failed for all model attempts.`,
+          details: {
+            attempts,
+          },
+        });
+      }
+
       return {
         content: analyzed.text,
         data:
@@ -183,10 +222,20 @@ function createMediaTool(baseName: string, fallbackDescription: string, options:
             ? {
                 result: analyzed.data,
                 ...(collected.length > 0 ? { inputs: collected } : {}),
+                details: {
+                  ...(model ? { model } : {}),
+                  attempts,
+                  ...(isPdf ? { maxBytesMb, native: nativePdfMode, ...(pages ? { pages } : {}) } : {}),
+                },
                 ...(isPdf ? { maxBytesMb, native: nativePdfMode, ...(pages ? { pages } : {}) } : {}),
               }
             : {
                 ...(collected.length > 0 ? { inputs: collected } : {}),
+                details: {
+                  ...(model ? { model } : {}),
+                  attempts,
+                  ...(isPdf ? { maxBytesMb, native: nativePdfMode, ...(pages ? { pages } : {}) } : {}),
+                },
                 ...(isPdf ? { maxBytesMb, native: nativePdfMode, ...(pages ? { pages } : {}) } : {}),
               },
       };

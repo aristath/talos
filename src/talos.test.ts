@@ -489,6 +489,71 @@ describe("createTalos", () => {
     expect(pdf.content).toBe("pdf:/tmp/a.pdf");
   });
 
+  it("supports media model fallback attempts", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerMediaTools({
+      image: {
+        defaultModel: "broken/model",
+        modelFallbacks: ["openai/gpt-4o-mini"],
+        analyze: async ({ model }) => {
+          if (model === "broken/model") {
+            throw new Error("broken");
+          }
+          return { text: `ok:${model}` };
+        },
+      },
+    });
+
+    const image = await talos.executeTool({
+      name: "image",
+      args: { image: "a.png" },
+      context: { agentId: "main" },
+    });
+
+    expect(image.content).toBe("ok:openai/gpt-4o-mini");
+    const attempts = (image.data as { details?: { attempts?: Array<{ model?: string }> } }).details?.attempts ?? [];
+    expect(attempts.some((entry) => entry.model === "broken/model")).toBe(true);
+  });
+
+  it("gates media tool registration when unavailable", () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerMediaTools({
+      image: {
+        enabled: false,
+        analyze: async () => ({ text: "no" }),
+      },
+      pdf: {
+        isAvailable: () => false,
+        analyze: async () => ({ text: "no" }),
+      },
+    });
+
+    expect(talos.hasTool("image")).toBe(false);
+    expect(talos.hasTool("pdf")).toBe(false);
+  });
+
   it("supports multi-input media args and caps item counts", async () => {
     const talos = createTalos({
       providers: {

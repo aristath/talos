@@ -160,6 +160,10 @@ export type WebFetchToolOptions = {
 export type MediaUnderstandToolOptions = {
   name?: string;
   description?: string;
+  enabled?: boolean;
+  isAvailable?: () => boolean;
+  defaultModel?: string;
+  modelFallbacks?: string[];
   nativePdfProviders?: string[];
   pdfMaxPages?: number;
   defaultPdfMaxBytesMb?: number;
@@ -620,8 +624,8 @@ export type Talos = {
     fetch?: WebFetchToolOptions;
   }) => void;
   registerMediaTools: (options: {
-    image: MediaUnderstandToolOptions;
-    pdf: MediaUnderstandToolOptions;
+    image?: MediaUnderstandToolOptions;
+    pdf?: MediaUnderstandToolOptions;
   }) => void;
   registerBrowserTools: (options: BrowserToolOptions) => void;
   registerCanvasTools: (options: CanvasToolOptions) => void;
