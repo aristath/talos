@@ -431,7 +431,7 @@ describe("createTalos", () => {
     });
     const canvas = await talos.executeTool({
       name: "canvas",
-      args: { action: "present" },
+      args: { action: "present", target: "https://example.com" },
       context: { agentId: "main" },
     });
 
@@ -465,6 +465,35 @@ describe("createTalos", () => {
       talos.executeTool({
         name: "canvas",
         args: { action: "unknown" },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+
+    await expect(
+      talos.executeTool({
+        name: "browser",
+        args: { action: "open" },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "browser",
+        args: { action: "focus" },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "canvas",
+        args: { action: "present" },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "canvas",
+        args: { action: "eval" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });

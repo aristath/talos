@@ -54,6 +54,90 @@ function assertAllowedAction(action: string, allowed: ReadonlySet<string>, toolN
   });
 }
 
+function requireActionParam(args: Record<string, unknown>, field: string, toolName: string, action: string): string {
+  const value = typeof args[field] === "string" ? args[field].trim() : "";
+  if (value) {
+    return value;
+  }
+  throw new TalosError({
+    code: "TOOL_FAILED",
+    message: `${toolName} action '${action}' requires a non-empty '${field}' string.`,
+  });
+}
+
+function assertBrowserActionParams(action: string, args: Record<string, unknown>): void {
+  switch (action) {
+    case "open":
+    case "navigate":
+      requireActionParam(args, "url", "browser", action);
+      return;
+    case "focus":
+    case "close": {
+      const targetId =
+        (typeof args.targetId === "string" ? args.targetId.trim() : "") ||
+        (typeof args.tabId === "string" ? args.tabId.trim() : "");
+      if (!targetId) {
+        throw new TalosError({
+          code: "TOOL_FAILED",
+          message: `browser action '${action}' requires 'targetId' (or alias 'tabId').`,
+        });
+      }
+      return;
+    }
+    case "act":
+      requireActionParam(args, "kind", "browser", action);
+      return;
+    default:
+      return;
+  }
+}
+
+function assertCanvasActionParams(action: string, args: Record<string, unknown>): void {
+  switch (action) {
+    case "present": {
+      const target =
+        (typeof args.target === "string" ? args.target.trim() : "") ||
+        (typeof args.url === "string" ? args.url.trim() : "");
+      if (!target) {
+        throw new TalosError({
+          code: "TOOL_FAILED",
+          message: "canvas action 'present' requires 'target' (or alias 'url').",
+        });
+      }
+      return;
+    }
+    case "navigate": {
+      const url =
+        (typeof args.url === "string" ? args.url.trim() : "") ||
+        (typeof args.target === "string" ? args.target.trim() : "");
+      if (!url) {
+        throw new TalosError({
+          code: "TOOL_FAILED",
+          message: "canvas action 'navigate' requires 'url' (or alias 'target').",
+        });
+      }
+      return;
+    }
+    case "eval":
+      requireActionParam(args, "javaScript", "canvas", action);
+      return;
+    case "a2ui_push": {
+      const jsonl =
+        (typeof args.jsonl === "string" ? args.jsonl.trim() : "") ||
+        (typeof args.jsonlPath === "string" ? args.jsonlPath.trim() : "");
+      if (!jsonl) {
+        throw new TalosError({
+          code: "TOOL_FAILED",
+          message: "canvas action 'a2ui_push' requires 'jsonl' or 'jsonlPath'.",
+        });
+      }
+      return;
+    }
+    default:
+      return;
+  }
+}
+
 export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
   return {
     name: options.name ?? "browser",
@@ -61,6 +145,7 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
     async run(args, context) {
       const action = requiredAction(args);
       assertAllowedAction(action, BROWSER_ACTIONS, "browser");
+      assertBrowserActionParams(action, args);
       const output = await options.execute({ action, args, context });
       return {
         content: output.content,
@@ -85,6 +170,7 @@ export function createCanvasTool(options: CanvasToolOptions): ToolDefinition {
     async run(args, context) {
       const action = requiredAction(args);
       assertAllowedAction(action, CANVAS_ACTIONS, "canvas");
+      assertCanvasActionParams(action, args);
       const output = await options.execute({ action, args, context });
       return {
         content: output.content,
