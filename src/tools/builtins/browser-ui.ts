@@ -359,7 +359,7 @@ function normalizeBrowserActionArgs(action: string, args: Record<string, unknown
   if (action === "upload" && Array.isArray(args.paths)) {
     return {
       ...args,
-      paths: args.paths.map((entry) => String(entry)),
+      paths: args.paths.map((entry) => String(entry).trim()).filter((entry) => entry.length > 0),
     };
   }
   return args;
@@ -523,7 +523,10 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
       requireActionParam(args, "filename", "browser", action);
       return;
     case "upload": {
-      if (!Array.isArray(args.paths) || args.paths.length === 0) {
+      const paths = Array.isArray(args.paths)
+        ? args.paths.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+        : [];
+      if (paths.length === 0) {
         throw new TalosError({
           code: "TOOL_FAILED",
           message: "browser action 'upload' requires a non-empty 'paths' array.",

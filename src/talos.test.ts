@@ -1135,6 +1135,13 @@ describe("createTalos", () => {
     await expect(
       talos.executeTool({
         name: "browser",
+        args: { action: "upload", paths: ["   "] },
+        context: { agentId: "main" },
+      }),
+    ).rejects.toMatchObject({ code: "TOOL_FAILED" });
+    await expect(
+      talos.executeTool({
+        name: "browser",
         args: { action: "screenshot", type: "webp" },
         context: { agentId: "main" },
       }),
