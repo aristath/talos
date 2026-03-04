@@ -195,4 +195,51 @@ describe("createSessionTools", () => {
       ),
     ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
   });
+
+  it("sanitizes, redacts, and caps sessions_history output", async () => {
+    const largeText = `token=sk-abcdefghijklmnopqrstuvwxyz1234567890 ${"x".repeat(4500)}`;
+    const tools = createSessionTools({
+      callbacks: {
+        listSessions: () => [],
+        getHistory: () => [
+          {
+            role: "assistant",
+            text: largeText,
+            at: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+        sendToSession: async () => ({ runId: "r", text: "ok", providerId: "p", modelId: "m" }),
+        spawnSession: async () => ({
+          sessionId: "agent:main:subagent:xyz",
+          runId: "r2",
+          text: "ok",
+          providerId: "p",
+          modelId: "m",
+        }),
+        getStatus: () => ({
+          sessionId: "agent:main:subagent:abc",
+          agentId: "main",
+          kind: "subagent",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          messages: [],
+        }),
+      },
+    });
+
+    const historyTool = tools.find((tool) => tool.name === "sessions_history");
+    expect(historyTool).toBeTruthy();
+    const result = await historyTool!.run({ sessionId: "agent:main:subagent:abc" }, { agentId: "main" });
+    const data = result.data as {
+      messages: Array<{ text: string }>;
+      truncated: boolean;
+      contentRedacted: boolean;
+      bytes: number;
+    };
+    expect(data.messages[0]?.text).toContain("[REDACTED]");
+    expect(data.messages[0]?.text).toContain("…(truncated)…");
+    expect(data.truncated).toBe(true);
+    expect(data.contentRedacted).toBe(true);
+    expect(data.bytes).toBeGreaterThan(0);
+  });
 });

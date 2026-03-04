@@ -69,6 +69,100 @@ function stripToolMessages<T extends { role: string }>(messages: T[]): T[] {
   return messages.filter((entry) => entry.role !== "tool");
 }
 
+const SESSIONS_HISTORY_TEXT_MAX_CHARS = 4000;
+const SESSIONS_HISTORY_MAX_BYTES = 80 * 1024;
+
+function redactSensitiveText(text: string): { text: string; redacted: boolean } {
+  let redacted = false;
+  const patterns = [
+    /(sk-[A-Za-z0-9_-]{16,})/g,
+    /(xox[baprs]-[A-Za-z0-9-]{10,})/g,
+    /(ghp_[A-Za-z0-9]{20,})/g,
+    /((?:api[_-]?key|token|password|secret)\s*[:=]\s*)([^\s"']+)/gi,
+  ];
+  let current = text;
+  for (const pattern of patterns) {
+    current = current.replace(pattern, (_match, prefix: string, value?: string) => {
+      redacted = true;
+      if (typeof value === "string") {
+        return `${prefix}[REDACTED]`;
+      }
+      return "[REDACTED]";
+    });
+  }
+  return { text: current, redacted };
+}
+
+function truncateText(text: string): { text: string; truncated: boolean } {
+  if (text.length <= SESSIONS_HISTORY_TEXT_MAX_CHARS) {
+    return { text, truncated: false };
+  }
+  return {
+    text: `${text.slice(0, SESSIONS_HISTORY_TEXT_MAX_CHARS)}\n…(truncated)…`,
+    truncated: true,
+  };
+}
+
+function sanitizeMessage(message: { role: string; text: string; at: string; runId?: string }): {
+  message: { role: string; text: string; at: string; runId?: string };
+  truncated: boolean;
+  redacted: boolean;
+} {
+  const redacted = redactSensitiveText(message.text);
+  const truncated = truncateText(redacted.text);
+  return {
+    message: {
+      ...message,
+      text: truncated.text,
+    },
+    truncated: truncated.truncated,
+    redacted: redacted.redacted,
+  };
+}
+
+function jsonUtf8Bytes(value: unknown): number {
+  return new TextEncoder().encode(JSON.stringify(value)).length;
+}
+
+function capMessagesByBytes(messages: Array<{ role: string; text: string; at: string; runId?: string }>): {
+  items: Array<{ role: string; text: string; at: string; runId?: string }>;
+  bytes: number;
+  dropped: boolean;
+} {
+  if (messages.length === 0) {
+    return { items: messages, bytes: 2, dropped: false };
+  }
+  const capped: Array<{ role: string; text: string; at: string; runId?: string }> = [];
+  let dropped = false;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const candidate = [messages[index], ...capped];
+    if (jsonUtf8Bytes(candidate) > SESSIONS_HISTORY_MAX_BYTES) {
+      dropped = true;
+      continue;
+    }
+    capped.unshift(messages[index]);
+  }
+  if (capped.length > 0) {
+    return {
+      items: capped,
+      bytes: jsonUtf8Bytes(capped),
+      dropped,
+    };
+  }
+  const placeholder = [
+    {
+      role: "assistant",
+      text: "[sessions_history omitted: message too large]",
+      at: new Date(0).toISOString(),
+    },
+  ];
+  return {
+    items: placeholder,
+    bytes: jsonUtf8Bytes(placeholder),
+    dropped: true,
+  };
+}
+
 function trimMessages(messages: Array<{ role: string; text: string; at: string; runId?: string }>, limit: number): Array<{
   role: string;
   text: string;
@@ -191,21 +285,29 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
         const messages = options.callbacks.getHistory(sessionId, limit);
         const visibleMessages = Boolean(args.includeTools) ? messages : stripToolMessages(messages);
         const limitedMessages = trimMessages(visibleMessages, limit);
+        const sanitized = limitedMessages.map((message) => sanitizeMessage(message));
+        const capped = capMessagesByBytes(sanitized.map((entry) => entry.message));
         return {
           content:
-            limitedMessages
+            capped.items
               .map((entry) => `[${entry.at}] ${entry.role}: ${entry.text}`)
               .join("\n") || "No history.",
           data: {
-            count: limitedMessages.length,
+            count: capped.items.length,
             sessionId,
-            messages: limitedMessages,
+            messages: capped.items,
             includeTools: Boolean(args.includeTools),
+            truncated: capped.dropped || sanitized.some((entry) => entry.truncated),
+            contentRedacted: sanitized.some((entry) => entry.redacted),
+            bytes: capped.bytes,
             details: {
               sessionId,
-              count: limitedMessages.length,
+              count: capped.items.length,
               includeTools: Boolean(args.includeTools),
               limit,
+              truncated: capped.dropped || sanitized.some((entry) => entry.truncated),
+              contentRedacted: sanitized.some((entry) => entry.redacted),
+              bytes: capped.bytes,
             },
           },
         };
