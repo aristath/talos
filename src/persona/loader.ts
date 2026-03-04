@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import syncFs from "node:fs";
 import path from "node:path";
 import { TalosError } from "../errors.js";
 import type {
@@ -13,6 +14,7 @@ import { MINIMAL_PERSONA_ALLOWLIST, OPTIONAL_PERSONA_FILES, PERSONA_LOAD_ORDER }
 
 const VALID_PERSONA_NAMES: ReadonlySet<string> = new Set(PERSONA_LOAD_ORDER);
 const OPTIONAL_PERSONA_FILE_SET: ReadonlySet<string> = new Set(OPTIONAL_PERSONA_FILES);
+const MAX_PERSONA_FILE_BYTES = 2 * 1024 * 1024;
 const DEFAULT_BOOTSTRAP_MAX_CHARS = 20_000;
 const DEFAULT_BOOTSTRAP_TOTAL_MAX_CHARS = 150_000;
 const MIN_BOOTSTRAP_FILE_BUDGET_CHARS = 64;
@@ -50,6 +52,21 @@ function takeTailUtf16Safe(content: string, maxChars: number): string {
     sliced = sliced.slice(1);
   }
   return sliced;
+}
+
+function sameFileIdentity(
+  left: { dev: number | bigint; ino: number | bigint },
+  right: { dev: number | bigint; ino: number | bigint },
+): boolean {
+  if (left.ino !== right.ino) {
+    return false;
+  }
+  if (left.dev === right.dev) {
+    return true;
+  }
+  const leftDevUnknown = left.dev === 0 || left.dev === 0n;
+  const rightDevUnknown = right.dev === 0 || right.dev === 0n;
+  return process.platform === "win32" && (leftDevUnknown || rightDevUnknown);
 }
 
 function isWithinRoot(root: string, candidate: string): boolean {
@@ -99,7 +116,63 @@ async function readSafePersonaFile(params: {
     });
   }
 
-  const content = await fs.readFile(candidatePath, "utf8");
+  const preOpenStat = await fs.lstat(candidateRealPath);
+  if (!preOpenStat.isFile()) {
+    return {
+      name: params.fileName,
+      path: candidatePath,
+      missing: true,
+    };
+  }
+  if (preOpenStat.nlink > 1) {
+    throw new TalosError({
+      code: "PERSONA_FILE_UNSAFE",
+      message: `Persona file cannot be hard-linked: ${params.fileName}`,
+    });
+  }
+  if (preOpenStat.size > MAX_PERSONA_FILE_BYTES) {
+    throw new TalosError({
+      code: "PERSONA_FILE_UNSAFE",
+      message: `Persona file exceeds max size (${MAX_PERSONA_FILE_BYTES} bytes): ${params.fileName}`,
+    });
+  }
+
+  const openFlags =
+    syncFs.constants.O_RDONLY |
+    (typeof syncFs.constants.O_NOFOLLOW === "number" ? syncFs.constants.O_NOFOLLOW : 0);
+  const handle = await fs.open(candidateRealPath, openFlags);
+  let content = "";
+  try {
+    const openedStat = await handle.stat();
+    if (!openedStat.isFile()) {
+      throw new TalosError({
+        code: "PERSONA_FILE_UNSAFE",
+        message: `Persona file is not a regular file: ${params.fileName}`,
+      });
+    }
+    if (openedStat.nlink > 1) {
+      throw new TalosError({
+        code: "PERSONA_FILE_UNSAFE",
+        message: `Persona file cannot be hard-linked: ${params.fileName}`,
+      });
+    }
+    if (openedStat.size > MAX_PERSONA_FILE_BYTES) {
+      throw new TalosError({
+        code: "PERSONA_FILE_UNSAFE",
+        message: `Persona file exceeds max size (${MAX_PERSONA_FILE_BYTES} bytes): ${params.fileName}`,
+      });
+    }
+    if (!sameFileIdentity(preOpenStat, openedStat)) {
+      throw new TalosError({
+        code: "PERSONA_FILE_UNSAFE",
+        message: `Persona file changed while opening: ${params.fileName}`,
+      });
+    }
+    content = await handle.readFile({ encoding: "utf8" });
+  } finally {
+    await handle.close();
+  }
+
   return {
     name: params.fileName,
     path: candidatePath,

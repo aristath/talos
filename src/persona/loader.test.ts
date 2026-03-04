@@ -97,6 +97,27 @@ describe("loadPersonaSnapshot", () => {
     });
   });
 
+  it("rejects hard-linked persona files", async () => {
+    const dir = await createTmpDir();
+    const outside = await createTmpDir();
+    const source = path.join(outside, "source.md");
+    await fs.writeFile(source, "external", "utf8");
+    await fs.link(source, path.join(dir, "AGENTS.md"));
+
+    await expect(loadPersonaSnapshot(dir)).rejects.toMatchObject({
+      code: "PERSONA_FILE_UNSAFE",
+    });
+  });
+
+  it("rejects oversized persona files", async () => {
+    const dir = await createTmpDir();
+    await fs.writeFile(path.join(dir, "AGENTS.md"), "x".repeat(2 * 1024 * 1024 + 1), "utf8");
+
+    await expect(loadPersonaSnapshot(dir)).rejects.toMatchObject({
+      code: "PERSONA_FILE_UNSAFE",
+    });
+  });
+
   it("loads extra patterns and reports diagnostics", async () => {
     const dir = await createTmpDir();
     await fs.mkdir(path.join(dir, "nested"), { recursive: true });
