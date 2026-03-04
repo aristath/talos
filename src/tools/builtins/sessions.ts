@@ -237,6 +237,12 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
           data: {
             sessionId,
             ...sent,
+            details: {
+              sessionId,
+              runId: sent.runId,
+              providerId: sent.providerId,
+              modelId: sent.modelId,
+            },
           },
         };
       },
@@ -264,7 +270,15 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
         });
         return {
           content: spawned.text,
-          data: spawned,
+          data: {
+            ...spawned,
+            details: {
+              sessionId: spawned.sessionId,
+              runId: spawned.runId,
+              providerId: spawned.providerId,
+              modelId: spawned.modelId,
+            },
+          },
         };
       },
     },
@@ -307,7 +321,19 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
         }
         return {
           content: `${status.sessionId} [${status.kind}] agent=${status.agentId} lastRun=${status.lastRunId ?? "n/a"}`,
-          data: status,
+          data: {
+            ...status,
+            details: {
+              sessionId: status.sessionId,
+              agentId: status.agentId,
+              kind: status.kind,
+              runtime: status.runtime,
+              mode: status.mode,
+              label: status.label,
+              lastRunId: status.lastRunId,
+              messageCount: status.messages.length,
+            },
+          },
         };
       },
     },

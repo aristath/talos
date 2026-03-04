@@ -1126,6 +1126,7 @@ describe("createTalos", () => {
     expect(history.content).toContain("user: hello");
     expect(status.content).toContain("main [main]");
     expect(statusAlias.content).toContain("main [main]");
+    expect((status.data as { details?: { sessionId?: string } }).details?.sessionId).toBe("main");
 
     const sendAlias = await talos.executeTool({
       name: "sessions_send",
@@ -1148,6 +1149,8 @@ describe("createTalos", () => {
 
     expect(sendAlias.content).toContain("echo:ping-2");
     expect(spawnAlias.content).toContain("echo:sub task alias");
+    expect((sendAlias.data as { details?: { sessionId?: string } }).details?.sessionId).toBe("main");
+    expect((spawnAlias.data as { details?: { sessionId?: string } }).details?.sessionId).toContain("agent:main:acp:");
 
     const spawnedStatus = await talos.executeTool({
       name: "session_status",

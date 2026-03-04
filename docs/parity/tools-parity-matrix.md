@@ -39,7 +39,7 @@ Parity requires matching:
 - [x] `sessions_history`: message filtering behavior parity
 - [x] `sessions_send`: policy/visibility constraints parity
 - [x] `sessions_spawn`: runtime/mode/sandbox constraints parity
-- [ ] `session_status`: metadata/detail shape parity
+- [x] `session_status`: metadata/detail shape parity
 
 ## LLM Task Tool
 
@@ -61,6 +61,6 @@ Parity requires matching:
 
 ## Global Tool Runtime Parity
 
-- [ ] allow/deny policy behavior parity across all tools
-- [ ] timeout/cancellation semantics parity
-- [ ] tool event lifecycle parity
+- [x] allow/deny policy behavior parity across all tools
+- [x] timeout/cancellation semantics parity
+- [x] tool event lifecycle parity
