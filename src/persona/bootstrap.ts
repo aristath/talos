@@ -3,7 +3,8 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { TalosError } from "../errors.js";
 import type { PersonaFileName } from "./types.js";
-import { DEFAULT_PERSONA_TEMPLATES, DEFAULT_SEEDED_PERSONA_FILES } from "./templates.js";
+import { DEFAULT_SEEDED_PERSONA_FILES } from "./templates.js";
+import { loadPersonaTemplates } from "./template-source.js";
 
 const STATE_DIRNAME = ".openclaw";
 const STATE_FILENAME = "workspace-state.json";
@@ -83,14 +84,15 @@ async function shouldCreateBootstrap(params: {
   workspaceDir: string;
   identityPath: string;
   userPath: string;
+  templates: Readonly<Record<PersonaFileName, string>>;
 }): Promise<boolean> {
   const [identityContent, userContent] = await Promise.all([
     fs.readFile(params.identityPath, "utf8").catch(() => ""),
     fs.readFile(params.userPath, "utf8").catch(() => ""),
   ]);
 
-  const identityTemplate = DEFAULT_PERSONA_TEMPLATES["IDENTITY.md"];
-  const userTemplate = DEFAULT_PERSONA_TEMPLATES["USER.md"];
+  const identityTemplate = params.templates["IDENTITY.md"];
+  const userTemplate = params.templates["USER.md"];
 
   if (identityContent !== identityTemplate || userContent !== userTemplate) {
     return false;
@@ -135,7 +137,7 @@ export async function seedPersonaWorkspace(
   }
 
   const templates = {
-    ...DEFAULT_PERSONA_TEMPLATES,
+    ...(await loadPersonaTemplates()),
     ...(options?.templates ?? {}),
   };
 
@@ -177,6 +179,7 @@ export async function seedPersonaWorkspace(
       workspaceDir: realDir,
       identityPath: path.join(realDir, "IDENTITY.md"),
       userPath: path.join(realDir, "USER.md"),
+      templates,
     });
     if (createBootstrap) {
       const wroteBootstrap = await writeFileIfMissing(

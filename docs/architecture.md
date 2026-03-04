@@ -34,6 +34,9 @@ If `runtime.stateFile` is configured, Talos auto-loads state at startup and auto
 
 Persona snapshots are cached per `sessionId` to keep bootstrap context stable across turns in the same session.
 
+Persona workspace templates are loaded from `docs/reference/templates/*.md` when available, with embedded
+defaults as fallback.
+
 ## Plugin boundary
 
 Plugins can register:
