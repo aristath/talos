@@ -86,6 +86,19 @@ describe("loadPersonaSnapshot", () => {
     expect(prompt?.includes("## memory.md\n[MISSING]")).toBe(false);
   });
 
+  it("keeps missing BOOTSTRAP.md as an explicit missing entry", async () => {
+    const dir = await createTmpDir();
+    await fs.writeFile(path.join(dir, "SOUL.md"), "core", "utf8");
+
+    const snapshot = await loadPersonaSnapshot(dir, { sessionKind: "main" });
+
+    expect(snapshot.bootstrapFiles.some((file) => file.name === "BOOTSTRAP.md" && file.missing)).toBe(
+      true,
+    );
+    const prompt = buildPersonaSystemPrompt(snapshot);
+    expect(prompt?.includes("## BOOTSTRAP.md\n[MISSING]")).toBe(true);
+  });
+
   it("rejects symlinked persona files", async () => {
     const dir = await createTmpDir();
     const outside = await createTmpDir();

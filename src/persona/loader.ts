@@ -10,10 +10,10 @@ import type {
   PersonaSessionKind,
   PersonaSnapshot,
 } from "./types.js";
-import { MINIMAL_PERSONA_ALLOWLIST, OPTIONAL_PERSONA_FILES, PERSONA_LOAD_ORDER } from "./templates.js";
+import { MINIMAL_PERSONA_ALLOWLIST, PERSONA_LOAD_ORDER } from "./templates.js";
 
 const VALID_PERSONA_NAMES: ReadonlySet<string> = new Set(PERSONA_LOAD_ORDER);
-const OPTIONAL_PERSONA_FILE_SET: ReadonlySet<string> = new Set(OPTIONAL_PERSONA_FILES);
+const SKIP_MISSING_PERSONA_FILE_SET: ReadonlySet<string> = new Set(["MEMORY.md", "memory.md"]);
 const MAX_PERSONA_FILE_BYTES = 2 * 1024 * 1024;
 const DEFAULT_BOOTSTRAP_MAX_CHARS = 20_000;
 const DEFAULT_BOOTSTRAP_TOTAL_MAX_CHARS = 150_000;
@@ -307,7 +307,7 @@ export async function loadPersonaSnapshot(
       filePath: path.join(normalizedWorkspace, name),
       fileName: name,
     });
-    if (loaded.missing && OPTIONAL_PERSONA_FILE_SET.has(name)) {
+    if (loaded.missing && SKIP_MISSING_PERSONA_FILE_SET.has(name)) {
       continue;
     }
     loadedFiles.push(loaded);
