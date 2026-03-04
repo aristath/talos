@@ -40,11 +40,24 @@ describe("seedPersonaWorkspace", () => {
       .catch(() => false);
 
     expect(bootstrapExists).toBe(true);
+    expect(result.statePath.endsWith(path.join(".openclaw", "workspace-state.json"))).toBe(true);
     const stateRaw = await fs.readFile(result.statePath, "utf8");
     const state = JSON.parse(stateRaw) as {
       bootstrapSeededAt?: string;
     };
     expect(typeof state.bootstrapSeededAt).toBe("string");
+  });
+
+  it("seeds openclaw template content", async () => {
+    const dir = await createTmpDir();
+    await seedPersonaWorkspace(dir);
+
+    const agents = await fs.readFile(path.join(dir, "AGENTS.md"), "utf8");
+    const soul = await fs.readFile(path.join(dir, "SOUL.md"), "utf8");
+
+    expect(agents.includes("Don't ask permission. Just do it.")).toBe(true);
+    expect(agents.includes("Read `SOUL.md` — this is who you are")).toBe(true);
+    expect(soul.includes("You're not a chatbot. You're becoming someone.")).toBe(true);
   });
 
   it("marks onboarding completed after BOOTSTRAP is removed", async () => {
