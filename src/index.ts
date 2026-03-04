@@ -1,7 +1,6 @@
 export { createTalos } from "./talos.js";
 export { TalosError } from "./errors.js";
 export { TALOS_PLUGIN_API_VERSION, definePlugin, assertPluginCompatibility } from "./plugin-sdk.js";
-export { createExecTool } from "./tools/builtins/exec.js";
 export { createWebSearchTool, createWebFetchTool } from "./tools/builtins/web.js";
 export { createImageTool, createPdfTool } from "./tools/builtins/media.js";
 export { createBrowserTool, createCanvasTool } from "./tools/builtins/browser-ui.js";
@@ -17,7 +16,6 @@ export type {
   RunResult,
   AgentDefinition,
   ToolDefinition,
-  ExecToolOptions,
   ToolExecutionInput,
   ToolResult,
   AuthProfile,

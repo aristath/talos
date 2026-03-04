@@ -23,7 +23,6 @@ describe("createTalos", () => {
     expect(typeof talos.hasAgent).toBe("function");
     expect(typeof talos.removeAgent).toBe("function");
     expect(typeof talos.registerTool).toBe("function");
-    expect(typeof talos.registerExecTool).toBe("function");
     expect(typeof talos.registerWebTools).toBe("function");
     expect(typeof talos.registerMediaTools).toBe("function");
     expect(typeof talos.registerBrowserTools).toBe("function");
@@ -103,41 +102,6 @@ describe("createTalos", () => {
     expect(talos.listTools().map((tool) => tool.name)).toContain("echo");
     expect(talos.removeTool("echo")).toBe(true);
     expect(talos.hasTool("echo")).toBe(false);
-  });
-
-  it("registers built-in exec tool using config defaults", async () => {
-    const talos = createTalos({
-      providers: {
-        openaiCompatible: [
-          {
-            id: "openai",
-            baseUrl: "https://api.openai.com/v1",
-            defaultModel: "gpt-4o-mini",
-          },
-        ],
-      },
-      tools: {
-        executionMode: "sandbox",
-        sandbox: {
-          allowedCommands: [process.execPath],
-          allowedPaths: [process.cwd()],
-        },
-      },
-    });
-
-    talos.registerExecTool();
-    expect(talos.hasTool("exec")).toBe(true);
-
-    const result = await talos.executeTool({
-      name: "exec",
-      args: {
-        command: process.execPath,
-        args: ["-e", "console.log('exec-ok')"],
-        cwd: process.cwd(),
-      },
-      context: { agentId: "main" },
-    });
-    expect(result.content).toContain("exec-ok");
   });
 
   it("registers web tools and executes web_search", async () => {

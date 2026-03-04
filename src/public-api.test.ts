@@ -11,7 +11,6 @@ describe("public API contract", () => {
       "assertPluginCompatibility",
       "createBrowserTool",
       "createCanvasTool",
-      "createExecTool",
       "createImageTool",
       "createLlmTaskTool",
       "createPdfTool",

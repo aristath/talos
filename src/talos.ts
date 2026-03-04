@@ -15,7 +15,6 @@ import { PluginRegistry } from "./plugins/registry.js";
 import { discoverPluginEntryPaths, loadPluginFromPath } from "./plugins/loader.js";
 import { TALOS_PLUGIN_API_VERSION, assertPluginCompatibility } from "./plugin-sdk.js";
 import { ToolRegistry } from "./tools/registry.js";
-import { createExecTool } from "./tools/builtins/exec.js";
 import { createWebFetchTool, createWebSearchTool } from "./tools/builtins/web.js";
 import { createImageTool, createPdfTool } from "./tools/builtins/media.js";
 import { createBrowserTool, createCanvasTool } from "./tools/builtins/browser-ui.js";
@@ -40,7 +39,6 @@ import type {
   ModelResponse,
   ToolExecutionInput,
   ToolResult,
-  ExecToolOptions,
   SessionRecord,
   ActiveRun,
   RunSummary,
@@ -392,33 +390,6 @@ export function createTalos(config: TalosConfig): Talos {
   const registerTool = (tool: ToolDefinition) => {
     assertToolAllowed({ name: tool.name });
     tools.register(tool);
-  };
-
-  const registerExecTool = (options?: ExecToolOptions) => {
-    const mode = options?.mode ?? parsed.data.tools?.executionMode ?? "host";
-    const sandbox = options?.sandbox ?? parsed.data.tools?.sandbox;
-    const timeoutMs = options?.timeoutMs ?? toolExecutionTimeoutMs;
-    const maxOutputBytes = options?.maxOutputBytes ?? parsed.data.tools?.maxOutputBytes;
-    const normalizedSandbox = sandbox
-      ? {
-          ...(sandbox.allowedCommands ? { allowedCommands: sandbox.allowedCommands } : {}),
-          ...(sandbox.allowedPaths ? { allowedPaths: sandbox.allowedPaths } : {}),
-          ...(typeof sandbox.requireCwdInAllowedPaths === "boolean"
-            ? { requireCwdInAllowedPaths: sandbox.requireCwdInAllowedPaths }
-            : {}),
-        }
-      : undefined;
-    registerTool(
-      createExecTool({
-        ...(options?.name ? { name: options.name } : {}),
-        ...(options?.description ? { description: options.description } : {}),
-        mode,
-        ...(normalizedSandbox ? { sandbox: normalizedSandbox } : {}),
-        ...(options?.defaultCwd ? { defaultCwd: options.defaultCwd } : {}),
-        timeoutMs,
-        ...(typeof maxOutputBytes === "number" ? { maxOutputBytes } : {}),
-      }),
-    );
   };
 
   const registerWebTools = (options: {
@@ -1370,7 +1341,6 @@ export function createTalos(config: TalosConfig): Talos {
     hasAgent,
     removeAgent,
     registerTool,
-    registerExecTool,
     registerWebTools,
     registerMediaTools,
     registerBrowserTools,

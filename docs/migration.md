@@ -30,4 +30,4 @@ When migrating an existing plugin:
 
 - Move long-lived diagnostics persistence to `runtime.stateFile`.
 - Configure `security.redactKeys` before enabling state persistence in production.
-- Use `tools.executionMode = "sandbox"` + allowlists for command execution tools.
+- Configure tool allow/deny policy with `tools.allow` and `tools.deny`.

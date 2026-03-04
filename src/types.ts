@@ -41,13 +41,6 @@ export type TalosConfig = {
     allow?: string[];
     deny?: string[];
     executionTimeoutMs?: number;
-    maxOutputBytes?: number;
-    executionMode?: "host" | "sandbox";
-    sandbox?: {
-      allowedCommands?: string[];
-      allowedPaths?: string[];
-      requireCwdInAllowedPaths?: boolean;
-    };
   };
   runtime?: {
     stateFile?: string;
@@ -97,20 +90,6 @@ export type ToolDefinition = {
   name: string;
   description: string;
   run: (args: Record<string, unknown>, ctx: RunContext) => Promise<ToolResult>;
-};
-
-export type ExecToolOptions = {
-  name?: string;
-  description?: string;
-  mode?: "host" | "sandbox";
-  sandbox?: {
-    allowedCommands?: string[];
-    allowedPaths?: string[];
-    requireCwdInAllowedPaths?: boolean;
-  };
-  defaultCwd?: string;
-  timeoutMs?: number;
-  maxOutputBytes?: number;
 };
 
 export type WebSearchResultItem = {
@@ -562,7 +541,6 @@ export type Talos = {
   hasAgent: (agentId: string) => boolean;
   removeAgent: (agentId: string) => boolean;
   registerTool: (tool: ToolDefinition) => void;
-  registerExecTool: (options?: ExecToolOptions) => void;
   registerWebTools: (options: {
     search: WebSearchToolOptions;
     fetch?: WebFetchToolOptions;
