@@ -1,10 +1,12 @@
-import type { ModelProviderAdapter, ModelRequest, ModelResponse } from "../types.js";
+import type { AuthProfile, ModelProviderAdapter, ModelRequest, ModelResponse } from "../types.js";
 
 export type OpenAICompatibleProviderConfig = {
   id: string;
   baseUrl: string;
   apiKey?: string;
   headers?: Record<string, string>;
+  defaultAuthProfileId?: string;
+  resolveAuthProfile?: (profileId: string) => AuthProfile | undefined;
 };
 
 type OpenAIChatCompletionResponse = {
@@ -22,12 +24,19 @@ export function createOpenAICompatibleProvider(
     id: config.id,
     async generate(request: ModelRequest): Promise<ModelResponse> {
       const url = new URL("/chat/completions", config.baseUrl).toString();
+      const requestedProfileId = request.authProfileId ?? config.defaultAuthProfileId;
+      const requestedProfile = requestedProfileId ? config.resolveAuthProfile?.(requestedProfileId) : undefined;
+      if (requestedProfileId && !requestedProfile) {
+        throw new Error(`Provider ${config.id} could not resolve auth profile: ${requestedProfileId}`);
+      }
       const headers: Record<string, string> = {
         "content-type": "application/json",
-        ...config.headers,
+        ...(config.headers ?? {}),
+        ...(requestedProfile?.headers ?? {}),
       };
-      if (config.apiKey) {
-        headers.authorization = `Bearer ${config.apiKey}`;
+      const apiKey = requestedProfile?.apiKey ?? config.apiKey;
+      if (apiKey) {
+        headers.authorization = `Bearer ${apiKey}`;
       }
       const response = await fetch(url, {
         method: "POST",

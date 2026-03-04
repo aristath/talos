@@ -324,16 +324,13 @@ export function createTalos(config: TalosConfig): Talos {
   };
 
   for (const provider of parsed.data.providers.openaiCompatible) {
-    const profile = provider.authProfileId ? authProfiles.get(provider.authProfileId) : undefined;
-    const resolvedApiKey = provider.apiKey ?? profile?.apiKey;
-    const resolvedHeaders = provider.headers || profile?.headers
-      ? { ...(profile?.headers ?? {}), ...(provider.headers ?? {}) }
-      : undefined;
     const providerConfig = {
       id: provider.id,
       baseUrl: provider.baseUrl,
-      ...(resolvedApiKey ? { apiKey: resolvedApiKey } : {}),
-      ...(resolvedHeaders ? { headers: resolvedHeaders } : {}),
+      ...(provider.apiKey ? { apiKey: provider.apiKey } : {}),
+      ...(provider.headers ? { headers: provider.headers } : {}),
+      ...(provider.authProfileId ? { defaultAuthProfileId: provider.authProfileId } : {}),
+      resolveAuthProfile: (profileId: string) => authProfiles.get(profileId),
     };
     models.register(
       createOpenAICompatibleProvider(providerConfig),
