@@ -136,6 +136,19 @@ describe("loadPersonaSnapshot", () => {
     expect(snapshot.diagnostics.some((d) => d.reason === "invalid-persona-filename")).toBe(true);
   });
 
+  it("reports security diagnostics for extra files outside workspace", async () => {
+    const dir = await createTmpDir();
+    const outside = await createTmpDir();
+    await fs.writeFile(path.join(outside, "SOUL.md"), "outside", "utf8");
+
+    const snapshot = await loadPersonaSnapshot(dir, {
+      extraPatterns: ["../" + path.basename(outside) + "/SOUL.md"],
+    });
+
+    expect(snapshot.bootstrapFiles.some((f) => f.content === "outside")).toBe(false);
+    expect(snapshot.diagnostics.some((d) => d.reason === "security")).toBe(true);
+  });
+
   it("applies bootstrap context budgets when building prompt", async () => {
     const dir = await createTmpDir();
     await fs.writeFile(path.join(dir, "SOUL.md"), "x".repeat(2000), "utf8");
