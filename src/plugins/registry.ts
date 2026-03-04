@@ -48,6 +48,33 @@ export class PluginRegistry {
     return Array.from(this.plugins.values()).sort((a, b) => a.localeCompare(b));
   }
 
+  getHooks(pluginId: string): Array<keyof PluginHooks> {
+    const normalizedId = pluginId.trim();
+    if (!normalizedId || !this.plugins.has(normalizedId)) {
+      return [];
+    }
+    const hooks: Array<keyof PluginHooks> = [];
+    if (this.hooks.beforeRun.some((entry) => entry.pluginId === normalizedId)) {
+      hooks.push("beforeRun");
+    }
+    if (this.hooks.afterRun.some((entry) => entry.pluginId === normalizedId)) {
+      hooks.push("afterRun");
+    }
+    if (this.hooks.beforeModel.some((entry) => entry.pluginId === normalizedId)) {
+      hooks.push("beforeModel");
+    }
+    if (this.hooks.afterModel.some((entry) => entry.pluginId === normalizedId)) {
+      hooks.push("afterModel");
+    }
+    if (this.hooks.beforeTool.some((entry) => entry.pluginId === normalizedId)) {
+      hooks.push("beforeTool");
+    }
+    if (this.hooks.afterTool.some((entry) => entry.pluginId === normalizedId)) {
+      hooks.push("afterTool");
+    }
+    return hooks;
+  }
+
   remove(pluginId: string): boolean {
     const normalizedId = pluginId.trim();
     if (!normalizedId || !this.plugins.has(normalizedId)) {

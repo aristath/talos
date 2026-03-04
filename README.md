@@ -31,7 +31,7 @@ Current core API:
 - `removePlugin(pluginId)` to unload a registered plugin
 - plugin `setup()` may return a teardown function executed during `removePlugin`
 - `listPlugins()` and `hasPlugin(pluginId)`
-- `listPluginSummaries()` and `getPluginSummary(pluginId)` for plugin metadata
+- `listPluginSummaries()` and `getPluginSummary(pluginId)` for plugin metadata (api version, owned tool/provider counts, registered hooks)
 - `loadPluginFromPath(filePath)` and `loadPluginsFromDirectory(directoryPath)`
 - `registerModelProvider(provider)`
 - `listModelProviders()`, `hasModelProvider(providerId)`, and `removeModelProvider(providerId)`

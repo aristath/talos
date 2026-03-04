@@ -544,6 +544,7 @@ export function createTalos(config: TalosConfig): Talos {
         capabilities,
         toolCount: tools?.size ?? 0,
         providerCount: providers?.size ?? 0,
+        hooks: plugins.getHooks(pluginId),
       };
     });
   };
@@ -562,6 +563,7 @@ export function createTalos(config: TalosConfig): Talos {
       capabilities,
       toolCount: tools?.size ?? 0,
       providerCount: providers?.size ?? 0,
+      hooks: plugins.getHooks(normalizedPluginId),
     };
   };
 

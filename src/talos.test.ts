@@ -205,6 +205,7 @@ describe("createTalos", () => {
     expect(summary?.providerCount).toBe(1);
     expect(summary?.apiVersion).toBe(1);
     expect(summary?.capabilities).toContain("hooks");
+    expect(summary?.hooks).toContain("beforeRun");
   });
 
   it("unregisters plugins and cleans plugin-owned resources", async () => {
@@ -1818,6 +1819,68 @@ describe("createTalos", () => {
       expect(loadedPath.endsWith("state.json")).toBe(true);
       expect(talosB.getRunStats().total).toBeGreaterThanOrEqual(1);
       expect(talosB.listEvents(10).length).toBeGreaterThan(0);
+    } finally {
+      await fs.rm(stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("auto-persists and auto-loads state when runtime.stateFile is configured", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-auto-state-"));
+    const statePath = path.join(stateDir, "state.json");
+
+    const waitFor = async (predicate: () => boolean | Promise<boolean>, timeoutMs = 2_000) => {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        if (await predicate()) {
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      throw new Error("Timed out waiting for condition.");
+    };
+
+    try {
+      const talosA = createTalos({
+        runtime: {
+          stateFile: statePath,
+        },
+        providers: {
+          openaiCompatible: [],
+        },
+      });
+      talosA.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      talosA.registerModelProvider({
+        id: "provider",
+        async generate(request) {
+          return {
+            text: "ok",
+            providerId: request.providerId,
+            modelId: request.modelId,
+          };
+        },
+      });
+      await talosA.run({ agentId: "main", prompt: "hello" });
+
+      await waitFor(async () => {
+        try {
+          await fs.access(statePath);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+
+      const talosB = createTalos({
+        runtime: {
+          stateFile: statePath,
+        },
+        providers: {
+          openaiCompatible: [],
+        },
+      });
+
+      await waitFor(() => talosB.getRunStats().total > 0);
+      expect(talosB.getRunStats().total).toBeGreaterThanOrEqual(1);
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });
     }

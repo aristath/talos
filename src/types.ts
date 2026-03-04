@@ -363,6 +363,7 @@ export type PluginSummary = {
   capabilities: PluginCapability[];
   toolCount: number;
   providerCount: number;
+  hooks: Array<keyof PluginHooks>;
 };
 
 export type TalosDiagnostics = {
