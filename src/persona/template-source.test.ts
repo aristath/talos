@@ -21,6 +21,11 @@ afterEach(async () => {
 });
 
 describe("loadPersonaTemplates", () => {
+  it("loads built-in docs templates by default", async () => {
+    const templates = await loadPersonaTemplates({ forceReload: true });
+    expect(templates["AGENTS.md"].trimStart().startsWith("# AGENTS.md - Your Workspace")).toBe(true);
+  });
+
   it("loads templates from docs template directory when available", async () => {
     const dir = await createTmpDir();
     await fs.writeFile(path.join(dir, "SOUL.md"), "# SOUL.md\n\ndoc template\n", "utf8");
