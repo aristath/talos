@@ -750,6 +750,8 @@ describe("createTalos", () => {
     const browserActArgs: Record<string, unknown>[] = [];
     let browserOpenArgs: Record<string, unknown> | undefined;
     let browserFocusArgs: Record<string, unknown> | undefined;
+    let browserNavigateArgs: Record<string, unknown> | undefined;
+    const browserCloseArgs: Record<string, unknown>[] = [];
     const canvasActions: string[] = [];
     talos.registerBrowserTools({
       execute: async ({ action, args }) => {
@@ -762,6 +764,12 @@ describe("createTalos", () => {
         }
         if (action === "focus") {
           browserFocusArgs = args;
+        }
+        if (action === "navigate") {
+          browserNavigateArgs = args;
+        }
+        if (action === "close") {
+          browserCloseArgs.push(args);
         }
         return {
           content: `browser:${action}`,
@@ -827,6 +835,21 @@ describe("createTalos", () => {
       args: { action: "focus", tabId: "tab-9" },
       context: { agentId: "main" },
     });
+    const browserNavigateAlias = await talos.executeTool({
+      name: "browser",
+      args: { action: "navigate", targetUrl: "https://example.com/nav" },
+      context: { agentId: "main" },
+    });
+    const browserCloseAlias = await talos.executeTool({
+      name: "browser",
+      args: { action: "close", tabId: "tab-8" },
+      context: { agentId: "main" },
+    });
+    const browserCloseDefault = await talos.executeTool({
+      name: "browser",
+      args: { action: "close" },
+      context: { agentId: "main" },
+    });
     const browserCookies = await talos.executeTool({
       name: "browser",
       args: { action: "cookies.set" },
@@ -853,6 +876,9 @@ describe("createTalos", () => {
     expect(browserDialog.content).toBe("browser:dialog");
     expect(browserOpenAlias.content).toBe("browser:open");
     expect(browserFocusAlias.content).toBe("browser:focus");
+    expect(browserNavigateAlias.content).toBe("browser:navigate");
+    expect(browserCloseAlias.content).toBe("browser:close");
+    expect(browserCloseDefault.content).toBe("browser:close");
     expect((browserTrace.data as { profile?: string }).profile).toBe("openclaw");
     expect((browserTrace.data as { target?: string }).target).toBe("host");
     expect((browserChromeStatus.data as { target?: string }).target).toBe("host");
@@ -865,6 +891,9 @@ describe("createTalos", () => {
     expect((browserActArgs[1]?.request as { kind?: string; key?: string })?.key).toBe("Enter");
     expect((browserOpenArgs as { url?: string } | undefined)?.url).toBe("https://example.com/alias");
     expect((browserFocusArgs as { targetId?: string } | undefined)?.targetId).toBe("tab-9");
+    expect((browserNavigateArgs as { url?: string } | undefined)?.url).toBe("https://example.com/nav");
+    expect((browserCloseArgs[0] as { targetId?: string } | undefined)?.targetId).toBe("tab-8");
+    expect((browserCloseArgs[1] as { targetId?: string } | undefined)?.targetId).toBeUndefined();
     expect(browserCookies.content).toBe("browser:cookies_set");
     expect(canvasA2ui.content).toBe("canvas:a2ui_push");
     expect(canvasSnapshot.content).toBe("canvas:snapshot");

@@ -309,19 +309,20 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
         }
       }
       return;
-    case "focus":
-    case "close": {
+    case "focus": {
       const targetId =
         (typeof args.targetId === "string" ? args.targetId.trim() : "") ||
         (typeof args.tabId === "string" ? args.tabId.trim() : "");
       if (!targetId) {
         throw new TalosError({
           code: "TOOL_FAILED",
-          message: `browser action '${action}' requires 'targetId' (or alias 'tabId').`,
+          message: "browser action 'focus' requires 'targetId' (or alias 'tabId').",
         });
       }
       return;
     }
+    case "close":
+      return;
     case "tab_select": {
       const index = typeof args.index === "number" ? args.index : undefined;
       if (typeof index !== "number" || !Number.isFinite(index) || index < 1) {
