@@ -1430,6 +1430,52 @@ describe("createTalos", () => {
     }
   });
 
+  it("does not cache persona snapshots when session id is missing", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-cacheless-"));
+    try {
+      await fs.writeFile(path.join(workspace, "SOUL.md"), "v1", "utf8");
+
+      const talos = createTalos({
+        providers: {
+          openaiCompatible: [],
+        },
+      });
+      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+
+      const systems: string[] = [];
+      talos.registerModelProvider({
+        id: "provider",
+        async generate(request) {
+          systems.push(request.system ?? "");
+          return {
+            text: "ok",
+            providerId: request.providerId,
+            modelId: request.modelId,
+          };
+        },
+      });
+
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+      });
+
+      await fs.writeFile(path.join(workspace, "SOUL.md"), "v2", "utf8");
+
+      await talos.run({
+        agentId: "main",
+        prompt: "hello",
+        workspaceDir: workspace,
+      });
+
+      expect(systems[0]?.includes("v1")).toBe(true);
+      expect(systems[1]?.includes("v2")).toBe(true);
+    } finally {
+      await fs.rm(workspace, { recursive: true, force: true });
+    }
+  });
+
   it("loads configured extra persona files into system context", async () => {
     const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-extra-"));
     try {
