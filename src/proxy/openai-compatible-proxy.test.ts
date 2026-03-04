@@ -150,6 +150,47 @@ describe("createOpenAICompatibleProxy", () => {
     expect(body.model).toBe("openai/gpt-4.1");
   });
 
+  it("supports legacy completions endpoint with persona-prefixed prompt", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-completions-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "You are a premium web designer.",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: "cmpl_1" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proxy = createOpenAICompatibleProxy({
+      workspaceDir,
+      defaultAgentId: "designer",
+    });
+
+    const response = await proxy.handle(
+      new Request("http://localhost/v1/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: "Write a hero headline",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const calls = fetchMock.mock.calls as unknown as Array<[unknown, unknown?]>;
+    expect(String(calls[0]?.[0])).toBe("https://openrouter.ai/api/v1/completions");
+    const init = (calls[0]?.[1] ?? {}) as { body?: string };
+    const body = JSON.parse(init.body ?? "{}") as { prompt?: string; model?: string };
+    expect(body.prompt).toContain("You are a premium web designer.");
+    expect(body.prompt).toContain("Write a hero headline");
+    expect(body.model).toBe("openai/gpt-4.1");
+  });
+
   it("returns available agent models via /v1/models", async () => {
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-models-"));
     await setupAgent({
@@ -299,6 +340,22 @@ describe("createOpenAICompatibleProxy", () => {
     const init = (calls.at(-1)?.[1] ?? {}) as { body?: string };
     const body = JSON.parse(init.body ?? "{}") as { model?: string };
     expect(body.model).toBe("openai/gpt-4.1");
+
+    const conflict = await proxy.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer client-key",
+          "content-type": "application/json",
+          "x-agent-id": "designer",
+        },
+        body: JSON.stringify({
+          model: "agent:seo",
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      }),
+    );
+    expect(conflict.status).toBe(400);
   });
 
   it("passes through upstream streaming responses", async () => {

@@ -83,6 +83,30 @@ function stripAgentModelAlias(payload: Record<string, unknown>): Record<string, 
   return next;
 }
 
+function mergePersonaIntoCompletionsPrompt(
+  personaPrompt: string,
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  const prompt = payload.prompt;
+  if (typeof prompt === "string") {
+    return {
+      ...payload,
+      prompt: `${personaPrompt}\n\n${prompt}`,
+    };
+  }
+  if (Array.isArray(prompt) && prompt.every((entry) => typeof entry === "string")) {
+    const [first, ...rest] = prompt as string[];
+    return {
+      ...payload,
+      prompt: [`${personaPrompt}\n\n${first ?? ""}`, ...rest],
+    };
+  }
+  return {
+    ...payload,
+    prompt: `${personaPrompt}\n\n`,
+  };
+}
+
 function parseJsonBody(raw: string): Record<string, unknown> {
   try {
     const parsed = JSON.parse(raw);
@@ -252,7 +276,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
   };
 
   const proxyJson = async (params: {
-    endpoint: "/chat/completions" | "/responses";
+    endpoint: "/chat/completions" | "/responses" | "/completions";
     payload: Record<string, unknown>;
     profile: ResolvedAgentProfile;
   }): Promise<Response> => {
@@ -352,8 +376,12 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
       } catch (error) {
         return openAIError(400, error instanceof Error ? error.message : "Invalid JSON body.");
       }
-      const requestedAgentId =
-        extractRequestedAgentId(request) ?? extractAgentIdFromModelAlias(payload) ?? undefined;
+      const headerAgentId = extractRequestedAgentId(request);
+      const modelAliasAgentId = extractAgentIdFromModelAlias(payload);
+      if (headerAgentId && modelAliasAgentId && headerAgentId !== modelAliasAgentId) {
+        return openAIError(400, "x-agent-id conflicts with model alias agent.");
+      }
+      const requestedAgentId = headerAgentId ?? modelAliasAgentId ?? undefined;
       const resolvedAgentId = resolveAgentId(request, requestedAgentId);
       if (resolvedAgentId instanceof Response) {
         return resolvedAgentId;
@@ -382,6 +410,15 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         const withModel = ensureModel(withPersona, profile.modelId);
         return await proxyJson({
           endpoint: "/responses",
+          payload: withModel,
+          profile,
+        });
+      }
+      if (url.pathname === "/v1/completions") {
+        const withPersona = mergePersonaIntoCompletionsPrompt(profile.prompt, payloadWithoutAgentModelAlias);
+        const withModel = ensureModel(withPersona, profile.modelId);
+        return await proxyJson({
+          endpoint: "/completions",
           payload: withModel,
           profile,
         });
