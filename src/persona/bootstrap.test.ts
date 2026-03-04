@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { seedPersonaWorkspace } from "./bootstrap.js";
+import { DEFAULT_PERSONA_TEMPLATES } from "./templates.js";
 
 const tmpDirs: string[] = [];
 
@@ -71,6 +72,39 @@ describe("seedPersonaWorkspace", () => {
       onboardingCompletedAt?: string;
     };
     expect(typeof state.onboardingCompletedAt).toBe("string");
+  });
+
+  it("does not recreate bootstrap for legacy onboarded workspaces", async () => {
+    const dir = await createTmpDir();
+    await fs.writeFile(path.join(dir, "IDENTITY.md"), "# IDENTITY.md\n\ncustom\n", "utf8");
+    await fs.writeFile(path.join(dir, "USER.md"), DEFAULT_PERSONA_TEMPLATES["USER.md"], "utf8");
+
+    const result = await seedPersonaWorkspace(dir);
+    const bootstrapExists = await fs
+      .access(path.join(dir, "BOOTSTRAP.md"))
+      .then(() => true)
+      .catch(() => false);
+
+    expect(bootstrapExists).toBe(false);
+    const stateRaw = await fs.readFile(result.statePath, "utf8");
+    const state = JSON.parse(stateRaw) as {
+      onboardingCompletedAt?: string;
+      bootstrapSeededAt?: string;
+    };
+    expect(typeof state.onboardingCompletedAt).toBe("string");
+    expect(state.bootstrapSeededAt).toBeUndefined();
+  });
+
+  it("backfills bootstrap marker when bootstrap file already exists", async () => {
+    const dir = await createTmpDir();
+    await fs.writeFile(path.join(dir, "BOOTSTRAP.md"), DEFAULT_PERSONA_TEMPLATES["BOOTSTRAP.md"], "utf8");
+
+    const result = await seedPersonaWorkspace(dir);
+    const stateRaw = await fs.readFile(result.statePath, "utf8");
+    const state = JSON.parse(stateRaw) as {
+      bootstrapSeededAt?: string;
+    };
+    expect(typeof state.bootstrapSeededAt).toBe("string");
   });
 
   it("does not overwrite by default and supports overwrite mode", async () => {
