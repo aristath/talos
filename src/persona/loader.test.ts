@@ -20,10 +20,38 @@ describe("loadPersonaSnapshot", () => {
   it("loads regular persona files", async () => {
     const dir = await createTmpDir();
     await fs.writeFile(path.join(dir, "SOUL.md"), "core persona", "utf8");
+    await fs.writeFile(path.join(dir, "TOOLS.md"), "local tools", "utf8");
 
     const snapshot = await loadPersonaSnapshot(dir);
 
     expect(snapshot.files["SOUL.md"]).toBe("core persona");
+    expect(snapshot.files["TOOLS.md"]).toBe("local tools");
+  });
+
+  it("filters bootstrap files for subagent sessions", async () => {
+    const dir = await createTmpDir();
+    await fs.writeFile(path.join(dir, "AGENTS.md"), "a", "utf8");
+    await fs.writeFile(path.join(dir, "HEARTBEAT.md"), "h", "utf8");
+    await fs.writeFile(path.join(dir, "BOOTSTRAP.md"), "b", "utf8");
+
+    const snapshot = await loadPersonaSnapshot(dir, {
+      sessionKind: "subagent",
+    });
+
+    expect(snapshot.files["AGENTS.md"]).toBe("a");
+    expect(snapshot.files["HEARTBEAT.md"]).toBeUndefined();
+    expect(snapshot.files["BOOTSTRAP.md"]).toBeUndefined();
+  });
+
+  it("loads MEMORY.md only in main sessions", async () => {
+    const dir = await createTmpDir();
+    await fs.writeFile(path.join(dir, "MEMORY.md"), "long-term", "utf8");
+
+    const mainSnapshot = await loadPersonaSnapshot(dir, { sessionKind: "main" });
+    const cronSnapshot = await loadPersonaSnapshot(dir, { sessionKind: "cron" });
+
+    expect(mainSnapshot.files["MEMORY.md"]).toBe("long-term");
+    expect(cronSnapshot.files["MEMORY.md"]).toBeUndefined();
   });
 
   it("rejects symlinked persona files", async () => {
@@ -35,5 +63,17 @@ describe("loadPersonaSnapshot", () => {
     await expect(loadPersonaSnapshot(dir)).rejects.toMatchObject({
       code: "PERSONA_FILE_UNSAFE",
     });
+  });
+
+  it("loads extra patterns and reports diagnostics", async () => {
+    const dir = await createTmpDir();
+    await fs.writeFile(path.join(dir, "SOUL.md"), "soul", "utf8");
+
+    const snapshot = await loadPersonaSnapshot(dir, {
+      extraPatterns: ["SOUL.md", "nope.md"],
+    });
+
+    expect(snapshot.files["SOUL.md"]).toBe("soul");
+    expect(snapshot.diagnostics.some((d) => d.reason === "invalid-persona-filename")).toBe(true);
   });
 });

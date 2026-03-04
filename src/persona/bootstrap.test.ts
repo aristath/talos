@@ -17,15 +17,47 @@ afterEach(async () => {
 });
 
 describe("seedPersonaWorkspace", () => {
-  it("creates default persona files when missing", async () => {
+  it("creates default seeded persona files", async () => {
     const dir = await createTmpDir();
 
     const result = await seedPersonaWorkspace(dir);
 
     expect(result.created).toContain("AGENTS.md");
     expect(result.created).toContain("SOUL.md");
+    expect(result.created).toContain("TOOLS.md");
+    expect(result.created).toContain("HEARTBEAT.md");
     const agents = await fs.readFile(path.join(dir, "AGENTS.md"), "utf8");
     expect(agents.includes("# AGENTS.md")).toBe(true);
+  });
+
+  it("creates BOOTSTRAP.md on fresh workspace and tracks state", async () => {
+    const dir = await createTmpDir();
+    const result = await seedPersonaWorkspace(dir);
+
+    const bootstrapExists = await fs
+      .access(path.join(dir, "BOOTSTRAP.md"))
+      .then(() => true)
+      .catch(() => false);
+
+    expect(bootstrapExists).toBe(true);
+    const stateRaw = await fs.readFile(result.statePath, "utf8");
+    const state = JSON.parse(stateRaw) as {
+      bootstrapSeededAt?: string;
+    };
+    expect(typeof state.bootstrapSeededAt).toBe("string");
+  });
+
+  it("marks onboarding completed after BOOTSTRAP is removed", async () => {
+    const dir = await createTmpDir();
+    const first = await seedPersonaWorkspace(dir);
+    await fs.rm(first.bootstrapPath, { force: true });
+
+    const second = await seedPersonaWorkspace(dir);
+    const stateRaw = await fs.readFile(second.statePath, "utf8");
+    const state = JSON.parse(stateRaw) as {
+      onboardingCompletedAt?: string;
+    };
+    expect(typeof state.onboardingCompletedAt).toBe("string");
   });
 
   it("does not overwrite by default and supports overwrite mode", async () => {

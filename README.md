@@ -3,7 +3,7 @@
 Talos is a TypeScript library for building agent systems with:
 
 - agent definitions and orchestration
-- persona files (`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`)
+- persona/bootstrap files (`AGENTS.md`, `SOUL.md`, `TOOLS.md`, `IDENTITY.md`, `USER.md`, `HEARTBEAT.md`, `BOOTSTRAP.md`, `MEMORY.md`)
 - OpenAI-compatible model connectivity
 - tool runtime
 - plugin runtime
@@ -54,6 +54,7 @@ Current core API:
 
 `run(input)` returns a `runId` and lifecycle events include that same `runId` for correlation.
 `run(input)` also supports cancellation via `AbortSignal` (`input.signal`).
+Persona loading follows session semantics: main sessions load full persona context, while subagent/cron sessions load a minimal allowlist.
 
 This repository intentionally excludes channel integrations, UI apps, and CLI surfaces.
 

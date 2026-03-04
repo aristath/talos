@@ -1,4 +1,4 @@
-import type { PersonaFileName, PersonaSnapshot } from "./persona/types.js";
+import type { PersonaFileName, PersonaSessionKind, PersonaSnapshot } from "./persona/types.js";
 import type { PersonaBootstrapResult } from "./persona/bootstrap.js";
 
 export type TalosConfig = {
@@ -106,6 +106,7 @@ export type RunInput = {
   prompt: string;
   workspaceDir?: string;
   sessionId?: string;
+  sessionKind?: PersonaSessionKind;
   signal?: AbortSignal;
   tools?: {
     allow?: string[];

@@ -72,6 +72,26 @@ function assertToolNotAborted(signal: AbortSignal | undefined, toolName: string)
   });
 }
 
+function resolvePersonaSessionKind(input: {
+  sessionKind?: "main" | "subagent" | "cron";
+  sessionId?: string;
+}): "main" | "subagent" | "cron" {
+  if (input.sessionKind) {
+    return input.sessionKind;
+  }
+  const rawSessionId = input.sessionId?.trim().toLowerCase();
+  if (!rawSessionId) {
+    return "main";
+  }
+  if (rawSessionId.includes("cron")) {
+    return "cron";
+  }
+  if (rawSessionId.includes("subagent")) {
+    return "subagent";
+  }
+  return "main";
+}
+
 async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
@@ -900,7 +920,14 @@ export function createTalos(config: TalosConfig): Talos {
         ...(agent.model?.fallbacks ?? []),
       ];
 
-      const persona = input.workspaceDir ? await loadPersonaSnapshot(input.workspaceDir) : undefined;
+      const persona = input.workspaceDir
+        ? await loadPersonaSnapshot(input.workspaceDir, {
+            sessionKind: resolvePersonaSessionKind({
+              ...(input.sessionKind ? { sessionKind: input.sessionKind } : {}),
+              ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+            }),
+          })
+        : undefined;
       const systemPrompt = [agent.promptPrefix, buildPersonaSystemPrompt(persona)]
         .filter(Boolean)
         .join("\n\n");
