@@ -38,14 +38,47 @@ function toLimit(value: unknown, fallback: number, max: number): number {
   return Math.min(asInt, max);
 }
 
-function classifySessionKindForFilter(kind: string): string {
-  if (kind === "main") {
+function classifySessionKindForFilter(session: {
+  kind: string;
+  sessionId: string;
+  runtime?: "subagent" | "acp";
+}): string {
+  const lowerSessionId = session.sessionId.toLowerCase();
+  if (session.kind === "main") {
     return "main";
   }
-  if (kind === "cron") {
+  if (session.kind === "cron" || lowerSessionId.includes(":cron:")) {
     return "cron";
   }
+  if (lowerSessionId.startsWith("group:")) {
+    return "group";
+  }
+  if (lowerSessionId.includes(":hook:")) {
+    return "hook";
+  }
+  if (lowerSessionId.startsWith("node:") || lowerSessionId.includes(":node:")) {
+    return "node";
+  }
+  if (session.runtime === "acp") {
+    return "other";
+  }
   return "other";
+}
+
+function stripToolMessages<T extends { role: string }>(messages: T[]): T[] {
+  return messages.filter((entry) => entry.role !== "tool");
+}
+
+function trimMessages(messages: Array<{ role: string; text: string; at: string; runId?: string }>, limit: number): Array<{
+  role: string;
+  text: string;
+  at: string;
+  runId?: string;
+}> {
+  if (limit <= 0 || messages.length <= limit) {
+    return messages;
+  }
+  return messages.slice(-limit);
 }
 
 export function createSessionTools(options: SessionToolsOptions): ToolDefinition[] {
@@ -66,7 +99,14 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
           activeMinutes > 0 ? Date.now() - activeMinutes * 60_000 : undefined;
         const filtered = sessions
           .filter((session) => {
-            if (kinds && kinds.size > 0 && !kinds.has(classifySessionKindForFilter(session.kind))) {
+            if (kinds && kinds.size > 0 && !kinds.has(classifySessionKindForFilter(session))) {
+              return false;
+            }
+            if (
+              typeof args.spawnedBy === "string" &&
+              args.spawnedBy.trim() &&
+              session.spawnedBy !== args.spawnedBy.trim()
+            ) {
               return false;
             }
             if (typeof activeAfterEpoch === "number") {
@@ -93,10 +133,10 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
               ...session,
               ...(messageLimit > 0
                 ? {
-                    messages:
-                      session.messages.length > messageLimit
-                        ? session.messages.slice(-messageLimit)
-                        : session.messages,
+                    messages: trimMessages(
+                      Boolean(args.includeTools) ? session.messages : stripToolMessages(session.messages),
+                      messageLimit,
+                    ),
                   }
                 : { messages: undefined }),
             })),
@@ -114,14 +154,16 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
             : requiredString(args, "sessionId");
         const limit = toLimit(args.limit, 25, 500);
         const messages = options.callbacks.getHistory(sessionId, limit);
+        const visibleMessages = Boolean(args.includeTools) ? messages : stripToolMessages(messages);
+        const limitedMessages = trimMessages(visibleMessages, limit);
         return {
           content:
-            messages
+            limitedMessages
               .map((entry) => `[${entry.at}] ${entry.role}: ${entry.text}`)
               .join("\n") || "No history.",
           data: {
             sessionId,
-            messages,
+            messages: limitedMessages,
             includeTools: Boolean(args.includeTools),
           },
         };

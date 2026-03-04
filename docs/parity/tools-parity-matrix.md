@@ -35,8 +35,8 @@ Parity requires matching:
 ## Session Orchestration Tools
 
 - [ ] `sessions_list`: visibility guard semantics parity
-- [ ] `sessions_list`: kinds/filter/messageLimit behavior parity
-- [ ] `sessions_history`: message filtering behavior parity
+- [x] `sessions_list`: kinds/filter/messageLimit behavior parity
+- [x] `sessions_history`: message filtering behavior parity
 - [ ] `sessions_send`: policy/visibility constraints parity
 - [ ] `sessions_spawn`: runtime/mode/sandbox constraints parity
 - [ ] `session_status`: metadata/detail shape parity

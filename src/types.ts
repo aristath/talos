@@ -189,7 +189,7 @@ export type CanvasToolOptions = {
 };
 
 export type SessionMessage = {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "tool" | "system";
   text: string;
   at: string;
   runId?: string;
