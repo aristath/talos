@@ -64,6 +64,25 @@ function extractRequestedAgentId(request: Request): string | undefined {
   return value || undefined;
 }
 
+function extractAgentIdFromModelAlias(payload: Record<string, unknown>): string | undefined {
+  const model = typeof payload.model === "string" ? payload.model.trim() : "";
+  if (!model.toLowerCase().startsWith("agent:")) {
+    return undefined;
+  }
+  const agentId = model.slice("agent:".length).trim();
+  return agentId || undefined;
+}
+
+function stripAgentModelAlias(payload: Record<string, unknown>): Record<string, unknown> {
+  const model = typeof payload.model === "string" ? payload.model.trim() : "";
+  if (!model.toLowerCase().startsWith("agent:")) {
+    return payload;
+  }
+  const next = { ...payload };
+  delete next.model;
+  return next;
+}
+
 function parseJsonBody(raw: string): Record<string, unknown> {
   try {
     const parsed = JSON.parse(raw);
@@ -173,10 +192,10 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
   const cacheTtlMs = options.cacheTtlMs ?? 5_000;
   const cache = new Map<string, CachedAgentProfile>();
 
-  const resolveAgentId = (request: Request): string | Response => {
-    const requestedAgentId = extractRequestedAgentId(request);
+  const resolveAgentId = (request: Request, requestedAgentId?: string): string | Response => {
+    const preferredAgentId = requestedAgentId ?? extractRequestedAgentId(request);
     if (!options.inboundAuth) {
-      return requestedAgentId ?? defaultAgentId;
+      return preferredAgentId ?? defaultAgentId;
     }
     const token = readBearerToken(request);
     if (!token) {
@@ -187,7 +206,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
       return openAIError(403, "Invalid API token.", "authentication_error");
     }
     const allowedAgentIds = (rule.allowedAgentIds ?? [rule.defaultAgentId]).map((entry) => entry.trim());
-    const selected = requestedAgentId ?? rule.defaultAgentId;
+    const selected = preferredAgentId ?? rule.defaultAgentId;
     if (!allowedAgentIds.includes(selected)) {
       return openAIError(403, `Agent access denied: ${selected}`, "permission_error");
     }
@@ -307,7 +326,19 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
       if (request.method === "GET" && url.pathname === "/v1/models") {
         return await listModels();
       }
-      const resolvedAgentId = resolveAgentId(request);
+      if (request.method !== "POST") {
+        return openAIError(405, "Method not allowed.");
+      }
+      const rawBody = await request.text();
+      let payload: Record<string, unknown>;
+      try {
+        payload = parseJsonBody(rawBody);
+      } catch (error) {
+        return openAIError(400, error instanceof Error ? error.message : "Invalid JSON body.");
+      }
+      const requestedAgentId =
+        extractRequestedAgentId(request) ?? extractAgentIdFromModelAlias(payload) ?? undefined;
+      const resolvedAgentId = resolveAgentId(request, requestedAgentId);
       if (resolvedAgentId instanceof Response) {
         return resolvedAgentId;
       }
@@ -320,18 +351,9 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           error instanceof Error ? error.message : `Agent not found: ${resolvedAgentId}`,
         );
       }
-      if (request.method !== "POST") {
-        return openAIError(405, "Method not allowed.");
-      }
-      const rawBody = await request.text();
-      let payload: Record<string, unknown>;
-      try {
-        payload = parseJsonBody(rawBody);
-      } catch (error) {
-        return openAIError(400, error instanceof Error ? error.message : "Invalid JSON body.");
-      }
+      const payloadWithoutAgentModelAlias = stripAgentModelAlias(payload);
       if (url.pathname === "/v1/chat/completions") {
-        const withPersona = mergePersonaIntoChatMessages(profile.prompt, payload);
+        const withPersona = mergePersonaIntoChatMessages(profile.prompt, payloadWithoutAgentModelAlias);
         const withModel = ensureModel(withPersona, profile.modelId);
         return await proxyJson({
           endpoint: "/chat/completions",
@@ -340,7 +362,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         });
       }
       if (url.pathname === "/v1/responses") {
-        const withPersona = mergePersonaIntoResponsesInput(profile.prompt, payload);
+        const withPersona = mergePersonaIntoResponsesInput(profile.prompt, payloadWithoutAgentModelAlias);
         const withModel = ensureModel(withPersona, profile.modelId);
         return await proxyJson({
           endpoint: "/responses",

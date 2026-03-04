@@ -182,4 +182,73 @@ describe("createOpenAICompatibleProxy", () => {
     expect(ids).toContain("agent:designer");
     expect(ids).toContain("agent:seo");
   });
+
+  it("selects agent by model alias and enforces inbound auth allowlist", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-alias-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+    await setupAgent({
+      workspaceDir,
+      agentId: "seo",
+      soul: "SEO soul",
+      apiKey: "sk-seo",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1-mini",
+    });
+
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: "chatcmpl_alias" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proxy = createOpenAICompatibleProxy({
+      workspaceDir,
+      defaultAgentId: "designer",
+      inboundAuth: {
+        "client-key": {
+          defaultAgentId: "designer",
+          allowedAgentIds: ["designer"],
+        },
+      },
+    });
+
+    const denied = await proxy.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer client-key",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "agent:seo",
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      }),
+    );
+    expect(denied.status).toBe(403);
+
+    const allowed = await proxy.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer client-key",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "agent:designer",
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      }),
+    );
+
+    expect(allowed.status).toBe(200);
+    const calls = fetchMock.mock.calls as unknown as Array<[unknown, unknown?]>;
+    const init = (calls.at(-1)?.[1] ?? {}) as { body?: string };
+    const body = JSON.parse(init.body ?? "{}") as { model?: string };
+    expect(body.model).toBe("openai/gpt-4.1");
+  });
 });
