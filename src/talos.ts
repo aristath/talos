@@ -18,6 +18,7 @@ import { ToolRegistry } from "./tools/registry.js";
 import { createExecTool } from "./tools/builtins/exec.js";
 import { createWebFetchTool, createWebSearchTool } from "./tools/builtins/web.js";
 import { createImageTool, createPdfTool } from "./tools/builtins/media.js";
+import { createBrowserTool, createCanvasTool } from "./tools/builtins/browser-ui.js";
 import { createSessionTools } from "./tools/builtins/sessions.js";
 import { createLlmTaskTool } from "./tools/builtins/llm-task.js";
 import { TalosError, toTalosErrorLike } from "./errors.js";
@@ -434,6 +435,14 @@ export function createTalos(config: TalosConfig): Talos {
   }) => {
     registerTool(createImageTool(options.image));
     registerTool(createPdfTool(options.pdf));
+  };
+
+  const registerBrowserTools = (options: Parameters<typeof createBrowserTool>[0]) => {
+    registerTool(createBrowserTool(options));
+  };
+
+  const registerCanvasTools = (options: Parameters<typeof createCanvasTool>[0]) => {
+    registerTool(createCanvasTool(options));
   };
 
   const listSessionsSnapshot = (): SessionRecord[] => {
@@ -1364,6 +1373,8 @@ export function createTalos(config: TalosConfig): Talos {
     registerExecTool,
     registerWebTools,
     registerMediaTools,
+    registerBrowserTools,
+    registerCanvasTools,
     registerSessionTools,
     registerLlmTaskTool,
     listTools,

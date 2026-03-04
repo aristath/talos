@@ -146,6 +146,26 @@ export type MediaUnderstandToolOptions = {
   }) => Promise<{ text: string; data?: unknown }>;
 };
 
+export type BrowserToolOptions = {
+  name?: string;
+  description?: string;
+  execute: (params: {
+    action: string;
+    args: Record<string, unknown>;
+    context: RunContext;
+  }) => Promise<{ content: string; data?: unknown }>;
+};
+
+export type CanvasToolOptions = {
+  name?: string;
+  description?: string;
+  execute: (params: {
+    action: string;
+    args: Record<string, unknown>;
+    context: RunContext;
+  }) => Promise<{ content: string; data?: unknown }>;
+};
+
 export type SessionMessage = {
   role: "user" | "assistant";
   text: string;
@@ -551,6 +571,8 @@ export type Talos = {
     image: MediaUnderstandToolOptions;
     pdf: MediaUnderstandToolOptions;
   }) => void;
+  registerBrowserTools: (options: BrowserToolOptions) => void;
+  registerCanvasTools: (options: CanvasToolOptions) => void;
   registerSessionTools: () => void;
   registerLlmTaskTool: (options?: {
     name?: string;

@@ -4,6 +4,7 @@ export { TALOS_PLUGIN_API_VERSION, definePlugin, assertPluginCompatibility } fro
 export { createExecTool } from "./tools/builtins/exec.js";
 export { createWebSearchTool, createWebFetchTool } from "./tools/builtins/web.js";
 export { createImageTool, createPdfTool } from "./tools/builtins/media.js";
+export { createBrowserTool, createCanvasTool } from "./tools/builtins/browser-ui.js";
 export { createSessionTools } from "./tools/builtins/sessions.js";
 export { createLlmTaskTool } from "./tools/builtins/llm-task.js";
 export { redactValue } from "./security/redaction.js";
@@ -24,6 +25,8 @@ export type {
   WebSearchToolOptions,
   WebFetchToolOptions,
   MediaUnderstandToolOptions,
+  BrowserToolOptions,
+  CanvasToolOptions,
   SessionMessage,
   SessionRecord,
   SessionToolsCallbacks,

@@ -28,6 +28,8 @@ Current core API:
 - `registerExecTool(options?)` to register built-in command execution tool
 - `registerWebTools({ search, fetch? })` to register `web_search` and `web_fetch`
 - `registerMediaTools({ image, pdf })` to register media understanding tools
+- `registerBrowserTools(options)` to register `browser` UI automation tool
+- `registerCanvasTools(options)` to register `canvas` UI automation tool
 - `registerSessionTools()` to register session orchestration tools
 - `registerLlmTaskTool(options?)` to register JSON-only `llm_task`
 - `listTools()`, `hasTool(toolName)`, and `removeTool(toolName)`

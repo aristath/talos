@@ -26,6 +26,8 @@ describe("createTalos", () => {
     expect(typeof talos.registerExecTool).toBe("function");
     expect(typeof talos.registerWebTools).toBe("function");
     expect(typeof talos.registerMediaTools).toBe("function");
+    expect(typeof talos.registerBrowserTools).toBe("function");
+    expect(typeof talos.registerCanvasTools).toBe("function");
     expect(typeof talos.registerSessionTools).toBe("function");
     expect(typeof talos.registerLlmTaskTool).toBe("function");
     expect(typeof talos.listTools).toBe("function");
@@ -227,6 +229,45 @@ describe("createTalos", () => {
 
     expect(image.content).toBe("image:/tmp/a.png");
     expect(pdf.content).toBe("pdf:/tmp/a.pdf");
+  });
+
+  it("registers browser and canvas tools and routes actions", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    talos.registerBrowserTools({
+      execute: async ({ action }) => ({
+        content: `browser:${action}`,
+      }),
+    });
+    talos.registerCanvasTools({
+      execute: async ({ action }) => ({
+        content: `canvas:${action}`,
+      }),
+    });
+
+    const browser = await talos.executeTool({
+      name: "browser",
+      args: { action: "snapshot" },
+      context: { agentId: "main" },
+    });
+    const canvas = await talos.executeTool({
+      name: "canvas",
+      args: { action: "present" },
+      context: { agentId: "main" },
+    });
+
+    expect(browser.content).toBe("browser:snapshot");
+    expect(canvas.content).toBe("canvas:present");
   });
 
   it("registers llm_task tool and parses JSON output", async () => {
