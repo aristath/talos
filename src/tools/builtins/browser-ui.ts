@@ -575,7 +575,14 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
         });
       }
       const resolvedTarget = target ?? (node ? "node" : profile === "chrome" ? "host" : undefined);
-      const output = await options.execute({ action, args: normalizedArgs, context });
+      const executeArgs =
+        resolvedTarget && !Object.hasOwn(normalizedArgs, "target")
+          ? {
+              ...normalizedArgs,
+              target: resolvedTarget,
+            }
+          : normalizedArgs;
+      const output = await options.execute({ action, args: executeArgs, context });
       return {
         content: output.content,
         data:
@@ -622,6 +629,7 @@ export function createCanvasTool(options: CanvasToolOptions): ToolDefinition {
       const executionTarget =
         normalizeCanvasExecutionTarget(args.executionTarget) ?? normalizeCanvasExecutionTarget(args.targetMode);
       const node = typeof args.node === "string" && args.node.trim() ? args.node.trim() : undefined;
+      const resolvedExecutionTarget = executionTarget ?? (node ? "node" : undefined);
       const output = await options.execute({ action, args: normalizedArgs, context });
       return {
         content: output.content,
@@ -629,22 +637,22 @@ export function createCanvasTool(options: CanvasToolOptions): ToolDefinition {
           typeof output.data !== "undefined"
             ? {
                 action,
-                ...(executionTarget ? { target: executionTarget } : {}),
+                ...(resolvedExecutionTarget ? { target: resolvedExecutionTarget } : {}),
                 ...(node ? { node } : {}),
                 result: output.data,
                 details: {
                   action,
-                  target: executionTarget,
+                  target: resolvedExecutionTarget,
                   node,
                 },
               }
             : {
                 action,
-                ...(executionTarget ? { target: executionTarget } : {}),
+                ...(resolvedExecutionTarget ? { target: resolvedExecutionTarget } : {}),
                 ...(node ? { node } : {}),
                 details: {
                   action,
-                  target: executionTarget,
+                  target: resolvedExecutionTarget,
                   node,
                 },
               },

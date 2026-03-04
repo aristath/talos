@@ -747,6 +747,7 @@ describe("createTalos", () => {
     });
 
     const browserActions: string[] = [];
+    const browserStatusArgs: Record<string, unknown>[] = [];
     const browserActArgs: Record<string, unknown>[] = [];
     let browserOpenArgs: Record<string, unknown> | undefined;
     let browserFocusArgs: Record<string, unknown> | undefined;
@@ -763,6 +764,9 @@ describe("createTalos", () => {
         browserActions.push(action);
         if (action === "act") {
           browserActArgs.push(args);
+        }
+        if (action === "status") {
+          browserStatusArgs.push(args);
         }
         if (action === "open") {
           browserOpenArgs = args;
@@ -925,6 +929,8 @@ describe("createTalos", () => {
     expect((browserChromeStatus.data as { target?: string }).target).toBe("host");
     expect((browserNodeStatus.data as { node?: string }).node).toBe("edge-1");
     expect((browserNodeStatus.data as { target?: string }).target).toBe("node");
+    expect((browserStatusArgs[0] as { target?: string } | undefined)?.target).toBe("host");
+    expect((browserStatusArgs[1] as { target?: string } | undefined)?.target).toBe("node");
     expect((browserTrace.data as { details?: { action?: string } }).details?.action).toBe("trace_start");
     expect((browserActArgs[0]?.request as { kind?: string })?.kind).toBe("click");
     expect((browserActArgs[0] as { kind?: string } | undefined)?.kind).toBe("click");
@@ -944,6 +950,7 @@ describe("createTalos", () => {
     expect(canvasPresentAlias.content).toBe("canvas:present");
     expect(canvasSnapshot.content).toBe("canvas:snapshot");
     expect((canvasSnapshot.data as { node?: string }).node).toBe("canvas-node-1");
+    expect((canvasSnapshot.data as { target?: string }).target).toBe("node");
     expect((canvasNavigateArgs as { url?: string } | undefined)?.url).toBe("https://example.com/canvas");
     expect((canvasPresentArgs as { target?: string } | undefined)?.target).toBe("https://example.com/embed");
     expect((canvasA2uiArgs as { jsonl?: string } | undefined)?.jsonl).toBe("./a2ui.jsonl");
