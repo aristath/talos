@@ -429,7 +429,11 @@ export async function loadPersonaSnapshot(
   }
 
   const loadedFiles: PersonaBootstrapFile[] = [];
+  let hasPrimaryMemory = false;
   for (const name of PERSONA_LOAD_ORDER) {
+    if (name === "memory.md" && hasPrimaryMemory) {
+      continue;
+    }
     const loaded = await readSafePersonaFile({
       workspaceRealPath,
       filePath: path.join(normalizedWorkspace, name),
@@ -439,6 +443,9 @@ export async function loadPersonaSnapshot(
       continue;
     }
     loadedFiles.push(loaded.file);
+    if (name === "MEMORY.md" && !loaded.file.missing) {
+      hasPrimaryMemory = true;
+    }
   }
 
   const extra = await loadExtraPersonaFilesWithDiagnostics({

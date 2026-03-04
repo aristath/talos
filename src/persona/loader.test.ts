@@ -73,6 +73,22 @@ describe("loadPersonaSnapshot", () => {
     expect(cronSnapshot.files["MEMORY.md"]).toBeUndefined();
   });
 
+  it("prefers MEMORY.md when both memory aliases exist", async () => {
+    const dir = await createTmpDir();
+    await fs.writeFile(path.join(dir, "memory.md"), "legacy", "utf8");
+    await fs.writeFile(path.join(dir, "MEMORY.md"), "primary", "utf8");
+
+    const snapshot = await loadPersonaSnapshot(dir, { sessionKind: "main" });
+
+    expect(snapshot.files["MEMORY.md"]).toBe("primary");
+    expect(snapshot.files["memory.md"]).toBeUndefined();
+    const memoryEntries = snapshot.bootstrapFiles.filter((file) => {
+      return file.name === "MEMORY.md" || file.name === "memory.md";
+    });
+    expect(memoryEntries).toHaveLength(1);
+    expect(memoryEntries[0]?.name).toBe("MEMORY.md");
+  });
+
   it("does not inject missing optional memory files", async () => {
     const dir = await createTmpDir();
     await fs.writeFile(path.join(dir, "SOUL.md"), "core", "utf8");
