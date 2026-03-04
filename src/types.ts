@@ -141,6 +141,12 @@ export type WebFetchToolOptions = {
     userAgent: string;
     allowPrivateNetwork: boolean;
   }) => Promise<{ content: string; title?: string }>;
+  firecrawlFallback?: (params: {
+    url: string;
+    extractMode: "markdown" | "text";
+    maxChars: number;
+    timeoutMs: number;
+  }) => Promise<{ content: string; title?: string }>;
   defaultMaxChars?: number;
   maxCharsCap?: number;
   timeoutMs?: number;

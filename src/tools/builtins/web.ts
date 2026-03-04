@@ -206,6 +206,18 @@ function htmlToText(input: string): string {
     .trim();
 }
 
+function extractReadableHtml(input: string): string {
+  const article = input.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i);
+  if (article?.[1]) {
+    return article[1];
+  }
+  const main = input.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i);
+  if (main?.[1]) {
+    return main[1];
+  }
+  return input;
+}
+
 async function defaultFetchContent(params: {
   url: string;
   extractMode: "markdown" | "text";
@@ -283,7 +295,7 @@ async function defaultFetchContent(params: {
       const html = chunks.map((chunk) => textDecoder.decode(chunk, { stream: true })).join("");
       const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
       const title = titleMatch?.[1]?.trim();
-      const text = htmlToText(html);
+      const text = htmlToText(extractReadableHtml(html));
       const outputLimit = Math.max(1, params.maxChars);
       const outputTruncated = text.length > outputLimit;
       const capped = text.slice(0, outputLimit);
@@ -376,6 +388,7 @@ export function createWebFetchTool(options?: WebFetchToolOptions): ToolDefinitio
   const cacheTtlMs = options?.cacheTtlMs ?? 15 * 60_000;
   const allowPrivateNetwork = options?.allowPrivateNetwork === true;
   const cache = new Map<string, { expiresAt: number; data: { content: string; title?: string } }>();
+  const firecrawlFallback = options?.firecrawlFallback;
   return {
     name: options?.name ?? "web_fetch",
     description: options?.description ?? "Fetch and extract content from a URL",
@@ -399,24 +412,39 @@ export function createWebFetchTool(options?: WebFetchToolOptions): ToolDefinitio
               userAgent,
               allowPrivateNetwork,
             });
+      let resolved = fetched;
+      let usedFallback = false;
+      if (!cached && firecrawlFallback && fetched.content.trim().length < 200) {
+        const fallback = await firecrawlFallback({
+          url,
+          extractMode,
+          maxChars,
+          timeoutMs,
+        });
+        if (fallback.content.trim().length > fetched.content.trim().length) {
+          resolved = fallback;
+          usedFallback = true;
+        }
+      }
       if (!cached || cached.expiresAt <= now) {
         cache.set(cacheKey, {
           expiresAt: now + cacheTtlMs,
-          data: fetched,
+          data: resolved,
         });
       }
       const contentLimit = Math.max(1, maxChars);
-      const contentTruncated = fetched.content.length > contentLimit;
-      const content = contentTruncated ? `${fetched.content.slice(0, contentLimit)}\n\n[TRUNCATED]` : fetched.content;
+      const contentTruncated = resolved.content.length > contentLimit;
+      const content = contentTruncated ? `${resolved.content.slice(0, contentLimit)}\n\n[TRUNCATED]` : resolved.content;
       return {
-        content: fetched.title ? `${fetched.title}\n\n${content}` : content,
+        content: resolved.title ? `${resolved.title}\n\n${content}` : content,
         data: {
           url,
           extractMode,
           maxChars,
           cached: Boolean(cached && cached.expiresAt > now),
+          usedFallback,
           truncated: contentTruncated,
-          ...(fetched.title ? { title: fetched.title } : {}),
+          ...(resolved.title ? { title: resolved.title } : {}),
         },
       };
     },

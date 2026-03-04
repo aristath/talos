@@ -406,6 +406,46 @@ describe("createTalos", () => {
     expect(result.content.includes("[TRUNCATED]")).toBe(true);
   });
 
+  it("uses web_fetch fallback when primary extraction is too short", async () => {
+    const talos = createTalos({
+      providers: {
+        openaiCompatible: [
+          {
+            id: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            defaultModel: "gpt-4o-mini",
+          },
+        ],
+      },
+    });
+
+    let fallbackCalls = 0;
+    talos.registerWebTools({
+      search: {
+        search: async () => [],
+      },
+      fetch: {
+        fetchContent: async () => ({ content: "short" }),
+        firecrawlFallback: async () => {
+          fallbackCalls += 1;
+          return { content: "long fallback content" };
+        },
+      },
+    });
+
+    const result = await talos.executeTool({
+      name: "web_fetch",
+      args: {
+        url: "https://example.com",
+      },
+      context: { agentId: "main" },
+    });
+
+    expect(fallbackCalls).toBe(1);
+    expect(result.content).toContain("long fallback content");
+    expect((result.data as { usedFallback?: boolean }).usedFallback).toBe(true);
+  });
+
   it("registers media tools and executes image/pdf analysis", async () => {
     const talos = createTalos({
       providers: {
