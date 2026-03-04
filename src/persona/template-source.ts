@@ -6,7 +6,7 @@ import { DEFAULT_PERSONA_TEMPLATES, PERSONA_LOAD_ORDER } from "./templates.js";
 
 const DOCS_TEMPLATE_ENV = "TALOS_PERSONA_TEMPLATE_DIR";
 
-function stripFrontmatter(raw: string): string {
+export function stripLeadingMarkdownFrontmatter(raw: string): string {
   if (!raw.startsWith("---\n")) {
     return raw;
   }
@@ -45,7 +45,7 @@ export async function loadPersonaTemplates(options?: {
     const filePath = path.join(dir, name);
     try {
       const raw = await fs.readFile(filePath, "utf8");
-      next[name] = stripFrontmatter(raw);
+      next[name] = stripLeadingMarkdownFrontmatter(raw);
     } catch {
       // Fallback to embedded defaults when docs templates are unavailable.
     }

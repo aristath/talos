@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadPersonaTemplates } from "./template-source.js";
+import { loadPersonaTemplates, stripLeadingMarkdownFrontmatter } from "./template-source.js";
 
 const TMP_DIRS: string[] = [];
 
@@ -21,6 +21,11 @@ afterEach(async () => {
 });
 
 describe("loadPersonaTemplates", () => {
+  it("keeps content unchanged when frontmatter is malformed", () => {
+    const raw = "---\ntitle: Broken\n# Missing closing delimiter\n";
+    expect(stripLeadingMarkdownFrontmatter(raw)).toBe(raw);
+  });
+
   it("loads built-in docs templates by default", async () => {
     const templates = await loadPersonaTemplates({ forceReload: true });
     expect(templates["AGENTS.md"].trimStart().startsWith("# AGENTS.md - Your Workspace")).toBe(true);
