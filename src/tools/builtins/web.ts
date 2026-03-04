@@ -371,6 +371,17 @@ export function createWebSearchTool(options: WebSearchToolOptions): ToolDefiniti
           ...(freshness ? { freshness } : {}),
           cached: Boolean(cached && cached.expiresAt > now),
           results,
+          details: {
+            query,
+            count,
+            provider,
+            country,
+            search_lang: searchLang,
+            ui_lang: uiLang,
+            freshness,
+            cached: Boolean(cached && cached.expiresAt > now),
+            resultCount: results.length,
+          },
         },
       };
     },
@@ -445,6 +456,15 @@ export function createWebFetchTool(options?: WebFetchToolOptions): ToolDefinitio
           usedFallback,
           truncated: contentTruncated,
           ...(resolved.title ? { title: resolved.title } : {}),
+          details: {
+            url,
+            extractMode,
+            maxChars,
+            cached: Boolean(cached && cached.expiresAt > now),
+            usedFallback,
+            truncated: contentTruncated,
+            title: resolved.title,
+          },
         },
       };
     },

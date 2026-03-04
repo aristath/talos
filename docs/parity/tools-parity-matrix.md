@@ -15,12 +15,12 @@ Parity requires matching:
 - [x] `web_search`: provider selection parity (Brave/Perplexity/Gemini/Grok/Kimi)
 - [x] `web_search`: provider auto-detect precedence parity
 - [x] `web_search`: full locale/freshness behavior parity
-- [ ] `web_search`: output/detail shape parity
+- [x] `web_search`: output/detail shape parity
 - [x] `web_fetch`: readability extraction parity
 - [x] `web_fetch`: Firecrawl fallback parity
 - [x] `web_fetch`: redirect/response caps and truncation semantics parity
 - [x] `web_fetch`: SSRF policy parity (initial + redirect destinations)
-- [ ] `web_fetch`: output/detail shape parity
+- [x] `web_fetch`: output/detail shape parity
 
 ## Media Tools
 
@@ -53,11 +53,11 @@ Parity requires matching:
 
 - [x] `browser`: action surface parity
 - [x] `browser`: action parameter validation parity
-- [ ] `browser`: output/detail shape parity
+- [x] `browser`: output/detail shape parity
 - [x] `browser`: target/profile routing semantics parity
 - [x] `canvas`: action surface parity
 - [x] `canvas`: action parameter validation parity
-- [ ] `canvas`: output/detail shape parity
+- [x] `canvas`: output/detail shape parity
 
 ## Global Tool Runtime Parity
 

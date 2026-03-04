@@ -361,11 +361,21 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
                 ...(profile ? { profile } : {}),
                 ...(target ? { target } : {}),
                 result: output.data,
+                details: {
+                  action,
+                  profile,
+                  target,
+                },
               }
             : {
                 action,
                 ...(profile ? { profile } : {}),
                 ...(target ? { target } : {}),
+                details: {
+                  action,
+                  profile,
+                  target,
+                },
               },
       };
     },
@@ -391,10 +401,18 @@ export function createCanvasTool(options: CanvasToolOptions): ToolDefinition {
                 action,
                 ...(executionTarget ? { target: executionTarget } : {}),
                 result: output.data,
+                details: {
+                  action,
+                  target: executionTarget,
+                },
               }
             : {
                 action,
                 ...(executionTarget ? { target: executionTarget } : {}),
+                details: {
+                  action,
+                  target: executionTarget,
+                },
               },
       };
     },

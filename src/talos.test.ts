@@ -152,6 +152,8 @@ describe("createTalos", () => {
 
     expect(search.content).toContain("Result for talos");
     expect(fetched.content).toContain("Fetched https://example.com");
+    expect((search.data as { details?: { resultCount?: number } }).details?.resultCount).toBe(1);
+    expect((fetched.data as { details?: { url?: string } }).details?.url).toBe("https://example.com/");
   });
 
   it("validates web_search locale and freshness parameters", async () => {
@@ -646,8 +648,10 @@ describe("createTalos", () => {
     expect(browserTrace.content).toBe("browser:trace_start");
     expect((browserTrace.data as { profile?: string }).profile).toBe("openclaw");
     expect((browserTrace.data as { target?: string }).target).toBe("host");
+    expect((browserTrace.data as { details?: { action?: string } }).details?.action).toBe("trace_start");
     expect(browserCookies.content).toBe("browser:cookies_set");
     expect(canvasA2ui.content).toBe("canvas:a2ui_push");
+    expect((canvasA2ui.data as { details?: { action?: string } }).details?.action).toBe("a2ui_push");
     expect(browserActions).toContain("trace_start");
     expect(browserActions).toContain("cookies_set");
     expect(canvasActions).toContain("a2ui_push");
