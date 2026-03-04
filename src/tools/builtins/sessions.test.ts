@@ -110,4 +110,80 @@ describe("createSessionTools", () => {
     expect(spawnedSessions).toHaveLength(1);
     expect(spawnedSessions[0]?.sessionId).toContain(":subagent:");
   });
+
+  it("enforces canAccessSession guard across list/history/send/status", async () => {
+    const tools = createSessionTools({
+      canAccessSession: ({ session }) => session.sessionId === "agent:main:subagent:allowed",
+      callbacks: {
+        listSessions: () => [
+          {
+            sessionId: "agent:main:subagent:allowed",
+            agentId: "main",
+            kind: "subagent",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+            messages: [],
+          },
+          {
+            sessionId: "agent:main:subagent:blocked",
+            agentId: "main",
+            kind: "subagent",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+            messages: [],
+          },
+        ],
+        getHistory: () => [],
+        sendToSession: async () => ({ runId: "r", text: "ok", providerId: "p", modelId: "m" }),
+        spawnSession: async () => ({
+          sessionId: "agent:main:subagent:new",
+          runId: "r2",
+          text: "ok",
+          providerId: "p",
+          modelId: "m",
+        }),
+        getStatus: (sessionId) => {
+          if (sessionId === "agent:main:subagent:blocked") {
+            return {
+              sessionId,
+              agentId: "main",
+              kind: "subagent",
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+              messages: [],
+            };
+          }
+          return {
+            sessionId: "agent:main:subagent:allowed",
+            agentId: "main",
+            kind: "subagent",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+            messages: [],
+          };
+        },
+      },
+    });
+
+    const listTool = tools.find((tool) => tool.name === "sessions_list");
+    const historyTool = tools.find((tool) => tool.name === "sessions_history");
+    const sendTool = tools.find((tool) => tool.name === "sessions_send");
+    const statusTool = tools.find((tool) => tool.name === "session_status");
+    expect(listTool && historyTool && sendTool && statusTool).toBeTruthy();
+
+    const listed = await listTool!.run({}, { agentId: "main", sessionId: "agent:main:main" });
+    const sessions = (listed.data as { sessions: Array<{ sessionId: string }> }).sessions;
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]?.sessionId).toBe("agent:main:subagent:allowed");
+
+    await expect(
+      historyTool!.run({ sessionId: "agent:main:subagent:blocked" }, { agentId: "main" }),
+    ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
+    await expect(
+      sendTool!.run({ sessionId: "agent:main:subagent:blocked", message: "hi" }, { agentId: "main" }),
+    ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
+    await expect(
+      statusTool!.run({ sessionId: "agent:main:subagent:blocked" }, { agentId: "main" }),
+    ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
+  });
 });

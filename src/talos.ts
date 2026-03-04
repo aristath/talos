@@ -465,6 +465,18 @@ export function createTalos(config: TalosConfig): Talos {
 
   const registerSessionTools = () => {
     const sessionTools = createSessionTools({
+      canAccessSession: ({ requesterAgentId, requesterSessionId, session }) => {
+        if (session.agentId === requesterAgentId) {
+          return true;
+        }
+        if (requesterSessionId && session.sessionId === requesterSessionId) {
+          return true;
+        }
+        if (requesterSessionId && session.spawnedBy === requesterSessionId) {
+          return true;
+        }
+        return false;
+      },
       callbacks: {
         listSessions: () => listSessionsSnapshot(),
         getHistory: (sessionId, limit) => {

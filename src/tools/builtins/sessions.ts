@@ -87,7 +87,7 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
     {
       name: names.list ?? "sessions_list",
       description: "List known sessions",
-      async run(args) {
+      async run(args, context) {
         const limit = toLimit(args.limit, 25, 200);
         const activeMinutes = toLimit(args.activeMinutes, 0, 24 * 60);
         const messageLimit = toLimit(args.messageLimit, 0, 20);
@@ -99,6 +99,17 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
           activeMinutes > 0 ? Date.now() - activeMinutes * 60_000 : undefined;
         const filtered = sessions
           .filter((session) => {
+            if (
+              options.canAccessSession &&
+              !options.canAccessSession({
+                action: "list",
+                requesterAgentId: context.agentId,
+                ...(context.sessionId ? { requesterSessionId: context.sessionId } : {}),
+                session,
+              })
+            ) {
+              return false;
+            }
             if (kinds && kinds.size > 0 && !kinds.has(classifySessionKindForFilter(session))) {
               return false;
             }
@@ -147,12 +158,28 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
     {
       name: names.history ?? "sessions_history",
       description: "Show message history for a session",
-      async run(args) {
+      async run(args, context) {
         const sessionId =
           typeof args.sessionKey === "string" && args.sessionKey.trim()
             ? args.sessionKey.trim()
             : requiredString(args, "sessionId");
         const limit = toLimit(args.limit, 25, 500);
+        const session = options.callbacks.getStatus(sessionId);
+        if (
+          session &&
+          options.canAccessSession &&
+          !options.canAccessSession({
+            action: "history",
+            requesterAgentId: context.agentId,
+            ...(context.sessionId ? { requesterSessionId: context.sessionId } : {}),
+            session,
+          })
+        ) {
+          throw new TalosError({
+            code: "TOOL_NOT_ALLOWED",
+            message: `Access denied for session history: ${sessionId}`,
+          });
+        }
         const messages = options.callbacks.getHistory(sessionId, limit);
         const visibleMessages = Boolean(args.includeTools) ? messages : stripToolMessages(messages);
         const limitedMessages = trimMessages(visibleMessages, limit);
@@ -175,6 +202,27 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
       async run(args, context) {
         const sessionId = resolveFirstString(args, ["sessionKey", "sessionId"]) ?? requiredString(args, "sessionId");
         const message = resolveFirstString(args, ["message", "text", "prompt"]) ?? requiredString(args, "message");
+        const session = options.callbacks.getStatus(sessionId);
+        if (!session) {
+          throw new TalosError({
+            code: "TOOL_FAILED",
+            message: `Unknown session: ${sessionId}`,
+          });
+        }
+        if (
+          options.canAccessSession &&
+          !options.canAccessSession({
+            action: "send",
+            requesterAgentId: context.agentId,
+            ...(context.sessionId ? { requesterSessionId: context.sessionId } : {}),
+            session,
+          })
+        ) {
+          throw new TalosError({
+            code: "TOOL_NOT_ALLOWED",
+            message: `Access denied for sessions_send: ${sessionId}`,
+          });
+        }
         const sent = await options.callbacks.sendToSession({
           sessionId,
           message,
@@ -241,6 +289,20 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
           throw new TalosError({
             code: "TOOL_FAILED",
             message: `Unknown session: ${sessionId}`,
+          });
+        }
+        if (
+          options.canAccessSession &&
+          !options.canAccessSession({
+            action: "status",
+            requesterAgentId: context.agentId,
+            ...(context.sessionId ? { requesterSessionId: context.sessionId } : {}),
+            session: status,
+          })
+        ) {
+          throw new TalosError({
+            code: "TOOL_NOT_ALLOWED",
+            message: `Access denied for session_status: ${sessionId}`,
           });
         }
         return {

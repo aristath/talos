@@ -247,6 +247,12 @@ export type SessionToolsOptions = {
     status?: string;
   };
   callbacks: SessionToolsCallbacks;
+  canAccessSession?: (params: {
+    action: "list" | "history" | "send" | "spawn" | "status";
+    requesterAgentId: string;
+    requesterSessionId?: string;
+    session: SessionRecord;
+  }) => boolean;
 };
 
 export type LlmTaskToolOptions = {
