@@ -277,8 +277,21 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
             : requiredString(args, "sessionId");
         const limit = toLimit(args.limit, 25, 500);
         const session = options.callbacks.getStatus(sessionId);
+        if (!session) {
+          return {
+            content: `Unknown session: ${sessionId}`,
+            data: {
+              sessionId,
+              status: "error",
+              error: `Unknown session: ${sessionId}`,
+              details: {
+                sessionId,
+                status: "error",
+              },
+            },
+          };
+        }
         if (
-          session &&
           options.canAccessSession &&
           !options.canAccessSession({
             action: "history",
@@ -287,10 +300,18 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
             session,
           })
         ) {
-          throw new TalosError({
-            code: "TOOL_NOT_ALLOWED",
-            message: `Access denied for session history: ${sessionId}`,
-          });
+          return {
+            content: `Access denied for session history: ${sessionId}`,
+            data: {
+              sessionId,
+              status: "forbidden",
+              error: `Access denied for session history: ${sessionId}`,
+              details: {
+                sessionId,
+                status: "forbidden",
+              },
+            },
+          };
         }
         const messages = options.callbacks.getHistory(sessionId, limit);
         const visibleMessages = Boolean(args.includeTools) ? messages : stripToolMessages(messages);

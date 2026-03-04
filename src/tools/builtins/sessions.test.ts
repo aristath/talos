@@ -32,7 +32,17 @@ describe("createSessionTools", () => {
           providerId: "p",
           modelId: "m",
         }),
-        getStatus: () => undefined,
+        getStatus: (sessionId) =>
+          sessionId === "agent:main:subagent:abc"
+            ? {
+                sessionId,
+                agentId: "main",
+                kind: "subagent",
+                createdAt: "2026-01-01T00:00:00.000Z",
+                updatedAt: "2026-01-01T00:00:00.000Z",
+                messages: [],
+              }
+            : undefined,
       },
     });
 
@@ -179,9 +189,11 @@ describe("createSessionTools", () => {
     expect(sessions).toHaveLength(1);
     expect(sessions[0]?.sessionId).toBe("agent:main:subagent:allowed");
 
-    await expect(
-      historyTool!.run({ sessionId: "agent:main:subagent:blocked" }, { agentId: "main" }),
-    ).rejects.toMatchObject({ code: "TOOL_NOT_ALLOWED" });
+    const deniedHistory = await historyTool!.run(
+      { sessionId: "agent:main:subagent:blocked" },
+      { agentId: "main" },
+    );
+    expect((deniedHistory.data as { status?: string }).status).toBe("forbidden");
     const deniedSend = await sendTool!.run(
       { sessionId: "agent:main:subagent:blocked", message: "hi" },
       { agentId: "main" },
