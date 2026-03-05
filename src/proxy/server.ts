@@ -9,6 +9,7 @@ export type OpenAIProxyServerCorsOptions = {
 
 export type OpenAIProxyServerOptions = OpenAIProxyOptions & {
   cors?: OpenAIProxyServerCorsOptions;
+  maxRequestBytes?: number;
 };
 
 export type OpenAIProxyServer = {
@@ -17,10 +18,16 @@ export type OpenAIProxyServer = {
   close: () => Promise<void>;
 };
 
-async function readRequestBody(req: IncomingMessage): Promise<Uint8Array> {
+async function readRequestBody(req: IncomingMessage, maxRequestBytes: number): Promise<Uint8Array> {
   const chunks: Buffer[] = [];
+  let totalBytes = 0;
   for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.byteLength;
+    if (totalBytes > maxRequestBytes) {
+      throw new Error(`Request body exceeds limit (${maxRequestBytes} bytes).`);
+    }
+    chunks.push(buffer);
   }
   return Buffer.concat(chunks);
 }
@@ -81,6 +88,10 @@ function applyCorsHeaders(res: ServerResponse, cors?: OpenAIProxyServerCorsOptio
 export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOptions): OpenAIProxyServer {
   const proxy = createOpenAICompatibleProxy(options);
   const startedAt = Date.now();
+  const maxRequestBytes = options.maxRequestBytes ?? 2 * 1024 * 1024;
+  if (!Number.isFinite(maxRequestBytes) || maxRequestBytes <= 0) {
+    throw new Error("maxRequestBytes must be a positive number.");
+  }
   const server = createServer(async (req, res) => {
     try {
       if (req.method === "GET" && req.url === "/healthz") {
@@ -101,7 +112,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
         res.end();
         return;
       }
-      const body = await readRequestBody(req);
+      const body = await readRequestBody(req, Math.floor(maxRequestBytes));
       const requestInit: RequestInit = {
         method: req.method ?? "GET",
         headers: toFetchHeaders(req),
@@ -114,6 +125,20 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
       applyCorsHeaders(res, options.cors);
       await writeFetchResponse(response, res);
     } catch (error) {
+      if (error instanceof Error && /Request body exceeds limit/.test(error.message)) {
+        res.statusCode = 413;
+        applyCorsHeaders(res, options.cors);
+        res.setHeader("content-type", "application/json");
+        res.end(
+          JSON.stringify({
+            error: {
+              message: error.message,
+              type: "invalid_request_error",
+            },
+          }),
+        );
+        return;
+      }
       res.statusCode = 500;
       applyCorsHeaders(res, options.cors);
       res.setHeader("content-type", "application/json");

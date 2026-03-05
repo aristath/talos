@@ -169,4 +169,59 @@ describe("createOpenAICompatibleProxyServer", () => {
       await proxyServer.close();
     }
   });
+
+  it("returns 413 when request body exceeds configured maxRequestBytes", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-limit-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const proxyServer = createOpenAICompatibleProxyServer({
+      workspaceDir,
+      defaultAgentId: "designer",
+      maxRequestBytes: 64,
+    });
+    const listening = await proxyServer.listen();
+    try {
+      const response = await fetch(`http://${listening.host}:${listening.port}/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "x".repeat(500) }],
+        }),
+      });
+      expect(response.status).toBe(413);
+      const payload = (await response.json()) as { error?: { message?: string } };
+      expect(payload.error?.message).toContain("exceeds limit");
+    } finally {
+      await proxyServer.close();
+    }
+  });
+
+  it("throws when maxRequestBytes is invalid", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-invalid-limit-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    expect(() =>
+      createOpenAICompatibleProxyServer({
+        workspaceDir,
+        defaultAgentId: "designer",
+        maxRequestBytes: 0,
+      }),
+    ).toThrow(/maxRequestBytes/i);
+  });
 });
