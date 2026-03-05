@@ -1,6 +1,16 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { createOpenAICompatibleProxy, type OpenAIProxyOptions } from "./openai-compatible-proxy.js";
 
+export type OpenAIProxyServerCorsOptions = {
+  allowOrigin?: string;
+  allowHeaders?: string;
+  allowMethods?: string;
+};
+
+export type OpenAIProxyServerOptions = OpenAIProxyOptions & {
+  cors?: OpenAIProxyServerCorsOptions;
+};
+
 export type OpenAIProxyServer = {
   server: Server;
   listen: (port?: number, host?: string) => Promise<{ port: number; host: string }>;
@@ -59,10 +69,25 @@ async function writeFetchResponse(response: Response, res: ServerResponse): Prom
   res.end();
 }
 
-export function createOpenAICompatibleProxyServer(options: OpenAIProxyOptions): OpenAIProxyServer {
+function applyCorsHeaders(res: ServerResponse, cors?: OpenAIProxyServerCorsOptions): void {
+  if (!cors) {
+    return;
+  }
+  res.setHeader("access-control-allow-origin", cors.allowOrigin ?? "*");
+  res.setHeader("access-control-allow-headers", cors.allowHeaders ?? "authorization,content-type,x-agent-id");
+  res.setHeader("access-control-allow-methods", cors.allowMethods ?? "GET,POST,OPTIONS");
+}
+
+export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOptions): OpenAIProxyServer {
   const proxy = createOpenAICompatibleProxy(options);
   const server = createServer(async (req, res) => {
     try {
+      if (req.method === "OPTIONS") {
+        res.statusCode = 204;
+        applyCorsHeaders(res, options.cors);
+        res.end();
+        return;
+      }
       const body = await readRequestBody(req);
       const requestInit: RequestInit = {
         method: req.method ?? "GET",
@@ -73,9 +98,11 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyOptions): 
       }
       const request = new Request(requestUrl(req), requestInit);
       const response = await proxy.handle(request);
+      applyCorsHeaders(res, options.cors);
       await writeFetchResponse(response, res);
     } catch (error) {
       res.statusCode = 500;
+      applyCorsHeaders(res, options.cors);
       res.setHeader("content-type", "application/json");
       res.end(
         JSON.stringify({

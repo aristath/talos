@@ -89,4 +89,57 @@ describe("createOpenAICompatibleProxyServer", () => {
       await proxyServer.close();
     }
   });
+
+  it("supports CORS preflight and response headers", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-cors-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi.fn(async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const target = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (target.startsWith("http://127.0.0.1:")) {
+        return await originalFetch(input, init);
+      }
+      return new Response(JSON.stringify({ id: "chatcmpl_1" }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proxyServer = createOpenAICompatibleProxyServer({
+      workspaceDir,
+      defaultAgentId: "designer",
+      cors: {
+        allowOrigin: "*",
+      },
+    });
+    const listening = await proxyServer.listen();
+
+    try {
+      const preflight = await fetch(`http://${listening.host}:${listening.port}/v1/chat/completions`, {
+        method: "OPTIONS",
+      });
+      expect(preflight.status).toBe(204);
+      expect(preflight.headers.get("access-control-allow-origin")).toBe("*");
+
+      const response = await fetch(`http://${listening.host}:${listening.port}/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    } finally {
+      await proxyServer.close();
+    }
+  });
 });
