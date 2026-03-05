@@ -18,6 +18,7 @@ const PROXY_CONFIG_FILE_SCHEMA = z.object({
   upstreamTimeoutMs: z.number().int().positive().optional(),
   cacheTtlMs: z.number().int().positive().optional(),
   maxRequestBytes: z.number().int().positive().optional(),
+  maxConcurrentRequests: z.number().int().positive().optional(),
   cors: z
     .object({
       allowOrigin: z.string().min(1).optional(),
@@ -140,6 +141,9 @@ export async function loadOpenAIProxyServerOptionsFromFile(params: {
   return {
     ...base,
     ...(typeof validated.maxRequestBytes === "number" ? { maxRequestBytes: validated.maxRequestBytes } : {}),
+    ...(typeof validated.maxConcurrentRequests === "number"
+      ? { maxConcurrentRequests: validated.maxConcurrentRequests }
+      : {}),
     ...(cors ? { cors } : {}),
   };
 }

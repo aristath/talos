@@ -224,4 +224,88 @@ describe("createOpenAICompatibleProxyServer", () => {
       }),
     ).toThrow(/maxRequestBytes/i);
   });
+
+  it("returns 429 when max concurrent requests is exceeded", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-concurrency-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const originalFetch = globalThis.fetch;
+    let releaseFirst: (() => void) | undefined;
+    const fetchMock = vi.fn(async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const target = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (target.startsWith("http://127.0.0.1:")) {
+        return await originalFetch(input, init);
+      }
+      await new Promise<void>((resolve) => {
+        releaseFirst = resolve;
+      });
+      return new Response(JSON.stringify({ id: "chatcmpl_slow" }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proxyServer = createOpenAICompatibleProxyServer({
+      workspaceDir,
+      defaultAgentId: "designer",
+      maxConcurrentRequests: 1,
+    });
+    const listening = await proxyServer.listen();
+    try {
+      const firstPromise = fetch(`http://${listening.host}:${listening.port}/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      const secondResponse = await fetch(`http://${listening.host}:${listening.port}/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "second" }],
+        }),
+      });
+      expect(secondResponse.status).toBe(429);
+
+      releaseFirst?.();
+      const firstResponse = await firstPromise;
+      expect(firstResponse.status).toBe(200);
+    } finally {
+      releaseFirst?.();
+      await proxyServer.close();
+    }
+  });
+
+  it("throws when maxConcurrentRequests is invalid", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-invalid-concurrency-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    expect(() =>
+      createOpenAICompatibleProxyServer({
+        workspaceDir,
+        defaultAgentId: "designer",
+        maxConcurrentRequests: 0,
+      }),
+    ).toThrow(/maxConcurrentRequests/i);
+  });
 });

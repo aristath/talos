@@ -10,6 +10,7 @@ export type OpenAIProxyServerCorsOptions = {
 export type OpenAIProxyServerOptions = OpenAIProxyOptions & {
   cors?: OpenAIProxyServerCorsOptions;
   maxRequestBytes?: number;
+  maxConcurrentRequests?: number;
 };
 
 export type OpenAIProxyServer = {
@@ -89,10 +90,30 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
   const proxy = createOpenAICompatibleProxy(options);
   const startedAt = Date.now();
   const maxRequestBytes = options.maxRequestBytes ?? 2 * 1024 * 1024;
+  const maxConcurrentRequests = options.maxConcurrentRequests ?? 200;
   if (!Number.isFinite(maxRequestBytes) || maxRequestBytes <= 0) {
     throw new Error("maxRequestBytes must be a positive number.");
   }
+  if (!Number.isFinite(maxConcurrentRequests) || maxConcurrentRequests <= 0) {
+    throw new Error("maxConcurrentRequests must be a positive number.");
+  }
+  let activeRequests = 0;
   const server = createServer(async (req, res) => {
+    if (activeRequests >= Math.floor(maxConcurrentRequests)) {
+      res.statusCode = 429;
+      applyCorsHeaders(res, options.cors);
+      res.setHeader("content-type", "application/json");
+      res.end(
+        JSON.stringify({
+          error: {
+            message: "Too many concurrent requests.",
+            type: "rate_limit_error",
+          },
+        }),
+      );
+      return;
+    }
+    activeRequests += 1;
     try {
       if (req.method === "GET" && req.url === "/healthz") {
         res.statusCode = 200;
@@ -150,6 +171,8 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
           },
         }),
       );
+    } finally {
+      activeRequests = Math.max(0, activeRequests - 1);
     }
   });
 

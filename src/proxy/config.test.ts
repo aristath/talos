@@ -42,6 +42,7 @@ describe("loadOpenAIProxyOptionsFromFile", () => {
         {
           defaultAgentId: "designer",
           maxRequestBytes: 4096,
+          maxConcurrentRequests: 50,
           cors: {
             allowOrigin: "*",
             allowMethods: "GET,POST,OPTIONS",
@@ -56,6 +57,7 @@ describe("loadOpenAIProxyOptionsFromFile", () => {
     const options = await loadOpenAIProxyServerOptionsFromFile({ workspaceDir });
     expect(options.defaultAgentId).toBe("designer");
     expect(options.maxRequestBytes).toBe(4096);
+    expect(options.maxConcurrentRequests).toBe(50);
     expect(options.cors?.allowOrigin).toBe("*");
     expect(options.cors?.allowMethods).toBe("GET,POST,OPTIONS");
   });
