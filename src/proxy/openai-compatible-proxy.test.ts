@@ -512,6 +512,40 @@ describe("createOpenAICompatibleProxy", () => {
     expect(conflict.headers.get("x-request-id")).toBeTruthy();
   });
 
+  it("can disable model alias routing", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-no-alias-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const proxy = createOpenAICompatibleProxy({
+      workspaceDir,
+      defaultAgentId: "designer",
+      allowModelAlias: false,
+    });
+
+    const response = await proxy.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "agent:designer",
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      }),
+    );
+    expect(response.status).toBe(400);
+    const payload = (await response.json()) as { error?: { message?: string } };
+    expect(payload.error?.message).toContain("disabled");
+  });
+
   it("passes through upstream streaming responses", async () => {
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-stream-"));
     await setupAgent({

@@ -13,6 +13,7 @@ describe("loadOpenAIProxyOptionsFromFile", () => {
         {
           defaultAgentId: "designer",
           platformPrompt: "Global policy",
+          allowModelAlias: false,
           upstreamTimeoutMs: 30000,
           inboundAuth: [
             {
@@ -31,6 +32,7 @@ describe("loadOpenAIProxyOptionsFromFile", () => {
     const options = await loadOpenAIProxyOptionsFromFile({ workspaceDir });
     expect(options.defaultAgentId).toBe("designer");
     expect(options.platformPrompt).toBe("Global policy");
+    expect(options.allowModelAlias).toBe(false);
     expect(options.upstreamTimeoutMs).toBe(30000);
     expect(options.inboundAuth?.["client-key"]?.defaultAgentId).toBe("designer");
     expect(options.inboundAuth?.["client-key"]?.allowedAgentIds).toEqual(["designer", "seo"]);

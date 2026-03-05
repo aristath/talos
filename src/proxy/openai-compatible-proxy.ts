@@ -13,6 +13,7 @@ export type OpenAIProxyOptions = {
   workspaceDir: string;
   defaultAgentId: string;
   platformPrompt?: string;
+  allowModelAlias?: boolean;
   inboundAuth?: Record<string, InboundAuthRule>;
   agentsDir?: string;
   profileConfigFileName?: string;
@@ -309,6 +310,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
   const agentsDir = options.agentsDir?.trim() || "agents";
   const profileConfigFileName = options.profileConfigFileName?.trim() || "agent.json";
   const platformPrompt = options.platformPrompt?.trim() || undefined;
+  const allowModelAlias = options.allowModelAlias !== false;
   const upstreamTimeoutMs = options.upstreamTimeoutMs ?? 60_000;
   const cacheTtlMs = options.cacheTtlMs ?? 5_000;
   const cache = new Map<string, CachedAgentProfile>();
@@ -653,7 +655,12 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         return openAIError(400, error instanceof Error ? error.message : "Invalid JSON body.");
       }
       const headerAgentId = extractRequestedAgentId(request);
-      const modelAliasAgentId = extractAgentIdFromModelAlias(payload);
+      const modelAliasAgentId = allowModelAlias ? extractAgentIdFromModelAlias(payload) : undefined;
+      if (!allowModelAlias && extractAgentIdFromModelAlias(payload)) {
+        return openAIError(400, "model alias routing is disabled for this proxy.", "invalid_request_error", {
+          "x-request-id": requestId,
+        });
+      }
       if (headerAgentId && modelAliasAgentId && headerAgentId !== modelAliasAgentId) {
         return openAIError(400, "x-agent-id conflicts with model alias agent.", "invalid_request_error", {
           "x-request-id": requestId,
@@ -680,7 +687,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           },
         );
       }
-      const payloadWithoutAgentModelAlias = stripAgentModelAlias(payload);
+      const payloadWithoutAgentModelAlias = allowModelAlias ? stripAgentModelAlias(payload) : payload;
       const injectedPrompt = composePrompt(platformPrompt, profile.prompt);
       if (url.pathname === "/v1/chat/completions") {
         const payloadError = validateChatCompletionsPayload(payloadWithoutAgentModelAlias);

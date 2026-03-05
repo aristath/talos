@@ -120,6 +120,8 @@ Agent selection supports:
 - `X-Agent-Id` request header
 - `model: "agent:<agentId>"` alias
 
+Set `allowModelAlias: false` in `proxy.json` to disable model-alias-based routing.
+
 When `inboundAuth` is configured, bearer tokens are mapped to allowed agent ids and access is enforced.
 Inbound auth accepts `Authorization: Bearer <token>`, `x-api-key`, or `api-key` headers.
 Proxy responses include `x-request-id`, `x-talos-agent-id`, and `x-talos-model` headers for traceability.
