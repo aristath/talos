@@ -221,6 +221,75 @@ describe("createOpenAICompatibleProxyServer", () => {
     }
   });
 
+  it("supports authenticated cache reload endpoint", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-reload-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const proxyServer = createOpenAICompatibleProxyServer({
+      workspaceDir,
+      defaultAgentId: "designer",
+      adminToken: "admin-secret",
+    });
+    const listening = await proxyServer.listen();
+    try {
+      const unauthorized = await fetch(`http://${listening.host}:${listening.port}/reloadz`, {
+        method: "POST",
+      });
+      expect(unauthorized.status).toBe(401);
+
+      const authorized = await fetch(`http://${listening.host}:${listening.port}/reloadz`, {
+        method: "POST",
+        headers: {
+          "x-admin-token": "admin-secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          agentId: "designer",
+        }),
+      });
+      expect(authorized.status).toBe(200);
+      const payload = (await authorized.json()) as { status?: string; cleared?: number; agentId?: string };
+      expect(payload.status).toBe("ok");
+      expect(payload.cleared).toBeGreaterThanOrEqual(0);
+      expect(payload.agentId).toBe("designer");
+    } finally {
+      await proxyServer.close();
+    }
+  });
+
+  it("hides reload endpoint when admin token is not configured", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-no-reload-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const proxyServer = createOpenAICompatibleProxyServer({
+      workspaceDir,
+      defaultAgentId: "designer",
+    });
+    const listening = await proxyServer.listen();
+    try {
+      const response = await fetch(`http://${listening.host}:${listening.port}/reloadz`, {
+        method: "POST",
+      });
+      expect(response.status).toBe(404);
+    } finally {
+      await proxyServer.close();
+    }
+  });
+
   it("returns 413 when request body exceeds configured maxRequestBytes", async () => {
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-limit-"));
     await setupAgent({

@@ -43,6 +43,7 @@ describe("loadOpenAIProxyOptionsFromFile", () => {
           defaultAgentId: "designer",
           maxRequestBytes: 4096,
           maxConcurrentRequests: 50,
+          adminToken: "admin-secret",
           cors: {
             allowOrigin: "*",
             allowMethods: "GET,POST,OPTIONS",
@@ -58,6 +59,7 @@ describe("loadOpenAIProxyOptionsFromFile", () => {
     expect(options.defaultAgentId).toBe("designer");
     expect(options.maxRequestBytes).toBe(4096);
     expect(options.maxConcurrentRequests).toBe(50);
+    expect(options.adminToken).toBe("admin-secret");
     expect(options.cors?.allowOrigin).toBe("*");
     expect(options.cors?.allowMethods).toBe("GET,POST,OPTIONS");
   });

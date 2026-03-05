@@ -12,6 +12,7 @@ export type OpenAIProxyServerOptions = OpenAIProxyOptions & {
   cors?: OpenAIProxyServerCorsOptions;
   maxRequestBytes?: number;
   maxConcurrentRequests?: number;
+  adminToken?: string;
 };
 
 export type OpenAIProxyServer = {
@@ -64,6 +65,39 @@ function resolveRequestId(headers: Headers): string {
   const generated = randomUUID();
   headers.set("x-request-id", generated);
   return generated;
+}
+
+function resolveAdminToken(req: IncomingMessage): string | undefined {
+  const header = req.headers["x-admin-token"];
+  if (typeof header === "string" && header.trim()) {
+    return header.trim();
+  }
+  const auth = req.headers.authorization;
+  if (typeof auth === "string") {
+    const match = auth.match(/^Bearer\s+(.+)$/i);
+    const token = match?.[1]?.trim();
+    if (token) {
+      return token;
+    }
+  }
+  return undefined;
+}
+
+function parseReloadAgentId(body: Uint8Array): string | undefined {
+  if (body.length === 0) {
+    return undefined;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(Buffer.from(body).toString("utf8"));
+  } catch {
+    throw new Error("Invalid JSON body for reload endpoint.");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Reload body must be a JSON object.");
+  }
+  const candidate = (parsed as { agentId?: unknown }).agentId;
+  return typeof candidate === "string" && candidate.trim() ? candidate.trim() : undefined;
 }
 
 async function writeFetchResponse(response: Response, res: ServerResponse): Promise<void> {
@@ -157,6 +191,53 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
             status: readiness.ok ? "ready" : "not_ready",
             agentId: readiness.agentId,
             ...(readiness.error ? { error: readiness.error } : {}),
+          }),
+        );
+        return;
+      }
+      if (req.method === "POST" && req.url === "/reloadz") {
+        if (!options.adminToken?.trim()) {
+          res.statusCode = 404;
+          applyCorsHeaders(res, options.cors);
+          applyRequestIdHeader(res, requestId);
+          res.setHeader("content-type", "application/json");
+          res.end(
+            JSON.stringify({
+              error: {
+                message: "Not found.",
+                type: "invalid_request_error",
+              },
+            }),
+          );
+          return;
+        }
+        const inboundAdminToken = resolveAdminToken(req);
+        if (!inboundAdminToken || inboundAdminToken !== options.adminToken.trim()) {
+          res.statusCode = 401;
+          applyCorsHeaders(res, options.cors);
+          applyRequestIdHeader(res, requestId);
+          res.setHeader("content-type", "application/json");
+          res.end(
+            JSON.stringify({
+              error: {
+                message: "Unauthorized reload request.",
+                type: "authentication_error",
+              },
+            }),
+          );
+          return;
+        }
+        const body = await readRequestBody(req, Math.floor(maxRequestBytes));
+        const agentId = parseReloadAgentId(body);
+        const reloaded = await proxy.reload(agentId);
+        res.statusCode = 200;
+        applyCorsHeaders(res, options.cors);
+        applyRequestIdHeader(res, requestId);
+        res.setHeader("content-type", "application/json");
+        res.end(
+          JSON.stringify({
+            status: "ok",
+            ...reloaded,
           }),
         );
         return;
