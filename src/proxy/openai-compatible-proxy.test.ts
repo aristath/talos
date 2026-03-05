@@ -578,6 +578,40 @@ describe("createOpenAICompatibleProxy", () => {
     expect(invalidBearer.headers.get("x-request-id")).toBe("req-invalid");
   });
 
+  it("rejects non-json content types", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-content-type-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: "unused" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proxy = createOpenAICompatibleProxy({
+      workspaceDir,
+      defaultAgentId: "designer",
+    });
+
+    const response = await proxy.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "text/plain",
+          "x-request-id": "req-content-type",
+        },
+        body: "{}",
+      }),
+    );
+    expect(response.status).toBe(415);
+    expect(response.headers.get("x-request-id")).toBe("req-content-type");
+    expect(fetchMock).toHaveBeenCalledTimes(0);
+  });
+
   it("retries with fallback model when upstream returns 5xx", async () => {
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-fallback-"));
     await setupAgent({

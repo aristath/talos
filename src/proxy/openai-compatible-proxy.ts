@@ -134,6 +134,13 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function isJsonContentType(value: string | null): boolean {
+  if (!value) {
+    return true;
+  }
+  return value.toLowerCase().includes("application/json");
+}
+
 function validateChatCompletionsPayload(payload: Record<string, unknown>): string | undefined {
   if (!Array.isArray(payload.messages) || payload.messages.length === 0) {
     return "chat/completions requires a non-empty messages array.";
@@ -547,6 +554,11 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
       }
       if (request.method !== "POST") {
         return openAIError(405, "Method not allowed.", "invalid_request_error", {
+          "x-request-id": requestId,
+        });
+      }
+      if (!isJsonContentType(request.headers.get("content-type"))) {
+        return openAIError(415, "Unsupported media type. Use application/json.", "invalid_request_error", {
           "x-request-id": requestId,
         });
       }
