@@ -13,6 +13,7 @@ const INBOUND_AUTH_ENTRY_SCHEMA = z.object({
 
 const PROXY_CONFIG_FILE_SCHEMA = z.object({
   defaultAgentId: z.string().min(1),
+  platformPrompt: z.string().min(1).optional(),
   agentsDir: z.string().min(1).optional(),
   profileConfigFileName: z.string().min(1).optional(),
   upstreamTimeoutMs: z.number().int().positive().optional(),
@@ -87,6 +88,7 @@ export async function loadOpenAIProxyOptionsFromFile(params: {
   return {
     workspaceDir,
     defaultAgentId: data.defaultAgentId,
+    ...(data.platformPrompt ? { platformPrompt: data.platformPrompt } : {}),
     ...(data.agentsDir ? { agentsDir: data.agentsDir } : {}),
     ...(data.profileConfigFileName ? { profileConfigFileName: data.profileConfigFileName } : {}),
     ...(typeof data.upstreamTimeoutMs === "number" ? { upstreamTimeoutMs: data.upstreamTimeoutMs } : {}),

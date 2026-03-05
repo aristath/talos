@@ -108,6 +108,7 @@ Minimal `agent.json` example:
 ```
 
 When an incoming request omits `model`, the proxy uses the agent `model.default` and will retry with `model.fallbacks` on upstream `5xx` responses.
+Set `platformPrompt` in `proxy.json` when you need a global system policy prepended before each agent persona.
 
 Agent selection supports:
 

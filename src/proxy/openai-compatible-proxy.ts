@@ -12,6 +12,7 @@ type InboundAuthRule = {
 export type OpenAIProxyOptions = {
   workspaceDir: string;
   defaultAgentId: string;
+  platformPrompt?: string;
   inboundAuth?: Record<string, InboundAuthRule>;
   agentsDir?: string;
   profileConfigFileName?: string;
@@ -229,6 +230,14 @@ function mergePersonaIntoChatMessages(
   };
 }
 
+function composePrompt(platformPrompt: string | undefined, personaPrompt: string): string {
+  const platform = typeof platformPrompt === "string" ? platformPrompt.trim() : "";
+  if (!platform) {
+    return personaPrompt;
+  }
+  return `${platform}\n\n${personaPrompt}`;
+}
+
 function mergePersonaIntoResponsesInput(
   personaPrompt: string,
   payload: Record<string, unknown>,
@@ -299,6 +308,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
   const defaultAgentId = options.defaultAgentId.trim();
   const agentsDir = options.agentsDir?.trim() || "agents";
   const profileConfigFileName = options.profileConfigFileName?.trim() || "agent.json";
+  const platformPrompt = options.platformPrompt?.trim() || undefined;
   const upstreamTimeoutMs = options.upstreamTimeoutMs ?? 60_000;
   const cacheTtlMs = options.cacheTtlMs ?? 5_000;
   const cache = new Map<string, CachedAgentProfile>();
@@ -659,6 +669,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         );
       }
       const payloadWithoutAgentModelAlias = stripAgentModelAlias(payload);
+      const injectedPrompt = composePrompt(platformPrompt, profile.prompt);
       if (url.pathname === "/v1/chat/completions") {
         const payloadError = validateChatCompletionsPayload(payloadWithoutAgentModelAlias);
         if (payloadError) {
@@ -666,7 +677,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
             "x-request-id": requestId,
           });
         }
-        const withPersona = mergePersonaIntoChatMessages(profile.prompt, payloadWithoutAgentModelAlias);
+        const withPersona = mergePersonaIntoChatMessages(injectedPrompt, payloadWithoutAgentModelAlias);
         return await proxyJson({
           endpoint: "/chat/completions",
           payload: withPersona,
@@ -681,7 +692,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
             "x-request-id": requestId,
           });
         }
-        const withPersona = mergePersonaIntoResponsesInput(profile.prompt, payloadWithoutAgentModelAlias);
+        const withPersona = mergePersonaIntoResponsesInput(injectedPrompt, payloadWithoutAgentModelAlias);
         return await proxyJson({
           endpoint: "/responses",
           payload: withPersona,
@@ -696,7 +707,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
             "x-request-id": requestId,
           });
         }
-        const withPersona = mergePersonaIntoCompletionsPrompt(profile.prompt, payloadWithoutAgentModelAlias);
+        const withPersona = mergePersonaIntoCompletionsPrompt(injectedPrompt, payloadWithoutAgentModelAlias);
         return await proxyJson({
           endpoint: "/completions",
           payload: withPersona,

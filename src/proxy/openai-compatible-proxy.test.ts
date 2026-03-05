@@ -72,6 +72,7 @@ describe("createOpenAICompatibleProxy", () => {
     const proxy = createOpenAICompatibleProxy({
       workspaceDir,
       defaultAgentId: "designer",
+      platformPrompt: "Global platform policy",
       inboundAuth: {
         "client-key": {
           defaultAgentId: "designer",
@@ -116,6 +117,7 @@ describe("createOpenAICompatibleProxy", () => {
     expect(init.headers?.["x-request-id"]).toBe("req-123");
     expect(body.model).toBe("openai/gpt-4.1");
     expect(body.messages?.[0]?.role).toBe("system");
+    expect(body.messages?.[0]?.content).toContain("Global platform policy");
     expect(body.messages?.[0]?.content).toContain("You are a premium web designer.");
   });
 
