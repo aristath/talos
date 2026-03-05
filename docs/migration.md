@@ -2,7 +2,7 @@
 
 This repository is a focused extraction of core runtime concerns from the larger OpenClaw codebase.
 
-## Included in Talos
+## Included in SoulSwitch
 
 - agents and orchestration
 - persona bootstrapping and loading (`AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `USER.md`)

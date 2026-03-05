@@ -1,7 +1,7 @@
-import { TalosError } from "./errors.js";
-import type { PluginCapability, TalosPlugin } from "./types.js";
+import { SoulSwitchError } from "./errors.js";
+import type { PluginCapability, SoulSwitchPlugin } from "./types.js";
 
-export const TALOS_PLUGIN_API_VERSION = 1;
+export const SOULSWITCH_PLUGIN_API_VERSION = 1;
 
 const ALLOWED_CAPABILITIES: ReadonlySet<PluginCapability> = new Set([
   "tools",
@@ -9,33 +9,33 @@ const ALLOWED_CAPABILITIES: ReadonlySet<PluginCapability> = new Set([
   "hooks",
 ]);
 
-export function definePlugin(plugin: Omit<TalosPlugin, "apiVersion"> & { apiVersion?: number }): TalosPlugin {
+export function definePlugin(plugin: Omit<SoulSwitchPlugin, "apiVersion"> & { apiVersion?: number }): SoulSwitchPlugin {
   return {
     ...plugin,
-    apiVersion: plugin.apiVersion ?? TALOS_PLUGIN_API_VERSION,
+    apiVersion: plugin.apiVersion ?? SOULSWITCH_PLUGIN_API_VERSION,
   };
 }
 
-export function assertPluginCompatibility(plugin: TalosPlugin): void {
+export function assertPluginCompatibility(plugin: SoulSwitchPlugin): void {
   const normalizedId = plugin.id.trim();
   if (!normalizedId) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PLUGIN_INVALID",
       message: "Plugin id is required.",
     });
   }
 
-  const apiVersion = plugin.apiVersion ?? TALOS_PLUGIN_API_VERSION;
-  if (apiVersion !== TALOS_PLUGIN_API_VERSION) {
-    throw new TalosError({
+  const apiVersion = plugin.apiVersion ?? SOULSWITCH_PLUGIN_API_VERSION;
+  if (apiVersion !== SOULSWITCH_PLUGIN_API_VERSION) {
+    throw new SoulSwitchError({
       code: "PLUGIN_API_VERSION_UNSUPPORTED",
-      message: `Plugin ${normalizedId} uses apiVersion ${apiVersion}, but runtime supports ${TALOS_PLUGIN_API_VERSION}.`,
+      message: `Plugin ${normalizedId} uses apiVersion ${apiVersion}, but runtime supports ${SOULSWITCH_PLUGIN_API_VERSION}.`,
     });
   }
 
   for (const capability of plugin.capabilities ?? []) {
     if (!ALLOWED_CAPABILITIES.has(capability)) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "PLUGIN_INVALID",
         message: `Plugin ${normalizedId} declares unsupported capability: ${capability}`,
       });

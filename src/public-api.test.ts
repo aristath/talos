@@ -6,8 +6,8 @@ describe("public API contract", () => {
     const keys = Object.keys(api).sort();
 
     expect(keys).toEqual([
-      "TALOS_PLUGIN_API_VERSION",
-      "TalosError",
+      "SOULSWITCH_PLUGIN_API_VERSION",
+      "SoulSwitchError",
       "assertPluginCompatibility",
       "createBrowserTool",
       "createCanvasTool",
@@ -19,7 +19,7 @@ describe("public API contract", () => {
       "createOpenAICompatibleProxyServerFromFile",
       "createPdfTool",
       "createSessionTools",
-      "createTalos",
+      "createSoulSwitch",
       "createWebFetchTool",
       "createWebSearchTool",
       "definePlugin",
@@ -34,7 +34,7 @@ describe("public API contract", () => {
   });
 
   it("exports plugin API version as number", () => {
-    expect(typeof api.TALOS_PLUGIN_API_VERSION).toBe("number");
-    expect(api.TALOS_PLUGIN_API_VERSION).toBeGreaterThan(0);
+    expect(typeof api.SOULSWITCH_PLUGIN_API_VERSION).toBe("number");
+    expect(api.SOULSWITCH_PLUGIN_API_VERSION).toBeGreaterThan(0);
   });
 });

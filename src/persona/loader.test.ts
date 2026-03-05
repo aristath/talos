@@ -7,7 +7,7 @@ import { buildPersonaSystemPrompt, loadPersonaSnapshot } from "./loader.js";
 const tmpDirs: string[] = [];
 
 async function createTmpDir() {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-persona-"));
   tmpDirs.push(dir);
   return dir;
 }

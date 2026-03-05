@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createOpenAICompatibleProxyServer } from "./server.js";
 
-const requiredLiveKeys = ["TALOS_E2E_BASE_URL", "TALOS_E2E_API_KEY", "TALOS_E2E_MODEL"] as const;
+const requiredLiveKeys = ["SOULSWITCH_E2E_BASE_URL", "SOULSWITCH_E2E_API_KEY", "SOULSWITCH_E2E_MODEL"] as const;
 
 function readLiveConfig(): {
   baseURL: string;
@@ -21,15 +21,15 @@ function readLiveConfig(): {
     baseURL: values[0]!,
     apiKey: values[1]!,
     model: values[2]!,
-    providerId: process.env.TALOS_E2E_PROVIDER_ID?.trim() || "openrouter",
-    agentId: process.env.TALOS_E2E_AGENT_ID?.trim() || "e2e-live",
+    providerId: process.env.SOULSWITCH_E2E_PROVIDER_ID?.trim() || "openrouter",
+    agentId: process.env.SOULSWITCH_E2E_AGENT_ID?.trim() || "e2e-live",
   };
 }
 
 const liveConfig = readLiveConfig();
 const runLive = liveConfig ? describe : describe.skip;
 const LIVE_TIMEOUT_MS = 180_000;
-const PERSONA_MARKER = "talos-e2e-persona-marker-4f9c";
+const PERSONA_MARKER = "soulSwitch-e2e-persona-marker-4f9c";
 
 function readChatContent(payload: unknown): string {
   if (!payload || typeof payload !== "object") {
@@ -49,7 +49,7 @@ function readChatContent(payload: unknown): string {
 
 runLive("live proxy e2e", () => {
   const config = liveConfig!;
-  const inboundToken = "talos-e2e-client";
+  const inboundToken = "soulSwitch-e2e-client";
   let workspaceDir = "";
 
   afterEach(async () => {
@@ -59,7 +59,7 @@ runLive("live proxy e2e", () => {
   });
 
   async function bootLiveServer(soul = "You are a concise assistant for live proxy e2e validation.") {
-    workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-live-e2e-"));
+    workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-live-e2e-"));
     const agentDir = path.join(workspaceDir, "agents", config.agentId);
     await fs.mkdir(agentDir, { recursive: true });
     await fs.writeFile(path.join(agentDir, "SOUL.md"), soul, "utf8");
@@ -125,13 +125,13 @@ runLive("live proxy e2e", () => {
 
         expect(response.status).toBe(200);
         expect(response.headers.get("x-request-id")).toBe("e2e-chat-request");
-        expect(response.headers.get("x-talos-agent-id")).toBe(config.agentId);
-        expect(response.headers.get("x-talos-model")).toBe(config.model);
+        expect(response.headers.get("x-soulswitch-agent-id")).toBe(config.agentId);
+        expect(response.headers.get("x-soulswitch-model")).toBe(config.model);
         const payload = (await response.json()) as { id?: string; choices?: unknown[] };
         expect(typeof payload.id).toBe("string");
         expect(Array.isArray(payload.choices)).toBe(true);
         const content = readChatContent(payload);
-        expect(content.toLowerCase()).toContain(PERSONA_MARKER);
+        expect(content.toLowerCase()).toContain(PERSONA_MARKER.toLowerCase());
       } finally {
         await proxyServer.close();
       }
@@ -159,8 +159,8 @@ runLive("live proxy e2e", () => {
 
         expect(response.status).toBe(200);
         expect(response.headers.get("x-request-id")).toBe("e2e-responses-request");
-        expect(response.headers.get("x-talos-agent-id")).toBe(config.agentId);
-        expect(response.headers.get("x-talos-model")).toBe(config.model);
+        expect(response.headers.get("x-soulswitch-agent-id")).toBe(config.agentId);
+        expect(response.headers.get("x-soulswitch-model")).toBe(config.model);
         const payload = (await response.json()) as { id?: string };
         expect(typeof payload.id).toBe("string");
       } finally {

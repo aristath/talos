@@ -45,7 +45,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("serves OpenAI-compatible endpoints over HTTP", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -93,7 +93,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("strips mismatched upstream compression headers", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-encoding-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-encoding-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -147,7 +147,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("supports CORS preflight and response headers", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-cors-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-cors-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -202,7 +202,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("exposes health endpoint", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-health-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-health-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -238,7 +238,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("exposes readiness endpoint", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-ready-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-ready-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -267,7 +267,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("supports HEAD health and readiness probes", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-head-probes-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-head-probes-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -300,7 +300,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("returns 503 on readiness failures", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-not-ready-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-not-ready-"));
     const proxyServer = createOpenAICompatibleProxyServer({
       workspaceDir,
       defaultAgentId: "designer",
@@ -318,7 +318,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("exposes server metrics endpoint", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-metrics-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-metrics-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -381,7 +381,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("supports authenticated metrics reset endpoint", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-metrics-reset-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-metrics-reset-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -420,7 +420,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("supports authenticated cache reload endpoint", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-reload-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-reload-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -476,7 +476,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("hides reload endpoint when admin token is not configured", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-no-reload-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-no-reload-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -502,7 +502,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("returns 400 for invalid reload request payloads", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-reload-invalid-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-reload-invalid-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -544,7 +544,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("returns 413 when request body exceeds configured maxRequestBytes", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-limit-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-limit-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -580,7 +580,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("throws when maxRequestBytes is invalid", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-invalid-limit-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-invalid-limit-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -600,7 +600,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("returns 429 when max concurrent requests is exceeded", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-concurrency-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-concurrency-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -669,7 +669,7 @@ describe("createOpenAICompatibleProxyServer", () => {
   });
 
   it("throws when maxConcurrentRequests is invalid", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-invalid-concurrency-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-invalid-concurrency-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",

@@ -6,7 +6,7 @@ import type {
   RunQuery,
   RunLifecycleUnsubscribe,
   RunStats,
-  TalosStateSnapshot,
+  SoulSwitchStateSnapshot,
   RunSummary,
 } from "../types.js";
 
@@ -94,7 +94,7 @@ export class LifecycleEventBus {
         status: "cancelled",
         finishedAt: event.at,
         error: {
-          name: "TalosError",
+          name: "SoulSwitchError",
           code: "RUN_CANCELLED",
           message: event.data.reason,
         },
@@ -257,14 +257,14 @@ export class LifecycleEventBus {
     };
   }
 
-  snapshot(): TalosStateSnapshot {
+  snapshot(): SoulSwitchStateSnapshot {
     return {
       events: [...this.history],
       runs: Array.from(this.runs.values()),
     };
   }
 
-  replace(snapshot: TalosStateSnapshot): void {
+  replace(snapshot: SoulSwitchStateSnapshot): void {
     this.history.splice(0, this.history.length, ...snapshot.events.slice(-this.maxHistory));
     this.runs.clear();
     for (const run of snapshot.runs.slice(-this.maxRuns)) {

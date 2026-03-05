@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TALOS_PLUGIN_API_VERSION, assertPluginCompatibility, definePlugin } from "./plugin-sdk.js";
+import { SOULSWITCH_PLUGIN_API_VERSION, assertPluginCompatibility, definePlugin } from "./plugin-sdk.js";
 
 describe("plugin-sdk", () => {
   it("assigns default apiVersion when defining plugin", () => {
@@ -10,14 +10,14 @@ describe("plugin-sdk", () => {
       },
     });
 
-    expect(plugin.apiVersion).toBe(TALOS_PLUGIN_API_VERSION);
+    expect(plugin.apiVersion).toBe(SOULSWITCH_PLUGIN_API_VERSION);
   });
 
   it("rejects incompatible plugin api version", () => {
     expect(() =>
       assertPluginCompatibility({
         id: "future",
-        apiVersion: TALOS_PLUGIN_API_VERSION + 1,
+        apiVersion: SOULSWITCH_PLUGIN_API_VERSION + 1,
         setup() {
           return undefined;
         },

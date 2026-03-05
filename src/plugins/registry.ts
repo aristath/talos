@@ -1,5 +1,5 @@
 import type { PluginHooks } from "../types.js";
-import { TalosError } from "../errors.js";
+import { SoulSwitchError } from "../errors.js";
 
 export class PluginRegistry {
   private readonly hooks: {
@@ -25,13 +25,13 @@ export class PluginRegistry {
   assertNotRegistered(pluginId: string): void {
     const normalizedId = pluginId.trim();
     if (!normalizedId) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "PLUGIN_INVALID",
         message: "Plugin id is required.",
       });
     }
     if (this.plugins.has(normalizedId)) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "PLUGIN_DUPLICATE",
         message: `Plugin already registered: ${normalizedId}`,
       });
@@ -105,7 +105,7 @@ export class PluginRegistry {
     handler: PluginHooks[K],
   ): void {
     if (typeof handler !== "function") {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "PLUGIN_HOOK_INVALID",
         message: `Hook handler for ${String(name)} must be a function.`,
       });
@@ -141,7 +141,7 @@ export class PluginRegistry {
       this.hooks.afterModel.push({ pluginId, handler: handler as PluginHooks["afterModel"] });
       return;
     }
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PLUGIN_HOOK_INVALID",
       message: `Unsupported hook: ${String(name)}`,
     });

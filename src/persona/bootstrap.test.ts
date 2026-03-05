@@ -8,14 +8,14 @@ import { DEFAULT_PERSONA_TEMPLATES } from "./templates.js";
 const tmpDirs: string[] = [];
 
 async function createTmpDir() {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-bootstrap-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-persona-bootstrap-"));
   tmpDirs.push(dir);
   return dir;
 }
 
 afterEach(async () => {
   await Promise.all(tmpDirs.splice(0).map(async (dir) => fs.rm(dir, { recursive: true, force: true })));
-  delete process.env.TALOS_PERSONA_TEMPLATE_DIR;
+  delete process.env.SOULSWITCH_PERSONA_TEMPLATE_DIR;
 });
 
 describe("seedPersonaWorkspace", () => {
@@ -124,12 +124,12 @@ describe("seedPersonaWorkspace", () => {
     expect(soulAfter).not.toBe(userContent);
   });
 
-  it("uses external template directory when TALOS_PERSONA_TEMPLATE_DIR is set", async () => {
+  it("uses external template directory when SOULSWITCH_PERSONA_TEMPLATE_DIR is set", async () => {
     const dir = await createTmpDir();
     const templatesDir = await createTmpDir();
     await fs.writeFile(path.join(templatesDir, "SOUL.md"), "# SOUL.md\n\nexternal soul\n", "utf8");
 
-    process.env.TALOS_PERSONA_TEMPLATE_DIR = templatesDir;
+    process.env.SOULSWITCH_PERSONA_TEMPLATE_DIR = templatesDir;
     await seedPersonaWorkspace(dir, { overwrite: true });
 
     const soul = await fs.readFile(path.join(dir, "SOUL.md"), "utf8");

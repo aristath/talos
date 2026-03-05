@@ -1,5 +1,5 @@
 import type { ModelProviderAdapter, ModelRequest, ModelResponse } from "../types.js";
-import { TalosError } from "../errors.js";
+import { SoulSwitchError } from "../errors.js";
 
 export class ModelRegistry {
   private readonly providers = new Map<string, ModelProviderAdapter>();
@@ -7,7 +7,7 @@ export class ModelRegistry {
   register(provider: ModelProviderAdapter): void {
     const id = provider.id.trim();
     if (!id) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "PROVIDER_INVALID",
         message: "Model provider id is required.",
       });
@@ -34,7 +34,7 @@ export class ModelRegistry {
   async generate(request: ModelRequest): Promise<ModelResponse> {
     const provider = this.providers.get(request.providerId);
     if (!provider) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "PROVIDER_NOT_FOUND",
         message: `Unknown provider: ${request.providerId}`,
       });

@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { TalosError } from "../errors.js";
+import { SoulSwitchError } from "../errors.js";
 import type { PersonaFileName } from "./types.js";
 import { DEFAULT_SEEDED_PERSONA_FILES } from "./templates.js";
 import { loadPersonaTemplates } from "./template-source.js";
@@ -120,7 +120,7 @@ export async function seedPersonaWorkspace(
 ): Promise<PersonaBootstrapResult> {
   const normalized = workspaceDir.trim();
   if (!normalized) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PERSONA_INVALID_WORKSPACE",
       message: "Workspace directory is required.",
     });
@@ -130,7 +130,7 @@ export async function seedPersonaWorkspace(
   const realDir = await fs.realpath(normalized);
   const stat = await fs.stat(realDir);
   if (!stat.isDirectory()) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PERSONA_INVALID_WORKSPACE",
       message: `Workspace path is not a directory: ${normalized}`,
     });

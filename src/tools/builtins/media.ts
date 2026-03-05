@@ -1,10 +1,10 @@
-import { TalosError } from "../../errors.js";
+import { SoulSwitchError } from "../../errors.js";
 import type { MediaUnderstandToolOptions, ToolDefinition } from "../../types.js";
 
 function requireInput(args: Record<string, unknown>, field: string): string {
   const value = typeof args[field] === "string" ? String(args[field]).trim() : "";
   if (!value) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: `media tool requires a non-empty '${field}' string.`,
     });
@@ -58,7 +58,7 @@ function parsePagesExpression(raw: string, maxPages: number): number[] {
       const start = Number.parseInt(range[1] ?? "", 10);
       const end = Number.parseInt(range[2] ?? "", 10);
       if (!Number.isFinite(start) || !Number.isFinite(end) || start <= 0 || end <= 0 || end < start) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: `Invalid pages range: ${chunk}`,
         });
@@ -73,14 +73,14 @@ function parsePagesExpression(raw: string, maxPages: number): number[] {
     }
 
     if (!/^\d+$/.test(chunk)) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_FAILED",
         message: `Invalid pages token: ${chunk}`,
       });
     }
     const page = Number.parseInt(chunk, 10);
     if (!Number.isFinite(page) || page <= 0) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_FAILED",
         message: `Invalid page number: ${chunk}`,
       });
@@ -102,14 +102,14 @@ function validateMediaReference(input: string, isPdf: boolean): void {
     try {
       parsed = new URL(input);
     } catch {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_FAILED",
         message: `Invalid ${isPdf ? "PDF" : "image"} URL: ${input}`,
       });
     }
     const allowed = new Set(["http:", "https:", "file:", "data:"]);
     if (!allowed.has(parsed.protocol)) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_FAILED",
         message: `Unsupported ${isPdf ? "PDF" : "image"} reference scheme: ${parsed.protocol}`,
         details: {
@@ -145,7 +145,7 @@ function createMediaTool(baseName: string, fallbackDescription: string, options:
         validateMediaReference(reference, isPdf);
       }
       if (collected.length > maxItems) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: `Too many ${isPdf ? "PDFs" : "images"}: ${collected.length} provided, maximum is ${maxItems}.`,
           details: {
@@ -173,7 +173,7 @@ function createMediaTool(baseName: string, fallbackDescription: string, options:
       const modelProvider = model?.split("/")[0]?.trim();
       const nativePdfMode = Boolean(isPdf && modelProvider && nativePdfProviders.has(modelProvider));
       if (nativePdfMode && pages) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: "pages is not supported with native PDF providers",
         });
@@ -209,7 +209,7 @@ function createMediaTool(baseName: string, fallbackDescription: string, options:
       }
 
       if (!analyzed) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: `${baseName} analysis failed for all model attempts.`,
           details: {

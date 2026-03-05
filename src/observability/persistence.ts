@@ -1,13 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { TalosError } from "../errors.js";
+import { SoulSwitchError } from "../errors.js";
 import { redactValue } from "../security/redaction.js";
-import type { TalosStateSnapshot } from "../types.js";
+import type { SoulSwitchStateSnapshot } from "../types.js";
 
-function ensureSnapshotShape(input: unknown): TalosStateSnapshot {
+function ensureSnapshotShape(input: unknown): SoulSwitchStateSnapshot {
   if (!input || typeof input !== "object") {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: "State snapshot must be an object.",
     });
@@ -20,53 +20,53 @@ function ensureSnapshotShape(input: unknown): TalosStateSnapshot {
   };
 
   if (!Array.isArray(candidate.events)) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: "State snapshot field 'events' must be an array.",
     });
   }
 
   if (!Array.isArray(candidate.runs)) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: "State snapshot field 'runs' must be an array.",
     });
   }
 
   if (typeof candidate.sessions !== "undefined" && !Array.isArray(candidate.sessions)) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: "State snapshot field 'sessions' must be an array when present.",
     });
   }
 
-  const snapshot: TalosStateSnapshot = {
-    events: candidate.events as TalosStateSnapshot["events"],
-    runs: candidate.runs as TalosStateSnapshot["runs"],
+  const snapshot: SoulSwitchStateSnapshot = {
+    events: candidate.events as SoulSwitchStateSnapshot["events"],
+    runs: candidate.runs as SoulSwitchStateSnapshot["runs"],
   };
   if (Array.isArray(candidate.sessions)) {
-    snapshot.sessions = candidate.sessions as NonNullable<TalosStateSnapshot["sessions"]>;
+    snapshot.sessions = candidate.sessions as NonNullable<SoulSwitchStateSnapshot["sessions"]>;
   }
   return snapshot;
 }
 
 export async function saveStateSnapshot(
   filePath: string,
-  snapshot: TalosStateSnapshot,
+  snapshot: SoulSwitchStateSnapshot,
   options?: {
     redactKeys?: string[];
   },
 ): Promise<string> {
   const normalizedPath = filePath.trim();
   if (!normalizedPath) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: "State file path is required.",
     });
   }
   const targetPath = path.resolve(normalizedPath);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
-  const safeSnapshot = redactValue(snapshot, options?.redactKeys) as TalosStateSnapshot;
+  const safeSnapshot = redactValue(snapshot, options?.redactKeys) as SoulSwitchStateSnapshot;
   const payload = `${JSON.stringify(safeSnapshot, null, 2)}\n`;
   const tmpPath = `${targetPath}.tmp-${process.pid}-${Date.now().toString(36)}-${randomUUID()}`;
   await fs.writeFile(tmpPath, payload, "utf8");
@@ -74,10 +74,10 @@ export async function saveStateSnapshot(
   return targetPath;
 }
 
-export async function loadStateSnapshot(filePath: string): Promise<{ path: string; snapshot: TalosStateSnapshot }> {
+export async function loadStateSnapshot(filePath: string): Promise<{ path: string; snapshot: SoulSwitchStateSnapshot }> {
   const normalizedPath = filePath.trim();
   if (!normalizedPath) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: "State file path is required.",
     });
@@ -88,7 +88,7 @@ export async function loadStateSnapshot(filePath: string): Promise<{ path: strin
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: `State file contains invalid JSON: ${targetPath}`,
       cause: error,

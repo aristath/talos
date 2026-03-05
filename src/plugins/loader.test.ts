@@ -7,7 +7,7 @@ import { discoverPluginEntryPaths, loadPluginFromPath } from "./loader.js";
 const tmpDirs: string[] = [];
 
 async function createTmpDir() {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-plugin-loader-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-plugin-loader-"));
   tmpDirs.push(dir);
   return dir;
 }

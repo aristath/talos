@@ -9,7 +9,7 @@ import { loadPersonaTemplates, stripLeadingMarkdownFrontmatter } from "./templat
 const TMP_DIRS: string[] = [];
 
 async function createTmpDir(): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-template-source-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-template-source-"));
   TMP_DIRS.push(dir);
   return dir;
 }
@@ -18,7 +18,7 @@ afterEach(async () => {
   for (const dir of TMP_DIRS.splice(0, TMP_DIRS.length)) {
     await fs.rm(dir, { recursive: true, force: true });
   }
-  delete process.env.TALOS_PERSONA_TEMPLATE_DIR;
+  delete process.env.SOULSWITCH_PERSONA_TEMPLATE_DIR;
   await loadPersonaTemplates({ forceReload: true });
 });
 
@@ -39,7 +39,7 @@ describe("loadPersonaTemplates", () => {
     const dir = await createTmpDir();
     await fs.writeFile(path.join(dir, "SOUL.md"), "# SOUL.md\n\ndoc template\n", "utf8");
 
-    process.env.TALOS_PERSONA_TEMPLATE_DIR = dir;
+    process.env.SOULSWITCH_PERSONA_TEMPLATE_DIR = dir;
     const templates = await loadPersonaTemplates({ forceReload: true });
 
     expect(templates["SOUL.md"]).toBe("# SOUL.md\n\ndoc template\n");
@@ -53,7 +53,7 @@ describe("loadPersonaTemplates", () => {
       "utf8",
     );
 
-    process.env.TALOS_PERSONA_TEMPLATE_DIR = dir;
+    process.env.SOULSWITCH_PERSONA_TEMPLATE_DIR = dir;
     const templates = await loadPersonaTemplates({ forceReload: true });
 
     expect(templates["USER.md"]).toBe("# USER.md\n\nbody\n");
@@ -63,7 +63,7 @@ describe("loadPersonaTemplates", () => {
     const dir = await createTmpDir();
     await fs.writeFile(path.join(dir, "MEMORY.md"), "# MEMORY.md\n\ncustom memory\n", "utf8");
 
-    process.env.TALOS_PERSONA_TEMPLATE_DIR = dir;
+    process.env.SOULSWITCH_PERSONA_TEMPLATE_DIR = dir;
     const templates = await loadPersonaTemplates({ forceReload: true });
 
     expect(templates["MEMORY.md"]).toBe("# MEMORY.md\n\ncustom memory\n");

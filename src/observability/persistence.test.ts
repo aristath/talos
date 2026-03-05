@@ -3,12 +3,12 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadStateSnapshot, saveStateSnapshot } from "./persistence.js";
-import type { TalosStateSnapshot } from "../types.js";
+import type { SoulSwitchStateSnapshot } from "../types.js";
 
 const tmpDirs: string[] = [];
 
 async function createTmpDir() {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persist-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-persist-"));
   tmpDirs.push(dir);
   return dir;
 }
@@ -37,7 +37,7 @@ describe("saveStateSnapshot", () => {
         },
       ],
       runs: [],
-    } as unknown as TalosStateSnapshot;
+    } as unknown as SoulSwitchStateSnapshot;
 
     await saveStateSnapshot(filePath, snapshot, {
       redactKeys: ["authorization"],

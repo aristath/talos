@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const talosConfigSchema = z.object({
+export const soulSwitchConfigSchema = z.object({
   authProfiles: z
     .record(
       z.object({
@@ -78,4 +78,4 @@ export const talosConfigSchema = z.object({
     .optional(),
 });
 
-export type TalosConfigSchema = z.infer<typeof talosConfigSchema>;
+export type SoulSwitchConfigSchema = z.infer<typeof soulSwitchConfigSchema>;

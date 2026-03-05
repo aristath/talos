@@ -57,7 +57,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("injects persona into chat completions and forwards upstream", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-chat-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-chat-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -110,10 +110,10 @@ describe("createOpenAICompatibleProxy", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-request-id")).toBe("req-123");
-    expect(response.headers.get("x-talos-agent-id")).toBe("designer");
-    expect(response.headers.get("x-talos-model")).toBe("openai/gpt-4.1");
-    expect(response.headers.get("x-talos-model-attempt")).toBe("1");
-    expect(response.headers.get("x-talos-model-candidates")).toBe("2");
+    expect(response.headers.get("x-soulswitch-agent-id")).toBe("designer");
+    expect(response.headers.get("x-soulswitch-model")).toBe("openai/gpt-4.1");
+    expect(response.headers.get("x-soulswitch-model-attempt")).toBe("1");
+    expect(response.headers.get("x-soulswitch-model-candidates")).toBe("2");
     const calls = fetchMock.mock.calls as unknown as Array<[unknown, unknown?]>;
     expect(String(calls[0]?.[0])).toBe("https://openrouter.ai/api/v1/chat/completions");
     const init = (calls[0]?.[1] ?? {}) as {
@@ -138,7 +138,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("reports not_ready when default agent profile cannot be resolved", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-not-ready-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-not-ready-"));
     const proxy = createOpenAICompatibleProxy({
       workspaceDir,
       defaultAgentId: "missing",
@@ -151,7 +151,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("reloads cached agent persona profiles on demand", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-reload-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-reload-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -211,7 +211,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("injects persona as instructions for responses endpoint", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-responses-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-responses-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -252,7 +252,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("supports legacy completions endpoint with persona-prefixed prompt", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-completions-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-completions-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -293,7 +293,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("supports embeddings endpoint with model defaults", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-embeddings-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-embeddings-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -333,7 +333,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("returns available agent models via /v1/models", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-models-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-models-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -383,7 +383,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("protects and filters /v1/models when inbound auth is configured", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-models-auth-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-models-auth-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -443,7 +443,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("selects agent by model alias and enforces inbound auth allowlist", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-alias-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-alias-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -529,7 +529,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("can disable model alias routing", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-no-alias-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-no-alias-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -563,7 +563,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("passes through upstream streaming responses", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-stream-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-stream-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -608,7 +608,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("validates required payload fields per endpoint", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-validate-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-validate-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -666,7 +666,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("attaches request id headers to inbound auth failures", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-auth-headers-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-auth-headers-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -719,7 +719,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("accepts inbound auth tokens from x-api-key header", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-x-api-key-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-x-api-key-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -769,7 +769,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("rejects non-json content types", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-content-type-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-content-type-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -803,7 +803,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("retries with fallback model when upstream returns 5xx", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-fallback-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-fallback-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",
@@ -837,10 +837,10 @@ describe("createOpenAICompatibleProxy", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("x-talos-model-fallback")).toBe("true");
-    expect(response.headers.get("x-talos-model")).toBe("fallback-model");
-    expect(response.headers.get("x-talos-model-attempt")).toBe("2");
-    expect(response.headers.get("x-talos-model-candidates")).toBe("2");
+    expect(response.headers.get("x-soulswitch-model-fallback")).toBe("true");
+    expect(response.headers.get("x-soulswitch-model")).toBe("fallback-model");
+    expect(response.headers.get("x-soulswitch-model-attempt")).toBe("2");
+    expect(response.headers.get("x-soulswitch-model-candidates")).toBe("2");
     const calls = fetchMock.mock.calls as unknown as Array<[unknown, unknown?]>;
     const firstBody = JSON.parse(((calls[0]?.[1] as { body?: string } | undefined)?.body ?? "{}")) as {
       model?: string;
@@ -856,7 +856,7 @@ describe("createOpenAICompatibleProxy", () => {
   });
 
   it("uses agent-level timeout override when configured", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-timeout-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-timeout-"));
     await setupAgent({
       workspaceDir,
       agentId: "designer",

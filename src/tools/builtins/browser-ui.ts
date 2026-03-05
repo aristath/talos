@@ -1,4 +1,4 @@
-import { TalosError } from "../../errors.js";
+import { SoulSwitchError } from "../../errors.js";
 import type { BrowserToolOptions, CanvasToolOptions, ToolDefinition } from "../../types.js";
 
 const BROWSER_ACTIONS = new Set([
@@ -211,7 +211,7 @@ function normalizeCanvasAction(action: string): string {
 function requiredAction(args: Record<string, unknown>): string {
   const action = typeof args.action === "string" ? args.action.trim() : "";
   if (!action) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: "browser/canvas tool requires a non-empty 'action' string.",
     });
@@ -223,7 +223,7 @@ function assertAllowedAction(action: string, allowed: ReadonlySet<string>, toolN
   if (allowed.has(action)) {
     return;
   }
-  throw new TalosError({
+  throw new SoulSwitchError({
     code: "TOOL_FAILED",
     message: `${toolName} action is not supported: ${action}`,
     details: {
@@ -243,7 +243,7 @@ function normalizeTarget(value: unknown): "sandbox" | "host" | "node" | undefine
   if (normalized === "sandbox" || normalized === "host" || normalized === "node") {
     return normalized;
   }
-  throw new TalosError({
+  throw new SoulSwitchError({
     code: "TOOL_FAILED",
     message: `Unsupported browser target: ${normalized}`,
   });
@@ -260,7 +260,7 @@ function normalizeCanvasExecutionTarget(value: unknown): "sandbox" | "host" | "n
   if (normalized === "sandbox" || normalized === "host" || normalized === "node") {
     return normalized;
   }
-  throw new TalosError({
+  throw new SoulSwitchError({
     code: "TOOL_FAILED",
     message: `Unsupported canvas execution target: ${normalized}`,
   });
@@ -271,7 +271,7 @@ function requireActionParam(args: Record<string, unknown>, field: string, toolNa
   if (value) {
     return value;
   }
-  throw new TalosError({
+  throw new SoulSwitchError({
     code: "TOOL_FAILED",
     message: `${toolName} action '${action}' requires a non-empty '${field}' string.`,
   });
@@ -324,7 +324,7 @@ function readBrowserActRequest(args: Record<string, unknown>): Record<string, un
 
 function assertPositiveNumber(value: unknown, message: string): void {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message,
     });
@@ -374,7 +374,7 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
           (typeof args.url === "string" ? args.url.trim() : "") ||
           (typeof args.targetUrl === "string" ? args.targetUrl.trim() : "");
         if (!url) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: `browser action '${action}' requires a non-empty 'url' string.`,
           });
@@ -386,7 +386,7 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
         (typeof args.targetId === "string" ? args.targetId.trim() : "") ||
         (typeof args.tabId === "string" ? args.tabId.trim() : "");
       if (!targetId) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: "browser action 'focus' requires 'targetId' (or alias 'tabId').",
         });
@@ -398,7 +398,7 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
     case "tab_select": {
       const index = typeof args.index === "number" ? args.index : undefined;
       if (typeof index !== "number" || !Number.isFinite(index) || index < 1) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: "browser action 'tab_select' requires numeric 'index' >= 1.",
         });
@@ -409,20 +409,20 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
       {
         const request = readBrowserActRequest(args);
         if (!request) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: "browser action 'act' requires request.kind or kind.",
           });
         }
         const kind = typeof request?.kind === "string" ? request.kind.trim() : "";
         if (!kind) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: "browser action 'act' requires request.kind or kind.",
           });
         }
         if (!BROWSER_ACT_KINDS.has(kind)) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: `browser action 'act' has unsupported request.kind: ${kind}`,
             details: {
@@ -451,7 +451,7 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
             requireActionParam(request, "ref", "browser act", kind);
             const values = request.values;
             if (!Array.isArray(values) || values.length === 0) {
-              throw new TalosError({
+              throw new SoulSwitchError({
                 code: "TOOL_FAILED",
                 message: "browser act 'select' requires a non-empty 'values' array.",
               });
@@ -461,7 +461,7 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
           case "fill": {
             const fields = request.fields;
             if (!Array.isArray(fields) || fields.length === 0) {
-              throw new TalosError({
+              throw new SoulSwitchError({
                 code: "TOOL_FAILED",
                 message: "browser act 'fill' requires a non-empty 'fields' array.",
               });
@@ -484,7 +484,7 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
                 loadState !== "domcontentloaded" &&
                 loadState !== "networkidle"
               ) {
-                throw new TalosError({
+                throw new SoulSwitchError({
                   code: "TOOL_FAILED",
                   message:
                     "browser act 'wait' supports loadState: load, domcontentloaded, networkidle.",
@@ -500,13 +500,13 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
       return;
     case "dialog": {
       if (Object.hasOwn(args, "accept") && typeof args.accept !== "boolean") {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: "browser action 'dialog' requires boolean 'accept' when provided.",
         });
       }
       if (Object.hasOwn(args, "promptText") && typeof args.promptText !== "string") {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: "browser action 'dialog' requires string 'promptText' when provided.",
         });
@@ -533,7 +533,7 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
         ? args.paths.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
         : [];
       if (paths.length === 0) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: "browser action 'upload' requires a non-empty 'paths' array.",
         });
@@ -548,7 +548,7 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
       if (type === "png" || type === "jpeg") {
         return;
       }
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_FAILED",
         message: "browser action 'screenshot' supports type: png, jpeg.",
       });
@@ -558,7 +558,7 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
         const snapshotFormat =
           typeof args.snapshotFormat === "string" ? args.snapshotFormat.trim().toLowerCase() : "";
         if (snapshotFormat && snapshotFormat !== "ai" && snapshotFormat !== "aria") {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: "browser action 'snapshot' supports snapshotFormat: ai, aria.",
           });
@@ -567,7 +567,7 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
       if (Object.hasOwn(args, "mode")) {
         const mode = typeof args.mode === "string" ? args.mode.trim().toLowerCase() : "";
         if (mode && mode !== "efficient") {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: "browser action 'snapshot' supports mode: efficient.",
           });
@@ -576,7 +576,7 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
       if (Object.hasOwn(args, "refs")) {
         const refs = typeof args.refs === "string" ? args.refs.trim().toLowerCase() : "";
         if (refs && refs !== "role" && refs !== "aria") {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: "browser action 'snapshot' supports refs: role, aria.",
           });
@@ -608,7 +608,7 @@ function assertBrowserActionParams(action: string, args: Record<string, unknown>
       const width = typeof args.width === "number" ? args.width : NaN;
       const height = typeof args.height === "number" ? args.height : NaN;
       if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: "browser action 'set_viewport' requires positive numeric width and height.",
         });
@@ -627,7 +627,7 @@ function assertCanvasActionParams(action: string, args: Record<string, unknown>)
         (typeof args.target === "string" ? args.target.trim() : "") ||
         (typeof args.url === "string" ? args.url.trim() : "");
       if (!target) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: "canvas action 'present' requires 'target' (or alias 'url').",
         });
@@ -639,7 +639,7 @@ function assertCanvasActionParams(action: string, args: Record<string, unknown>)
         (typeof args.url === "string" ? args.url.trim() : "") ||
         (typeof args.target === "string" ? args.target.trim() : "");
       if (!url) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: "canvas action 'navigate' requires 'url' (or alias 'target').",
         });
@@ -654,7 +654,7 @@ function assertCanvasActionParams(action: string, args: Record<string, unknown>)
         (typeof args.jsonl === "string" ? args.jsonl.trim() : "") ||
         (typeof args.jsonlPath === "string" ? args.jsonlPath.trim() : "");
       if (!jsonl) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: "canvas action 'a2ui_push' requires 'jsonl' or 'jsonlPath'.",
         });
@@ -669,7 +669,7 @@ function assertCanvasActionParams(action: string, args: Record<string, unknown>)
       if (outputFormat === "png" || outputFormat === "jpg" || outputFormat === "jpeg") {
         return;
       }
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_FAILED",
         message: "canvas action 'snapshot' supports outputFormat: png, jpg, jpeg.",
       });
@@ -749,7 +749,7 @@ export function createBrowserTool(options: BrowserToolOptions): ToolDefinition {
       const target = normalizeTarget(inputArgs.target);
       const node = typeof inputArgs.node === "string" && inputArgs.node.trim() ? inputArgs.node.trim() : undefined;
       if (node && target && target !== "node") {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: 'browser parameter "node" requires target="node" when target is provided.',
         });

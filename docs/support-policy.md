@@ -7,7 +7,7 @@
 ## Versioning
 
 - Public TypeScript API is semver-governed.
-- Plugin API compatibility is controlled through `TALOS_PLUGIN_API_VERSION`.
+- Plugin API compatibility is controlled through `SOULSWITCH_PLUGIN_API_VERSION`.
 
 ## Backward compatibility
 

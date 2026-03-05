@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { TalosError } from "../errors.js";
+import { SoulSwitchError } from "../errors.js";
 import { loadAgentRuntimeProfile, type AgentRuntimeProfile } from "../persona/agent-config.js";
 
 type InboundAuthRule = {
@@ -157,7 +157,7 @@ function parseJsonBody(raw: string): Record<string, unknown> {
     }
     return parsed as Record<string, unknown>;
   } catch (error) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: "Invalid JSON request body.",
       cause: error,
@@ -223,7 +223,7 @@ async function readPersonaPrompt(agentDir: string): Promise<string> {
     sections.push(`## ${fileName}\n${trimmed}`);
   }
   if (sections.length === 0) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: `Agent persona files are empty in: ${agentDir}`,
     });
@@ -376,7 +376,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         configFileName: profileConfigFileName,
       });
       if (!runtime) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "AGENT_NOT_FOUND",
           message: `Agent persona not found: ${agentId}`,
         });
@@ -430,7 +430,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
     if (modelCandidates.length === 0) {
       return openAIError(500, "No model resolved for upstream request.", "api_error", {
         "x-request-id": params.requestId,
-        "x-talos-agent-id": params.profile.agentId,
+        "x-soulswitch-agent-id": params.profile.agentId,
       });
     }
     const payloadBase = { ...params.payload };
@@ -460,11 +460,11 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
             headers: {
               ...Object.fromEntries(upstream.headers.entries()),
               "x-request-id": params.requestId,
-              "x-talos-agent-id": params.profile.agentId,
-              "x-talos-model": model,
-              "x-talos-model-attempt": String(index + 1),
-              "x-talos-model-candidates": String(modelCandidates.length),
-              ...(index > 0 ? { "x-talos-model-fallback": "true" } : {}),
+              "x-soulswitch-agent-id": params.profile.agentId,
+              "x-soulswitch-model": model,
+              "x-soulswitch-model-attempt": String(index + 1),
+              "x-soulswitch-model-candidates": String(modelCandidates.length),
+              ...(index > 0 ? { "x-soulswitch-model-fallback": "true" } : {}),
             },
           });
         }
@@ -474,10 +474,10 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
             headers: {
               ...Object.fromEntries(upstream.headers.entries()),
               "x-request-id": params.requestId,
-              "x-talos-agent-id": params.profile.agentId,
-              "x-talos-model": model,
-              "x-talos-model-attempt": String(index + 1),
-              "x-talos-model-candidates": String(modelCandidates.length),
+              "x-soulswitch-agent-id": params.profile.agentId,
+              "x-soulswitch-model": model,
+              "x-soulswitch-model-attempt": String(index + 1),
+              "x-soulswitch-model-candidates": String(modelCandidates.length),
             },
           });
         }
@@ -489,10 +489,10 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           headers: {
             ...Object.fromEntries(lastResponse.headers.entries()),
             "x-request-id": params.requestId,
-            "x-talos-agent-id": params.profile.agentId,
-            ...(lastModel ? { "x-talos-model": lastModel } : {}),
-            "x-talos-model-attempt": String(modelCandidates.length),
-            "x-talos-model-candidates": String(modelCandidates.length),
+            "x-soulswitch-agent-id": params.profile.agentId,
+            ...(lastModel ? { "x-soulswitch-model": lastModel } : {}),
+            "x-soulswitch-model-attempt": String(modelCandidates.length),
+            "x-soulswitch-model-candidates": String(modelCandidates.length),
           },
         });
       }
@@ -507,7 +507,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         "api_error",
         {
           "x-request-id": params.requestId,
-          "x-talos-agent-id": params.profile.agentId,
+          "x-soulswitch-agent-id": params.profile.agentId,
         },
       );
     } finally {
@@ -529,7 +529,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           return {
             id: `agent:${agentId}`,
             object: "model",
-            owned_by: "talos",
+            owned_by: "soulSwitch",
             ...(profile.modelId ? { root: profile.modelId } : {}),
           };
         } catch {

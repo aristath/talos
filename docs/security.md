@@ -1,6 +1,6 @@
 # Security Model
 
-Talos uses a trusted-operator model.
+SoulSwitch uses a trusted-operator model.
 
 ## Trust boundaries
 

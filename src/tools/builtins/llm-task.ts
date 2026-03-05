@@ -1,4 +1,4 @@
-import { TalosError } from "../../errors.js";
+import { SoulSwitchError } from "../../errors.js";
 import type { LlmTaskToolOptions, ToolDefinition } from "../../types.js";
 import Ajv2020 from "ajv/dist/2020.js";
 import type { ErrorObject } from "ajv";
@@ -6,7 +6,7 @@ import type { ErrorObject } from "ajv";
 function requiredPrompt(args: Record<string, unknown>): string {
   const prompt = typeof args.prompt === "string" ? args.prompt.trim() : "";
   if (!prompt) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: "llm_task requires a non-empty 'prompt' string.",
     });
@@ -88,7 +88,7 @@ export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
       try {
         parsed = JSON.parse(raw);
       } catch (error) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: "llm_task response is not valid JSON.",
           cause: error,
@@ -101,7 +101,7 @@ export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
       if (options.validateJson) {
         const validation = options.validateJson(parsed, args.schema);
         if (!validation.ok) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: "llm_task JSON response failed schema validation.",
             details: {
@@ -112,7 +112,7 @@ export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
         }
       } else if (typeof args.schema !== "undefined") {
         if (!args.schema || typeof args.schema !== "object" || Array.isArray(args.schema)) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: "llm_task schema must be a JSON Schema object.",
           });
@@ -128,14 +128,14 @@ export function createLlmTaskTool(options: LlmTaskToolOptions): ToolDefinition {
             });
           }
         } catch (error) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: "llm_task schema compilation failed.",
             cause: error,
           });
         }
         if (!valid) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: "llm_task JSON response failed schema validation.",
             details: {

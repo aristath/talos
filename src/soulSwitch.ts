@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { talosConfigSchema } from "./config/schema.js";
+import { soulSwitchConfigSchema } from "./config/schema.js";
 import { AgentRegistry } from "./agents/registry.js";
 import { ModelRegistry } from "./models/registry.js";
 import { createOpenAICompatibleProvider } from "./models/openai-compatible.js";
@@ -14,14 +14,14 @@ import { resolvePersonaSessionKind } from "./persona/session-kind.js";
 import type { PersonaSnapshot } from "./persona/types.js";
 import { PluginRegistry } from "./plugins/registry.js";
 import { discoverPluginEntryPaths, loadPluginFromPath } from "./plugins/loader.js";
-import { TALOS_PLUGIN_API_VERSION, assertPluginCompatibility } from "./plugin-sdk.js";
+import { SOULSWITCH_PLUGIN_API_VERSION, assertPluginCompatibility } from "./plugin-sdk.js";
 import { ToolRegistry } from "./tools/registry.js";
 import { createWebFetchTool, createWebSearchTool } from "./tools/builtins/web.js";
 import { createImageTool, createPdfTool } from "./tools/builtins/media.js";
 import { createBrowserTool, createCanvasTool } from "./tools/builtins/browser-ui.js";
 import { createSessionTools } from "./tools/builtins/sessions.js";
 import { createLlmTaskTool } from "./tools/builtins/llm-task.js";
-import { TalosError, toTalosErrorLike } from "./errors.js";
+import { SoulSwitchError, toSoulSwitchErrorLike } from "./errors.js";
 import { LifecycleEventBus } from "./observability/events.js";
 import { loadStateSnapshot, saveStateSnapshot } from "./observability/persistence.js";
 import type {
@@ -30,9 +30,9 @@ import type {
   ModelProviderAdapter,
   RunInput,
   RunResult,
-  Talos,
-  TalosConfig,
-  TalosPlugin,
+  SoulSwitch,
+  SoulSwitchConfig,
+  SoulSwitchPlugin,
   ToolDefinition,
   PluginCapability,
   RunLifecycleListener,
@@ -46,10 +46,10 @@ import type {
   RunQuery,
   EventQuery,
   RunStats,
-  TalosDiagnostics,
+  SoulSwitchDiagnostics,
   PluginSummary,
   DiagnosticsResetResult,
-  TalosStateSnapshot,
+  SoulSwitchStateSnapshot,
 } from "./types.js";
 
 const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 60_000;
@@ -67,7 +67,7 @@ function assertRunNotAborted(signal: AbortSignal | undefined, runId: string): vo
   if (!signal?.aborted) {
     return;
   }
-  throw new TalosError({
+  throw new SoulSwitchError({
     code: "RUN_CANCELLED",
     message: `Run ${runId} was cancelled.`,
   });
@@ -77,7 +77,7 @@ function assertToolNotAborted(signal: AbortSignal | undefined, toolName: string)
   if (!signal?.aborted) {
     return;
   }
-  throw new TalosError({
+  throw new SoulSwitchError({
     code: "TOOL_CANCELLED",
     message: `Tool execution was cancelled: ${toolName}`,
   });
@@ -119,7 +119,7 @@ async function withTimeout<T>(
       new Promise<T>((_, reject) => {
         timeoutHandle = setTimeout(() => {
           reject(
-            new TalosError({
+            new SoulSwitchError({
               code: timeoutCode,
               message: timeoutMessage,
             }),
@@ -204,12 +204,12 @@ function parseToolLoopResponse(text: string): ParsedToolLoopResponse | null {
   };
 }
 
-export function createTalos(config: TalosConfig): Talos {
-  const parsed = talosConfigSchema.safeParse(config);
+export function createSoulSwitch(config: SoulSwitchConfig): SoulSwitch {
+  const parsed = soulSwitchConfigSchema.safeParse(config);
   if (!parsed.success) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
-      message: "Talos configuration is invalid.",
+      message: "SoulSwitch configuration is invalid.",
       cause: parsed.error,
       details: {
         issues: parsed.error.issues.map((issue) => ({
@@ -287,37 +287,37 @@ export function createTalos(config: TalosConfig): Talos {
     const runDeny = toNormalizedSet(policy?.deny);
 
     if (toolDenylist.has(normalized)) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_NOT_ALLOWED",
         message: `Tool is denied by global configuration: ${name}`,
       });
     }
     if (agentDeny.has(normalized)) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_NOT_ALLOWED",
         message: `Tool is denied by agent policy: ${name}`,
       });
     }
     if (runDeny.has(normalized)) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_NOT_ALLOWED",
         message: `Tool is denied by run policy: ${name}`,
       });
     }
     if (toolAllowlist.size > 0 && !toolAllowlist.has(normalized)) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_NOT_ALLOWED",
         message: `Tool is not in global allowlist: ${name}`,
       });
     }
     if (agentAllow.size > 0 && !agentAllow.has(normalized)) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_NOT_ALLOWED",
         message: `Tool is not in agent allowlist: ${name}`,
       });
     }
     if (runAllow.size > 0 && !runAllow.has(normalized)) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_NOT_ALLOWED",
         message: `Tool is not in run allowlist: ${name}`,
       });
@@ -357,7 +357,7 @@ export function createTalos(config: TalosConfig): Talos {
   const registerAuthProfile = (profile: AuthProfile): void => {
     const normalizedId = profile.id.trim();
     if (!normalizedId) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "CONFIG_INVALID",
         message: "Auth profile id is required.",
       });
@@ -521,7 +521,7 @@ export function createTalos(config: TalosConfig): Talos {
         sendToSession: async (params) => {
           const target = sessions.get(params.sessionId.trim());
           if (!target) {
-            throw new TalosError({
+            throw new SoulSwitchError({
               code: "TOOL_FAILED",
               message: `Unknown session: ${params.sessionId}`,
             });
@@ -570,7 +570,7 @@ export function createTalos(config: TalosConfig): Talos {
               result = await run(runParams);
             }
           } catch (error) {
-            if (error instanceof TalosError && error.code === "MODEL_TIMEOUT") {
+            if (error instanceof SoulSwitchError && error.code === "MODEL_TIMEOUT") {
               return {
                 runId: randomUUID(),
                 status: "timeout" as const,
@@ -701,14 +701,14 @@ export function createTalos(config: TalosConfig): Talos {
             options?.defaultModelId ??
             parsed.data.providers.openaiCompatible[0]?.defaultModel;
           if (!providerId || !modelId) {
-            throw new TalosError({
+            throw new SoulSwitchError({
               code: "PROVIDER_NOT_FOUND",
               message: "llm_task could not resolve provider/model.",
             });
           }
           const modelKey = `${providerId}/${modelId}`;
           if (allowedModels.length > 0 && !allowedModels.includes(modelKey)) {
-            throw new TalosError({
+            throw new SoulSwitchError({
               code: "TOOL_NOT_ALLOWED",
               message: "llm_task model is not allowed: " + modelKey,
               details: {
@@ -721,7 +721,7 @@ export function createTalos(config: TalosConfig): Talos {
             try {
               inputJson = JSON.stringify(params.input ?? null, null, 2);
             } catch {
-              throw new TalosError({
+              throw new SoulSwitchError({
                 code: "TOOL_FAILED",
                 message: "llm_task input must be JSON-serializable.",
               });
@@ -807,19 +807,19 @@ export function createTalos(config: TalosConfig): Talos {
     return agents.remove(agentId);
   };
 
-  const registerPlugin = async (plugin: TalosPlugin) => {
+  const registerPlugin = async (plugin: SoulSwitchPlugin) => {
     plugins.assertNotRegistered(plugin.id);
     const normalizedPluginId = plugin.id.trim();
     assertPluginCompatibility(plugin);
-    const apiVersion = plugin.apiVersion ?? TALOS_PLUGIN_API_VERSION;
+    const apiVersion = plugin.apiVersion ?? SOULSWITCH_PLUGIN_API_VERSION;
     const capabilities = plugin.capabilities ?? ["tools", "providers", "hooks"];
     const ownedTools = new Set<string>();
     const ownedProviders = new Set<string>();
     const teardown = await plugin.setup({
-      apiVersion: TALOS_PLUGIN_API_VERSION,
+      apiVersion: SOULSWITCH_PLUGIN_API_VERSION,
       registerTool: (tool) => {
         if (!hasCapability(capabilities, "tools")) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "PLUGIN_CAPABILITY_DENIED",
             message: `Plugin ${plugin.id} is not allowed to register tools.`,
           });
@@ -829,7 +829,7 @@ export function createTalos(config: TalosConfig): Talos {
       },
       registerModelProvider: (provider) => {
         if (!hasCapability(capabilities, "providers")) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "PLUGIN_CAPABILITY_DENIED",
             message: `Plugin ${plugin.id} is not allowed to register providers.`,
           });
@@ -839,7 +839,7 @@ export function createTalos(config: TalosConfig): Talos {
       },
       on: (name, handler) => {
         if (!hasCapability(capabilities, "hooks")) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "PLUGIN_CAPABILITY_DENIED",
             message: `Plugin ${plugin.id} is not allowed to register hooks.`,
           });
@@ -914,7 +914,7 @@ export function createTalos(config: TalosConfig): Talos {
     });
 
     if (teardownError) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "PLUGIN_UNLOAD_FAILED",
         message: `Plugin teardown failed: ${normalizedPluginId}`,
         cause: teardownError,
@@ -935,7 +935,7 @@ export function createTalos(config: TalosConfig): Talos {
       const providers = pluginOwnedProviders.get(pluginId);
       return {
         id: pluginId,
-        apiVersion: pluginApiVersions.get(pluginId) ?? TALOS_PLUGIN_API_VERSION,
+        apiVersion: pluginApiVersions.get(pluginId) ?? SOULSWITCH_PLUGIN_API_VERSION,
         capabilities,
         toolCount: tools?.size ?? 0,
         providerCount: providers?.size ?? 0,
@@ -954,7 +954,7 @@ export function createTalos(config: TalosConfig): Talos {
     const providers = pluginOwnedProviders.get(normalizedPluginId);
     return {
       id: normalizedPluginId,
-      apiVersion: pluginApiVersions.get(normalizedPluginId) ?? TALOS_PLUGIN_API_VERSION,
+      apiVersion: pluginApiVersions.get(normalizedPluginId) ?? SOULSWITCH_PLUGIN_API_VERSION,
       capabilities,
       toolCount: tools?.size ?? 0,
       providerCount: providers?.size ?? 0,
@@ -973,7 +973,7 @@ export function createTalos(config: TalosConfig): Talos {
   const resolveStateFilePath = (filePath?: string): string => {
     const candidate = filePath?.trim() || defaultStateFile;
     if (!candidate) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "CONFIG_INVALID",
         message: "State file path is not configured. Set runtime.stateFile or provide a path.",
       });
@@ -1057,7 +1057,7 @@ export function createTalos(config: TalosConfig): Talos {
     return events.getRunStats();
   };
 
-  const getDiagnostics = (options?: { recentEventsLimit?: number }): TalosDiagnostics => {
+  const getDiagnostics = (options?: { recentEventsLimit?: number }): SoulSwitchDiagnostics => {
     const recentEventsLimit = options?.recentEventsLimit ?? 50;
     return {
       generatedAt: new Date().toISOString(),
@@ -1115,7 +1115,7 @@ export function createTalos(config: TalosConfig): Talos {
         await registerPlugin(plugin);
         loadedPluginIds.push(plugin.id);
       } catch (error) {
-        if (error instanceof TalosError && error.code === "PLUGIN_DUPLICATE") {
+        if (error instanceof SoulSwitchError && error.code === "PLUGIN_DUPLICATE") {
           continue;
         }
         throw error;
@@ -1202,7 +1202,7 @@ export function createTalos(config: TalosConfig): Talos {
       });
       return result;
     } catch (error) {
-      if (error instanceof TalosError && error.code === "TOOL_CANCELLED") {
+      if (error instanceof SoulSwitchError && error.code === "TOOL_CANCELLED") {
         await events.emit({
           type: "tool.cancelled",
           at: new Date().toISOString(),
@@ -1228,13 +1228,13 @@ export function createTalos(config: TalosConfig): Talos {
             ? { sessionId: normalizedInput.context.sessionId }
             : {}),
           ...(normalizedInput.context.runId ? { runId: normalizedInput.context.runId } : {}),
-          error: toTalosErrorLike(error),
+          error: toSoulSwitchErrorLike(error),
         },
       });
-      if (error instanceof TalosError) {
+      if (error instanceof SoulSwitchError) {
         throw error;
       }
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_FAILED",
         message: `Tool execution failed: ${normalizedInput.name}`,
         cause: error,
@@ -1319,7 +1319,7 @@ export function createTalos(config: TalosConfig): Talos {
         agent.model?.modelId ??
         primaryProvider?.defaultModel;
       if (!primaryProviderId || !primaryModelId) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "PROVIDER_NOT_FOUND",
           message:
             "No default provider/model could be resolved. Configure providers.openaiCompatible or set agent.model.providerId/modelId.",
@@ -1497,7 +1497,7 @@ export function createTalos(config: TalosConfig): Talos {
               });
               break;
             } catch (error) {
-              if (error instanceof TalosError && error.code === "RUN_CANCELLED") {
+              if (error instanceof SoulSwitchError && error.code === "RUN_CANCELLED") {
                 throw error;
               }
               lastError = error;
@@ -1508,7 +1508,7 @@ export function createTalos(config: TalosConfig): Talos {
                 data: {
                   providerId: request.providerId,
                   modelId: request.modelId,
-                  error: toTalosErrorLike(error),
+                  error: toSoulSwitchErrorLike(error),
                 },
               });
               if (retry < retriesPerModel && retryDelayMs > 0) {
@@ -1524,7 +1524,7 @@ export function createTalos(config: TalosConfig): Talos {
           }
         }
         if (!generated) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "RUN_FAILED",
             message: "All configured model attempts failed.",
             cause: lastError ?? undefined,
@@ -1618,7 +1618,7 @@ export function createTalos(config: TalosConfig): Talos {
       });
       return result;
     } catch (error) {
-      if (error instanceof TalosError && error.code === "RUN_CANCELLED") {
+      if (error instanceof SoulSwitchError && error.code === "RUN_CANCELLED") {
         await events.emit({
           type: "run.cancelled",
           at: new Date().toISOString(),
@@ -1634,15 +1634,15 @@ export function createTalos(config: TalosConfig): Talos {
         at: new Date().toISOString(),
         runId,
         data: {
-          error: toTalosErrorLike(error),
+          error: toSoulSwitchErrorLike(error),
         },
       });
-      if (error instanceof TalosError) {
+      if (error instanceof SoulSwitchError) {
         throw error;
       }
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "RUN_FAILED",
-        message: "Talos run failed.",
+        message: "SoulSwitch run failed.",
         cause: error,
       });
     } finally {

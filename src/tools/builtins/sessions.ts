@@ -1,10 +1,10 @@
-import { TalosError } from "../../errors.js";
+import { SoulSwitchError } from "../../errors.js";
 import type { SessionToolsOptions, ToolDefinition } from "../../types.js";
 
 function requiredString(args: Record<string, unknown>, field: string): string {
   const value = typeof args[field] === "string" ? String(args[field]).trim() : "";
   if (!value) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: `session tool requires a non-empty '${field}' string.`,
     });
@@ -486,7 +486,7 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
       async run(args, context) {
         const unsupportedParam = unsupportedSpawnParamKeys.find((key) => Object.hasOwn(args, key));
         if (unsupportedParam) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: `sessions_spawn does not support '${unsupportedParam}'. Use sessions_send for delivery.`,
           });
@@ -544,7 +544,7 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
               session: requester,
             })
           ) {
-            throw new TalosError({
+            throw new SoulSwitchError({
               code: "TOOL_NOT_ALLOWED",
               message: `Access denied for sessions_spawn from ${context.sessionId}`,
             });
@@ -591,7 +591,7 @@ export function createSessionTools(options: SessionToolsOptions): ToolDefinition
               ? args.sessionId.trim()
             : context.sessionId;
         if (!sessionId) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: "session_status requires sessionId when run context has no session.",
           });

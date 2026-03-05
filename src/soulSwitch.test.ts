@@ -3,11 +3,11 @@ import { vi } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { createTalos } from "./talos.js";
+import { createSoulSwitch } from "./soulSwitch.js";
 
-describe("createTalos", () => {
+describe("createSoulSwitch", () => {
   it("loads per-agent SOUL and static upstream auth from agents/<id>/agent.json", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-agent-profile-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-agent-profile-"));
     await fs.writeFile(path.join(workspaceDir, "SOUL.md"), "Root soul", "utf8");
     const agentDir = path.join(workspaceDir, "agents", "main");
     await fs.mkdir(agentDir, { recursive: true });
@@ -55,7 +55,7 @@ describe("createTalos", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -66,9 +66,9 @@ describe("createTalos", () => {
         ],
       },
     });
-    talos.registerAgent({ id: "main" });
+    soulSwitch.registerAgent({ id: "main" });
 
-    const result = await talos.run({
+    const result = await soulSwitch.run({
       agentId: "main",
       prompt: "hello",
       workspaceDir,
@@ -99,7 +99,7 @@ describe("createTalos", () => {
   });
 
   it("creates an engine with registration APIs", () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -111,47 +111,47 @@ describe("createTalos", () => {
       },
     });
 
-    expect(typeof talos.registerAgent).toBe("function");
-    expect(typeof talos.listAgents).toBe("function");
-    expect(typeof talos.hasAgent).toBe("function");
-    expect(typeof talos.removeAgent).toBe("function");
-    expect(typeof talos.registerTool).toBe("function");
-    expect(typeof talos.registerWebTools).toBe("function");
-    expect(typeof talos.registerMediaTools).toBe("function");
-    expect(typeof talos.registerBrowserTools).toBe("function");
-    expect(typeof talos.registerCanvasTools).toBe("function");
-    expect(typeof talos.registerSessionTools).toBe("function");
-    expect(typeof talos.registerLlmTaskTool).toBe("function");
-    expect(typeof talos.listTools).toBe("function");
-    expect(typeof talos.hasTool).toBe("function");
-    expect(typeof talos.removeTool).toBe("function");
-    expect(typeof talos.registerPlugin).toBe("function");
-    expect(typeof talos.removePlugin).toBe("function");
-    expect(typeof talos.listPlugins).toBe("function");
-    expect(typeof talos.listPluginSummaries).toBe("function");
-    expect(typeof talos.getPluginSummary).toBe("function");
-    expect(typeof talos.hasPlugin).toBe("function");
-    expect(typeof talos.listModelProviders).toBe("function");
-    expect(typeof talos.hasModelProvider).toBe("function");
-    expect(typeof talos.removeModelProvider).toBe("function");
-    expect(typeof talos.registerAuthProfile).toBe("function");
-    expect(typeof talos.listAuthProfiles).toBe("function");
-    expect(typeof talos.hasAuthProfile).toBe("function");
-    expect(typeof talos.removeAuthProfile).toBe("function");
-    expect(typeof talos.onEvent).toBe("function");
-    expect(typeof talos.seedPersonaWorkspace).toBe("function");
-    expect(typeof talos.listRuns).toBe("function");
-    expect(typeof talos.queryRuns).toBe("function");
-    expect(typeof talos.getRun).toBe("function");
-    expect(typeof talos.getRunStats).toBe("function");
-    expect(typeof talos.getDiagnostics).toBe("function");
-    expect(typeof talos.resetDiagnostics).toBe("function");
-    expect(typeof talos.queryEvents).toBe("function");
-    expect(typeof talos.run).toBe("function");
+    expect(typeof soulSwitch.registerAgent).toBe("function");
+    expect(typeof soulSwitch.listAgents).toBe("function");
+    expect(typeof soulSwitch.hasAgent).toBe("function");
+    expect(typeof soulSwitch.removeAgent).toBe("function");
+    expect(typeof soulSwitch.registerTool).toBe("function");
+    expect(typeof soulSwitch.registerWebTools).toBe("function");
+    expect(typeof soulSwitch.registerMediaTools).toBe("function");
+    expect(typeof soulSwitch.registerBrowserTools).toBe("function");
+    expect(typeof soulSwitch.registerCanvasTools).toBe("function");
+    expect(typeof soulSwitch.registerSessionTools).toBe("function");
+    expect(typeof soulSwitch.registerLlmTaskTool).toBe("function");
+    expect(typeof soulSwitch.listTools).toBe("function");
+    expect(typeof soulSwitch.hasTool).toBe("function");
+    expect(typeof soulSwitch.removeTool).toBe("function");
+    expect(typeof soulSwitch.registerPlugin).toBe("function");
+    expect(typeof soulSwitch.removePlugin).toBe("function");
+    expect(typeof soulSwitch.listPlugins).toBe("function");
+    expect(typeof soulSwitch.listPluginSummaries).toBe("function");
+    expect(typeof soulSwitch.getPluginSummary).toBe("function");
+    expect(typeof soulSwitch.hasPlugin).toBe("function");
+    expect(typeof soulSwitch.listModelProviders).toBe("function");
+    expect(typeof soulSwitch.hasModelProvider).toBe("function");
+    expect(typeof soulSwitch.removeModelProvider).toBe("function");
+    expect(typeof soulSwitch.registerAuthProfile).toBe("function");
+    expect(typeof soulSwitch.listAuthProfiles).toBe("function");
+    expect(typeof soulSwitch.hasAuthProfile).toBe("function");
+    expect(typeof soulSwitch.removeAuthProfile).toBe("function");
+    expect(typeof soulSwitch.onEvent).toBe("function");
+    expect(typeof soulSwitch.seedPersonaWorkspace).toBe("function");
+    expect(typeof soulSwitch.listRuns).toBe("function");
+    expect(typeof soulSwitch.queryRuns).toBe("function");
+    expect(typeof soulSwitch.getRun).toBe("function");
+    expect(typeof soulSwitch.getRunStats).toBe("function");
+    expect(typeof soulSwitch.getDiagnostics).toBe("function");
+    expect(typeof soulSwitch.resetDiagnostics).toBe("function");
+    expect(typeof soulSwitch.queryEvents).toBe("function");
+    expect(typeof soulSwitch.run).toBe("function");
   });
 
   it("manages agent lifecycle in registry", () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -163,15 +163,15 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerAgent({ id: "main", name: "Main" });
-    expect(talos.hasAgent("main")).toBe(true);
-    expect(talos.listAgents().map((agent) => agent.id)).toContain("main");
-    expect(talos.removeAgent("main")).toBe(true);
-    expect(talos.hasAgent("main")).toBe(false);
+    soulSwitch.registerAgent({ id: "main", name: "Main" });
+    expect(soulSwitch.hasAgent("main")).toBe(true);
+    expect(soulSwitch.listAgents().map((agent) => agent.id)).toContain("main");
+    expect(soulSwitch.removeAgent("main")).toBe(true);
+    expect(soulSwitch.hasAgent("main")).toBe(false);
   });
 
   it("manages tool lifecycle in registry", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -183,7 +183,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerTool({
+    soulSwitch.registerTool({
       name: "echo",
       description: "echo",
       async run(args) {
@@ -191,14 +191,14 @@ describe("createTalos", () => {
       },
     });
 
-    expect(talos.hasTool("echo")).toBe(true);
-    expect(talos.listTools().map((tool) => tool.name)).toContain("echo");
-    expect(talos.removeTool("echo")).toBe(true);
-    expect(talos.hasTool("echo")).toBe(false);
+    expect(soulSwitch.hasTool("echo")).toBe(true);
+    expect(soulSwitch.listTools().map((tool) => tool.name)).toContain("echo");
+    expect(soulSwitch.removeTool("echo")).toBe(true);
+    expect(soulSwitch.hasTool("echo")).toBe(false);
   });
 
   it("registers web tools and executes web_search", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -210,7 +210,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerWebTools({
+    soulSwitch.registerWebTools({
       search: {
         search: async ({ query }) => [
           {
@@ -228,14 +228,14 @@ describe("createTalos", () => {
       },
     });
 
-    const search = await talos.executeTool({
+    const search = await soulSwitch.executeTool({
       name: "web_search",
       args: {
-        query: "talos",
+        query: "soulSwitch",
       },
       context: { agentId: "main" },
     });
-    const fetched = await talos.executeTool({
+    const fetched = await soulSwitch.executeTool({
       name: "web_fetch",
       args: {
         url: "https://example.com",
@@ -243,14 +243,14 @@ describe("createTalos", () => {
       context: { agentId: "main" },
     });
 
-    expect(search.content).toContain("Result for talos");
+    expect(search.content).toContain("Result for soulSwitch");
     expect(fetched.content).toContain("Fetched https://example.com");
     expect((search.data as { details?: { resultCount?: number } }).details?.resultCount).toBe(1);
     expect((fetched.data as { details?: { url?: string } }).details?.url).toBe("https://example.com/");
   });
 
   it("validates web_search locale and freshness parameters", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -262,17 +262,17 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerWebTools({
+    soulSwitch.registerWebTools({
       search: {
         search: async () => [],
       },
     });
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "web_search",
         args: {
-          query: "talos",
+          query: "soulSwitch",
           search_lang: "en-US",
         },
         context: { agentId: "main" },
@@ -280,10 +280,10 @@ describe("createTalos", () => {
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "web_search",
         args: {
-          query: "talos",
+          query: "soulSwitch",
           freshness: "yesterday",
         },
         context: { agentId: "main" },
@@ -291,10 +291,10 @@ describe("createTalos", () => {
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "web_search",
         args: {
-          query: "talos",
+          query: "soulSwitch",
           provider: "bing",
         },
         context: { agentId: "main" },
@@ -303,7 +303,7 @@ describe("createTalos", () => {
   });
 
   it("caches web_search and web_fetch responses", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -318,7 +318,7 @@ describe("createTalos", () => {
     let searchCalls = 0;
     let fetchCalls = 0;
     let lastProvider = "";
-    talos.registerWebTools({
+    soulSwitch.registerWebTools({
       search: {
         search: async ({ query, provider }) => {
           searchCalls += 1;
@@ -334,22 +334,22 @@ describe("createTalos", () => {
       },
     });
 
-    await talos.executeTool({
+    await soulSwitch.executeTool({
       name: "web_search",
       args: { query: "cache-me", provider: "brave" },
       context: { agentId: "main" },
     });
-    await talos.executeTool({
+    await soulSwitch.executeTool({
       name: "web_search",
       args: { query: "cache-me", provider: "brave" },
       context: { agentId: "main" },
     });
-    await talos.executeTool({
+    await soulSwitch.executeTool({
       name: "web_fetch",
       args: { url: "https://example.com" },
       context: { agentId: "main" },
     });
-    await talos.executeTool({
+    await soulSwitch.executeTool({
       name: "web_fetch",
       args: { url: "https://example.com" },
       context: { agentId: "main" },
@@ -366,7 +366,7 @@ describe("createTalos", () => {
     process.env.BRAVE_API_KEY = "brave-key";
     delete process.env.GEMINI_API_KEY;
     try {
-      const talos = createTalos({
+      const soulSwitch = createSoulSwitch({
         providers: {
           openaiCompatible: [
             {
@@ -379,7 +379,7 @@ describe("createTalos", () => {
       });
 
       let seenProvider = "";
-      talos.registerWebTools({
+      soulSwitch.registerWebTools({
         search: {
           search: async ({ provider }) => {
             seenProvider = provider ?? "";
@@ -388,7 +388,7 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.executeTool({
+      await soulSwitch.executeTool({
         name: "web_search",
         args: { query: "hello" },
         context: { agentId: "main" },
@@ -413,7 +413,7 @@ describe("createTalos", () => {
     const prevBrave = process.env.BRAVE_API_KEY;
     process.env.BRAVE_API_KEY = "brave-key";
     try {
-      const talos = createTalos({
+      const soulSwitch = createSoulSwitch({
         providers: {
           openaiCompatible: [
             {
@@ -427,7 +427,7 @@ describe("createTalos", () => {
 
       let seenProvider = "";
       let seenApiKey = "";
-      talos.registerWebTools({
+      soulSwitch.registerWebTools({
         search: {
           defaultProvider: "gemini",
           providerApiKeys: {
@@ -441,7 +441,7 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.executeTool({
+      await soulSwitch.executeTool({
         name: "web_search",
         args: { query: "hello" },
         context: { agentId: "main" },
@@ -459,7 +459,7 @@ describe("createTalos", () => {
   });
 
   it("normalizes google redirect result URLs in web_search", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -471,7 +471,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerWebTools({
+    soulSwitch.registerWebTools({
       search: {
         search: async () => [
           {
@@ -482,7 +482,7 @@ describe("createTalos", () => {
       },
     });
 
-    const result = await talos.executeTool({
+    const result = await soulSwitch.executeTool({
       name: "web_search",
       args: { query: "citation" },
       context: { agentId: "main" },
@@ -493,7 +493,7 @@ describe("createTalos", () => {
   });
 
   it("applies web tool defaults from config", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -514,7 +514,7 @@ describe("createTalos", () => {
             timeoutMs: 3000,
             maxResponseBytes: 4096,
             maxRedirects: 1,
-            userAgent: "TalosTest/1.0",
+            userAgent: "SoulSwitchTest/1.0",
             cacheTtlMs: 60_000,
             allowPrivateNetwork: true,
           },
@@ -524,7 +524,7 @@ describe("createTalos", () => {
 
     let seenMaxChars = 0;
     let seenUserAgent = "";
-    talos.registerWebTools({
+    soulSwitch.registerWebTools({
       search: {
         search: async () => [],
       },
@@ -537,7 +537,7 @@ describe("createTalos", () => {
       },
     });
 
-    await talos.executeTool({
+    await soulSwitch.executeTool({
       name: "web_fetch",
       args: {
         url: "http://127.0.0.1/test",
@@ -546,11 +546,11 @@ describe("createTalos", () => {
     });
 
     expect(seenMaxChars).toBe(1234);
-    expect(seenUserAgent).toBe("TalosTest/1.0");
+    expect(seenUserAgent).toBe("SoulSwitchTest/1.0");
   });
 
   it("marks default web_fetch extraction as truncated when limits are hit", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -562,7 +562,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerWebTools({
+    soulSwitch.registerWebTools({
       search: {
         search: async () => [],
       },
@@ -572,7 +572,7 @@ describe("createTalos", () => {
       },
     });
 
-    const result = await talos.executeTool({
+    const result = await soulSwitch.executeTool({
       name: "web_fetch",
       args: {
         url: "https://example.com",
@@ -585,7 +585,7 @@ describe("createTalos", () => {
   });
 
   it("uses web_fetch fallback when primary extraction is too short", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -598,7 +598,7 @@ describe("createTalos", () => {
     });
 
     let fallbackCalls = 0;
-    talos.registerWebTools({
+    soulSwitch.registerWebTools({
       search: {
         search: async () => [],
       },
@@ -611,7 +611,7 @@ describe("createTalos", () => {
       },
     });
 
-    const result = await talos.executeTool({
+    const result = await soulSwitch.executeTool({
       name: "web_fetch",
       args: {
         url: "https://example.com",
@@ -625,7 +625,7 @@ describe("createTalos", () => {
   });
 
   it("registers media tools and executes image/pdf analysis", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -637,7 +637,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerMediaTools({
+    soulSwitch.registerMediaTools({
       image: {
         analyze: async ({ input }) => ({ text: `image:${input}` }),
       },
@@ -646,14 +646,14 @@ describe("createTalos", () => {
       },
     });
 
-    const image = await talos.executeTool({
+    const image = await soulSwitch.executeTool({
       name: "image",
       args: {
         image: "/tmp/a.png",
       },
       context: { agentId: "main" },
     });
-    const pdf = await talos.executeTool({
+    const pdf = await soulSwitch.executeTool({
       name: "pdf",
       args: {
         document: "/tmp/a.pdf",
@@ -666,7 +666,7 @@ describe("createTalos", () => {
   });
 
   it("supports media model fallback attempts", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -678,7 +678,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerMediaTools({
+    soulSwitch.registerMediaTools({
       image: {
         defaultModel: "broken/model",
         modelFallbacks: ["openai/gpt-4o-mini"],
@@ -691,7 +691,7 @@ describe("createTalos", () => {
       },
     });
 
-    const image = await talos.executeTool({
+    const image = await soulSwitch.executeTool({
       name: "image",
       args: { image: "a.png" },
       context: { agentId: "main" },
@@ -703,7 +703,7 @@ describe("createTalos", () => {
   });
 
   it("gates media tool registration when unavailable", () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -715,7 +715,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerMediaTools({
+    soulSwitch.registerMediaTools({
       image: {
         enabled: false,
         analyze: async () => ({ text: "no" }),
@@ -726,12 +726,12 @@ describe("createTalos", () => {
       },
     });
 
-    expect(talos.hasTool("image")).toBe(false);
-    expect(talos.hasTool("pdf")).toBe(false);
+    expect(soulSwitch.hasTool("image")).toBe(false);
+    expect(soulSwitch.hasTool("pdf")).toBe(false);
   });
 
   it("supports multi-input media args and caps item counts", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -743,7 +743,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerMediaTools({
+    soulSwitch.registerMediaTools({
       image: {
         analyze: async ({ inputs }) => ({ text: `images:${(inputs ?? []).length}` }),
       },
@@ -752,14 +752,14 @@ describe("createTalos", () => {
       },
     });
 
-    const image = await talos.executeTool({
+    const image = await soulSwitch.executeTool({
       name: "image",
       args: {
         images: ["a.png", "b.png", "a.png"],
       },
       context: { agentId: "main" },
     });
-    const pdf = await talos.executeTool({
+    const pdf = await soulSwitch.executeTool({
       name: "pdf",
       args: {
         pdfs: ["a.pdf", "b.pdf"],
@@ -771,7 +771,7 @@ describe("createTalos", () => {
     expect(pdf.content).toBe("pdfs:2");
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "pdf",
         args: {
           pdfs: Array.from({ length: 11 }, (_, i) => `f${i}.pdf`),
@@ -780,7 +780,7 @@ describe("createTalos", () => {
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
 
-    const pagesResult = await talos.executeTool({
+    const pagesResult = await soulSwitch.executeTool({
       name: "pdf",
       args: {
         pdf: "https://example.com/doc.pdf",
@@ -793,7 +793,7 @@ describe("createTalos", () => {
     expect((pagesResult.data as { native?: boolean }).native).toBe(false);
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "pdf",
         args: {
           pdf: "ftp://example.com/doc.pdf",
@@ -803,7 +803,7 @@ describe("createTalos", () => {
     ).rejects.toMatchObject({ code: "TOOL_FAILED", details: { error: "unsupported_pdf_reference" } });
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "pdf",
         args: {
           pdf: "https://example.com/doc.pdf",
@@ -814,7 +814,7 @@ describe("createTalos", () => {
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "pdf",
         args: {
           pdf: "https://example.com/doc.pdf",
@@ -827,7 +827,7 @@ describe("createTalos", () => {
   });
 
   it("registers browser and canvas tools and routes actions", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -853,7 +853,7 @@ describe("createTalos", () => {
     let canvasNavigateArgs: Record<string, unknown> | undefined;
     let canvasA2uiArgs: Record<string, unknown> | undefined;
     const canvasSnapshotArgs: Record<string, unknown>[] = [];
-    talos.registerBrowserTools({
+    soulSwitch.registerBrowserTools({
       execute: async ({ action, args }) => {
         browserActions.push(action);
         if (action === "act") {
@@ -885,7 +885,7 @@ describe("createTalos", () => {
         };
       },
     });
-    talos.registerCanvasTools({
+    soulSwitch.registerCanvasTools({
       execute: async ({ action, args }) => {
         canvasActions.push(action);
         if (action === "present") {
@@ -906,137 +906,137 @@ describe("createTalos", () => {
       },
     });
 
-    const browser = await talos.executeTool({
+    const browser = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "snapshot" },
       context: { agentId: "main" },
     });
-    const canvas = await talos.executeTool({
+    const canvas = await soulSwitch.executeTool({
       name: "canvas",
       args: { action: "present", target: "https://example.com" },
       context: { agentId: "main" },
     });
-    const browserTrace = await talos.executeTool({
+    const browserTrace = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "trace.start", profile: "openclaw", target: "host" },
       context: { agentId: "main" },
     });
-    const browserChromeStatus = await talos.executeTool({
+    const browserChromeStatus = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "status", profile: "chrome" },
       context: { agentId: "main" },
     });
-    const browserChromeStatusBlankTarget = await talos.executeTool({
+    const browserChromeStatusBlankTarget = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "status", profile: "chrome", target: "   " },
       context: { agentId: "main" },
     });
-    const browserNodeStatus = await talos.executeTool({
+    const browserNodeStatus = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "status", node: "edge-1" },
       context: { agentId: "main" },
     });
-    const browserAct = await talos.executeTool({
+    const browserAct = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "act", request: { kind: "click", ref: "button.submit" } },
       context: { agentId: "main" },
     });
-    const browserActLegacy = await talos.executeTool({
+    const browserActLegacy = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "act", kind: "press", key: "Enter" },
       context: { agentId: "main" },
     });
-    const browserActSnake = await talos.executeTool({
+    const browserActSnake = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "act", request: { kind: "press", key: "Escape", delay_ms: 5 } },
       context: { agentId: "main" },
     });
-    const browserActScrollAlias = await talos.executeTool({
+    const browserActScrollAlias = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "act", request: { kind: "scrollintoview", ref: "button.cta" } },
       context: { agentId: "main" },
     });
-    const browserDialog = await talos.executeTool({
+    const browserDialog = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "dialog" },
       context: { agentId: "main" },
     });
-    const browserDialogSnake = await talos.executeTool({
+    const browserDialogSnake = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "dialog", prompt_text: "otp" },
       context: { agentId: "main" },
     });
-    const browserOpenAlias = await talos.executeTool({
+    const browserOpenAlias = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "open", targetUrl: "https://example.com/alias" },
       context: { agentId: "main" },
     });
-    const browserOpenSnakeAlias = await talos.executeTool({
+    const browserOpenSnakeAlias = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "open", target_url: "https://example.com/snake" },
       context: { agentId: "main" },
     });
-    const browserFocusAlias = await talos.executeTool({
+    const browserFocusAlias = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "focus", tabId: "tab-9" },
       context: { agentId: "main" },
     });
-    const browserFocusSnakeAlias = await talos.executeTool({
+    const browserFocusSnakeAlias = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "focus", tab_id: "tab-10" },
       context: { agentId: "main" },
     });
-    const browserNavigateAlias = await talos.executeTool({
+    const browserNavigateAlias = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "navigate", targetUrl: "https://example.com/nav" },
       context: { agentId: "main" },
     });
-    const browserCloseAlias = await talos.executeTool({
+    const browserCloseAlias = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "close", tabId: "tab-8" },
       context: { agentId: "main" },
     });
-    const browserCloseDefault = await talos.executeTool({
+    const browserCloseDefault = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "close" },
       context: { agentId: "main" },
     });
-    const browserUpload = await talos.executeTool({
+    const browserUpload = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "upload", paths: ["/tmp/a.txt", 42] },
       context: { agentId: "main" },
     });
-    const browserCookies = await talos.executeTool({
+    const browserCookies = await soulSwitch.executeTool({
       name: "browser",
       args: { action: "cookies.set" },
       context: { agentId: "main" },
     });
-    const canvasA2ui = await talos.executeTool({
+    const canvasA2ui = await soulSwitch.executeTool({
       name: "canvas",
       args: { action: "a2ui.pushJSONL", jsonl: "{}" },
       context: { agentId: "main" },
     });
-    const canvasA2uiPath = await talos.executeTool({
+    const canvasA2uiPath = await soulSwitch.executeTool({
       name: "canvas",
       args: { action: "a2ui.pushJSONL", jsonlPath: "./a2ui.jsonl" },
       context: { agentId: "main" },
     });
-    const canvasNavigateAlias = await talos.executeTool({
+    const canvasNavigateAlias = await soulSwitch.executeTool({
       name: "canvas",
       args: { action: "navigate", target: "https://example.com/canvas" },
       context: { agentId: "main" },
     });
-    const canvasPresentAlias = await talos.executeTool({
+    const canvasPresentAlias = await soulSwitch.executeTool({
       name: "canvas",
       args: { action: "present", url: "https://example.com/embed" },
       context: { agentId: "main" },
     });
-    const canvasSnapshot = await talos.executeTool({
+    const canvasSnapshot = await soulSwitch.executeTool({
       name: "canvas",
       args: { action: "snapshot", node: "canvas-node-1", target_mode: "node" },
       context: { agentId: "main" },
     });
-    const canvasSnapshotSnakeFormat = await talos.executeTool({
+    const canvasSnapshotSnakeFormat = await soulSwitch.executeTool({
       name: "canvas",
       args: { action: "snapshot", output_format: "jpg" },
       context: { agentId: "main" },
@@ -1119,7 +1119,7 @@ describe("createTalos", () => {
   });
 
   it("validates browser and canvas actions", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -1130,18 +1130,18 @@ describe("createTalos", () => {
         ],
       },
     });
-    talos.registerBrowserTools({ execute: async () => ({ content: "ok" }) });
-    talos.registerCanvasTools({ execute: async () => ({ content: "ok" }) });
+    soulSwitch.registerBrowserTools({ execute: async () => ({ content: "ok" }) });
+    soulSwitch.registerCanvasTools({ execute: async () => ({ content: "ok" }) });
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "unknown" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "canvas",
         args: { action: "unknown" },
         context: { agentId: "main" },
@@ -1149,154 +1149,154 @@ describe("createTalos", () => {
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "open" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "focus" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "act", request: {} },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "act", request: { kind: "noop" } },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "act", request: { kind: "type", ref: "input.email" } },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "act", request: { kind: "select", ref: "select#plan" } },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "act", request: { kind: "fill", fields: [] } },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "act", request: { kind: "wait", loadState: "idle" } },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "dialog", accept: "yes" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "set.viewport", width: 100 },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "upload" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "upload", paths: ["   "] },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "screenshot", type: "webp" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "snapshot", snapshotFormat: "xml" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "snapshot", mode: "full" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "snapshot", refs: "css" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "canvas",
         args: { action: "present" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "canvas",
         args: { action: "eval" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "canvas",
         args: { action: "snapshot", outputFormat: "webp" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "status", target: "cloud" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "browser",
         args: { action: "status", target: "host", node: "edge-1" },
         context: { agentId: "main" },
       }),
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "canvas",
         args: { action: "present", target: "https://example.com", targetMode: "cloud" },
         context: { agentId: "main" },
@@ -1305,7 +1305,7 @@ describe("createTalos", () => {
   });
 
   it("registers llm_task tool and parses JSON output", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -1316,7 +1316,7 @@ describe("createTalos", () => {
         ],
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "openai",
       async generate(request) {
         return {
@@ -1326,11 +1326,11 @@ describe("createTalos", () => {
         };
       },
     });
-    talos.registerLlmTaskTool();
-    expect(talos.hasTool("llm_task")).toBe(true);
-    expect(talos.hasTool("llm-task")).toBe(true);
+    soulSwitch.registerLlmTaskTool();
+    expect(soulSwitch.hasTool("llm_task")).toBe(true);
+    expect(soulSwitch.hasTool("llm-task")).toBe(true);
 
-    const result = await talos.executeTool({
+    const result = await soulSwitch.executeTool({
       name: "llm_task",
       args: {
         prompt: "Return JSON",
@@ -1344,7 +1344,7 @@ describe("createTalos", () => {
     expect((result.data as { modelId?: string }).modelId).toBe("gpt-4o-mini");
     expect((result.data as { details?: { json?: { ok?: boolean } } }).details?.json?.ok).toBe(true);
 
-    const aliasResult = await talos.executeTool({
+    const aliasResult = await soulSwitch.executeTool({
       name: "llm-task",
       args: {
         prompt: "Return JSON",
@@ -1355,7 +1355,7 @@ describe("createTalos", () => {
   });
 
   it("accepts fenced JSON response in llm_task", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -1366,7 +1366,7 @@ describe("createTalos", () => {
         ],
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "openai",
       async generate(request) {
         return {
@@ -1376,9 +1376,9 @@ describe("createTalos", () => {
         };
       },
     });
-    talos.registerLlmTaskTool();
+    soulSwitch.registerLlmTaskTool();
 
-    const result = await talos.executeTool({
+    const result = await soulSwitch.executeTool({
       name: "llm_task",
       args: {
         prompt: "Return JSON",
@@ -1391,7 +1391,7 @@ describe("createTalos", () => {
   });
 
   it("supports provider/model aliases in llm_task args", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -1402,7 +1402,7 @@ describe("createTalos", () => {
         ],
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "openai",
       async generate(request) {
         return {
@@ -1412,9 +1412,9 @@ describe("createTalos", () => {
         };
       },
     });
-    talos.registerLlmTaskTool();
+    soulSwitch.registerLlmTaskTool();
 
-    const result = await talos.executeTool({
+    const result = await soulSwitch.executeTool({
       name: "llm_task",
       args: {
         prompt: "Return JSON",
@@ -1429,7 +1429,7 @@ describe("createTalos", () => {
   });
 
   it("validates llm_task output with JSON schema when provided", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -1440,7 +1440,7 @@ describe("createTalos", () => {
         ],
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "openai",
       async generate(request) {
         return {
@@ -1450,9 +1450,9 @@ describe("createTalos", () => {
         };
       },
     });
-    talos.registerLlmTaskTool();
+    soulSwitch.registerLlmTaskTool();
 
-    const ok = await talos.executeTool({
+    const ok = await soulSwitch.executeTool({
       name: "llm_task",
       args: {
         prompt: "hello",
@@ -1470,7 +1470,7 @@ describe("createTalos", () => {
     expect(ok.content).toContain('"answer":');
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "llm_task",
         args: {
           prompt: "hello",
@@ -1487,7 +1487,7 @@ describe("createTalos", () => {
     ).rejects.toMatchObject({ code: "TOOL_FAILED" });
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "llm_task",
         args: {
           prompt: "hello",
@@ -1499,7 +1499,7 @@ describe("createTalos", () => {
   });
 
   it("fails llm_task when model output is invalid JSON", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -1510,7 +1510,7 @@ describe("createTalos", () => {
         ],
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "openai",
       async generate(request) {
         return {
@@ -1520,10 +1520,10 @@ describe("createTalos", () => {
         };
       },
     });
-    talos.registerLlmTaskTool();
+    soulSwitch.registerLlmTaskTool();
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "llm_task",
         args: {
           prompt: "Return JSON",
@@ -1534,7 +1534,7 @@ describe("createTalos", () => {
   });
 
   it("fails llm_task when JSON validation fails", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -1545,7 +1545,7 @@ describe("createTalos", () => {
         ],
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "openai",
       async generate(request) {
         return {
@@ -1555,7 +1555,7 @@ describe("createTalos", () => {
         };
       },
     });
-    talos.registerLlmTaskTool({
+    soulSwitch.registerLlmTaskTool({
       validateJson: (value) => ({
         ok: Boolean(
           value &&
@@ -1567,7 +1567,7 @@ describe("createTalos", () => {
     });
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "llm_task",
         args: {
           prompt: "Return JSON",
@@ -1578,7 +1578,7 @@ describe("createTalos", () => {
   });
 
   it("enforces llm_task allowed model list", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -1589,7 +1589,7 @@ describe("createTalos", () => {
         ],
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "openai",
       async generate(request) {
         return {
@@ -1599,12 +1599,12 @@ describe("createTalos", () => {
         };
       },
     });
-    talos.registerLlmTaskTool({
+    soulSwitch.registerLlmTaskTool({
       allowedModels: ["openai/gpt-4o"],
     });
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "llm_task",
         args: {
           prompt: "Return JSON",
@@ -1615,7 +1615,7 @@ describe("createTalos", () => {
   });
 
   it("registers session tools and orchestrates sessions", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -1627,8 +1627,8 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerAgent({ id: "main", model: { providerId: "openai", modelId: "gpt-4o-mini" } });
-    talos.registerModelProvider({
+    soulSwitch.registerAgent({ id: "main", model: { providerId: "openai", modelId: "gpt-4o-mini" } });
+    soulSwitch.registerModelProvider({
       id: "openai",
       async generate(request) {
         return {
@@ -1638,20 +1638,20 @@ describe("createTalos", () => {
         };
       },
     });
-    talos.registerSessionTools();
+    soulSwitch.registerSessionTools();
 
-    await talos.run({
+    await soulSwitch.run({
       agentId: "main",
       prompt: "hello",
       sessionId: "main",
     });
 
-    const list = await talos.executeTool({
+    const list = await soulSwitch.executeTool({
       name: "sessions_list",
       args: {},
       context: { agentId: "main", sessionId: "main" },
     });
-    const send = await talos.executeTool({
+    const send = await soulSwitch.executeTool({
       name: "sessions_send",
       args: {
         sessionId: "main",
@@ -1659,35 +1659,35 @@ describe("createTalos", () => {
       },
       context: { agentId: "main", sessionId: "main" },
     });
-    const spawn = await talos.executeTool({
+    const spawn = await soulSwitch.executeTool({
       name: "sessions_spawn",
       args: {
         task: "sub task",
       },
       context: { agentId: "main", sessionId: "main" },
     });
-    const history = await talos.executeTool({
+    const history = await soulSwitch.executeTool({
       name: "sessions_history",
       args: {
         sessionKey: "main",
       },
       context: { agentId: "main", sessionId: "main" },
     });
-    const status = await talos.executeTool({
+    const status = await soulSwitch.executeTool({
       name: "session_status",
       args: {
         sessionId: "main",
       },
       context: { agentId: "main", sessionId: "main" },
     });
-    const statusAlias = await talos.executeTool({
+    const statusAlias = await soulSwitch.executeTool({
       name: "session_status",
       args: {
         sessionKey: "main",
       },
       context: { agentId: "main", sessionId: "main" },
     });
-    const statusOverride = await talos.executeTool({
+    const statusOverride = await soulSwitch.executeTool({
       name: "session_status",
       args: {
         sessionId: "main",
@@ -1705,7 +1705,7 @@ describe("createTalos", () => {
     expect((status.data as { details?: { sessionId?: string } }).details?.sessionId).toBe("main");
     expect((statusOverride.data as { changedModel?: boolean }).changedModel).toBe(true);
 
-    const sendAlias = await talos.executeTool({
+    const sendAlias = await soulSwitch.executeTool({
       name: "sessions_send",
       args: {
         sessionKey: "main",
@@ -1713,7 +1713,7 @@ describe("createTalos", () => {
       },
       context: { agentId: "main", sessionId: "main" },
     });
-    const sendAccepted = await talos.executeTool({
+    const sendAccepted = await soulSwitch.executeTool({
       name: "sessions_send",
       args: {
         sessionKey: "main",
@@ -1722,7 +1722,7 @@ describe("createTalos", () => {
       },
       context: { agentId: "main", sessionId: "main" },
     });
-    await talos.executeTool({
+    await soulSwitch.executeTool({
       name: "session_status",
       args: {
         sessionId: "main",
@@ -1730,7 +1730,7 @@ describe("createTalos", () => {
       },
       context: { agentId: "main", sessionId: "main" },
     });
-    const sendAfterReset = await talos.executeTool({
+    const sendAfterReset = await soulSwitch.executeTool({
       name: "sessions_send",
       args: {
         sessionKey: "main",
@@ -1738,7 +1738,7 @@ describe("createTalos", () => {
       },
       context: { agentId: "main", sessionId: "main" },
     });
-    const spawnAlias = await talos.executeTool({
+    const spawnAlias = await soulSwitch.executeTool({
       name: "sessions_spawn",
       args: {
         prompt: "sub task alias",
@@ -1757,7 +1757,7 @@ describe("createTalos", () => {
     expect((sendAlias.data as { details?: { sessionId?: string } }).details?.sessionId).toBe("main");
     expect((spawnAlias.data as { details?: { sessionId?: string } }).details?.sessionId).toContain("agent:main:acp:");
 
-    const spawnedStatus = await talos.executeTool({
+    const spawnedStatus = await soulSwitch.executeTool({
       name: "session_status",
       args: {
         sessionId: (spawnAlias.data as { sessionId: string }).sessionId,
@@ -1768,7 +1768,7 @@ describe("createTalos", () => {
   });
 
   it("lists registered plugins", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -1780,7 +1780,7 @@ describe("createTalos", () => {
       },
     });
 
-    await talos.registerPlugin({
+    await soulSwitch.registerPlugin({
       id: "hooks-one",
       capabilities: ["hooks"],
       setup(api) {
@@ -1789,12 +1789,12 @@ describe("createTalos", () => {
       },
     });
 
-    expect(talos.hasPlugin("hooks-one")).toBe(true);
-    expect(talos.listPlugins()).toContain("hooks-one");
+    expect(soulSwitch.hasPlugin("hooks-one")).toBe(true);
+    expect(soulSwitch.listPlugins()).toContain("hooks-one");
   });
 
   it("returns plugin summaries", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -1806,7 +1806,7 @@ describe("createTalos", () => {
       },
     });
 
-    await talos.registerPlugin({
+    await soulSwitch.registerPlugin({
       id: "summary-plugin",
       capabilities: ["tools", "providers", "hooks"],
       setup(api) {
@@ -1832,8 +1832,8 @@ describe("createTalos", () => {
       },
     });
 
-    const summaries = talos.listPluginSummaries();
-    const summary = talos.getPluginSummary("summary-plugin");
+    const summaries = soulSwitch.listPluginSummaries();
+    const summary = soulSwitch.getPluginSummary("summary-plugin");
 
     expect(summaries.some((entry) => entry.id === "summary-plugin")).toBe(true);
     expect(summary?.toolCount).toBe(1);
@@ -1845,7 +1845,7 @@ describe("createTalos", () => {
   });
 
   it("unregisters plugins and cleans plugin-owned resources", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -1857,7 +1857,7 @@ describe("createTalos", () => {
       },
     });
 
-    await talos.registerPlugin({
+    await soulSwitch.registerPlugin({
       id: "plugin-resources",
       capabilities: ["tools", "providers", "hooks"],
       setup(api) {
@@ -1882,29 +1882,29 @@ describe("createTalos", () => {
       },
     });
 
-    expect(talos.hasPlugin("plugin-resources")).toBe(true);
-    expect(talos.hasTool("plugin-tool")).toBe(true);
-    expect(talos.hasModelProvider("plugin-provider")).toBe(true);
+    expect(soulSwitch.hasPlugin("plugin-resources")).toBe(true);
+    expect(soulSwitch.hasTool("plugin-tool")).toBe(true);
+    expect(soulSwitch.hasModelProvider("plugin-provider")).toBe(true);
 
-    const removed = await talos.removePlugin("plugin-resources");
+    const removed = await soulSwitch.removePlugin("plugin-resources");
     expect(removed).toBe(true);
-    expect(talos.hasPlugin("plugin-resources")).toBe(false);
-    expect(talos.hasTool("plugin-tool")).toBe(false);
-    expect(talos.hasModelProvider("plugin-provider")).toBe(false);
+    expect(soulSwitch.hasPlugin("plugin-resources")).toBe(false);
+    expect(soulSwitch.hasTool("plugin-tool")).toBe(false);
+    expect(soulSwitch.hasModelProvider("plugin-provider")).toBe(false);
   });
 
   it("stops plugin hooks after plugin unload and emits unregistered event", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: { providerId: "provider", modelId: "model" },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "provider",
       async generate(request) {
         return {
@@ -1918,13 +1918,13 @@ describe("createTalos", () => {
     let beforeRunCalls = 0;
     let beforePersonaLoadCalls = 0;
     const unregistered: string[] = [];
-    talos.onEvent((event) => {
+    soulSwitch.onEvent((event) => {
       if (event.type === "plugin.unregistered") {
         unregistered.push(event.data.pluginId);
       }
     });
 
-    await talos.registerPlugin({
+    await soulSwitch.registerPlugin({
       id: "ephemeral",
       capabilities: ["hooks"],
       setup(api) {
@@ -1938,18 +1938,18 @@ describe("createTalos", () => {
       },
     });
 
-    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-plugin-hook-stop-"));
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-plugin-hook-stop-"));
     try {
       await fs.writeFile(path.join(workspace, "SOUL.md"), "soul", "utf8");
 
-      await talos.run({ agentId: "main", prompt: "one", workspaceDir: workspace });
+      await soulSwitch.run({ agentId: "main", prompt: "one", workspaceDir: workspace });
       expect(beforeRunCalls).toBe(1);
       expect(beforePersonaLoadCalls).toBe(1);
 
-      expect(await talos.removePlugin("ephemeral")).toBe(true);
+      expect(await soulSwitch.removePlugin("ephemeral")).toBe(true);
       expect(unregistered).toContain("ephemeral");
 
-      await talos.run({ agentId: "main", prompt: "two", workspaceDir: workspace });
+      await soulSwitch.run({ agentId: "main", prompt: "two", workspaceDir: workspace });
       expect(beforeRunCalls).toBe(1);
       expect(beforePersonaLoadCalls).toBe(1);
     } finally {
@@ -1958,7 +1958,7 @@ describe("createTalos", () => {
   });
 
   it("runs plugin teardown during unload", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -1971,7 +1971,7 @@ describe("createTalos", () => {
     });
 
     let teardownCalls = 0;
-    await talos.registerPlugin({
+    await soulSwitch.registerPlugin({
       id: "cleanup-plugin",
       capabilities: ["hooks"],
       setup(api) {
@@ -1982,12 +1982,12 @@ describe("createTalos", () => {
       },
     });
 
-    expect(await talos.removePlugin("cleanup-plugin")).toBe(true);
+    expect(await soulSwitch.removePlugin("cleanup-plugin")).toBe(true);
     expect(teardownCalls).toBe(1);
   });
 
   it("surfaces plugin teardown failures while still unloading plugin resources", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -1999,7 +1999,7 @@ describe("createTalos", () => {
       },
     });
 
-    await talos.registerPlugin({
+    await soulSwitch.registerPlugin({
       id: "broken-cleanup",
       capabilities: ["tools"],
       setup(api) {
@@ -2016,21 +2016,21 @@ describe("createTalos", () => {
       },
     });
 
-    await expect(talos.removePlugin("broken-cleanup")).rejects.toMatchObject({
+    await expect(soulSwitch.removePlugin("broken-cleanup")).rejects.toMatchObject({
       code: "PLUGIN_UNLOAD_FAILED",
     });
-    expect(talos.hasPlugin("broken-cleanup")).toBe(false);
-    expect(talos.hasTool("broken-tool")).toBe(false);
+    expect(soulSwitch.hasPlugin("broken-cleanup")).toBe(false);
+    expect(soulSwitch.hasTool("broken-tool")).toBe(false);
   });
 
   it("manages model provider lifecycle", () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
 
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "provider-a",
       async generate(request) {
         return {
@@ -2041,33 +2041,33 @@ describe("createTalos", () => {
       },
     });
 
-    expect(talos.hasModelProvider("provider-a")).toBe(true);
-    expect(talos.listModelProviders().map((provider) => provider.id)).toContain("provider-a");
-    expect(talos.removeModelProvider("provider-a")).toBe(true);
-    expect(talos.hasModelProvider("provider-a")).toBe(false);
+    expect(soulSwitch.hasModelProvider("provider-a")).toBe(true);
+    expect(soulSwitch.listModelProviders().map((provider) => provider.id)).toContain("provider-a");
+    expect(soulSwitch.removeModelProvider("provider-a")).toBe(true);
+    expect(soulSwitch.hasModelProvider("provider-a")).toBe(false);
   });
 
   it("manages auth profile lifecycle", () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
 
-    talos.registerAuthProfile({
+    soulSwitch.registerAuthProfile({
       id: "work",
       apiKey: "abc",
       headers: { "x-org": "team-a" },
     });
 
-    expect(talos.hasAuthProfile("work")).toBe(true);
-    expect(talos.listAuthProfiles().some((profile) => profile.id === "work")).toBe(true);
-    expect(talos.removeAuthProfile("work")).toBe(true);
-    expect(talos.hasAuthProfile("work")).toBe(false);
+    expect(soulSwitch.hasAuthProfile("work")).toBe(true);
+    expect(soulSwitch.listAuthProfiles().some((profile) => profile.id === "work")).toBe(true);
+    expect(soulSwitch.removeAuthProfile("work")).toBe(true);
+    expect(soulSwitch.hasAuthProfile("work")).toBe(false);
   });
 
   it("blocks plugin operations outside declared capabilities", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -2080,7 +2080,7 @@ describe("createTalos", () => {
     });
 
     await expect(
-      talos.registerPlugin({
+      soulSwitch.registerPlugin({
         id: "hooks-only",
         capabilities: ["hooks"],
         setup(api) {
@@ -2097,7 +2097,7 @@ describe("createTalos", () => {
   });
 
   it("rejects plugins with unsupported apiVersion", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -2110,7 +2110,7 @@ describe("createTalos", () => {
     });
 
     await expect(
-      talos.registerPlugin({
+      soulSwitch.registerPlugin({
         id: "future-plugin",
         apiVersion: 99,
         setup() {
@@ -2121,7 +2121,7 @@ describe("createTalos", () => {
   });
 
   it("emits plugin registration events", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -2133,11 +2133,11 @@ describe("createTalos", () => {
       },
     });
     const events: string[] = [];
-    talos.onEvent((event) => {
+    soulSwitch.onEvent((event) => {
       events.push(event.type);
     });
 
-    await talos.registerPlugin({
+    await soulSwitch.registerPlugin({
       id: "hooker",
       capabilities: ["hooks"],
       setup(api) {
@@ -2149,7 +2149,7 @@ describe("createTalos", () => {
   });
 
   it("supports event listener unsubscribe", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -2162,11 +2162,11 @@ describe("createTalos", () => {
     });
 
     const events: string[] = [];
-    const unsubscribe = talos.onEvent((event) => {
+    const unsubscribe = soulSwitch.onEvent((event) => {
       events.push(event.type);
     });
 
-    await talos.registerPlugin({
+    await soulSwitch.registerPlugin({
       id: "hooker",
       capabilities: ["hooks"],
       setup(api) {
@@ -2178,7 +2178,7 @@ describe("createTalos", () => {
     const before = events.length;
     unsubscribe();
 
-    await talos.registerPlugin({
+    await soulSwitch.registerPlugin({
       id: "hooker-2",
       capabilities: ["hooks"],
       setup(api) {
@@ -2190,13 +2190,13 @@ describe("createTalos", () => {
   });
 
   it("uses fallback model attempts when primary provider fails", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: {
         providerId: "primary",
@@ -2205,14 +2205,14 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "primary",
       async generate() {
         throw new Error("primary down");
       },
     });
 
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "secondary",
       async generate(request) {
         return {
@@ -2223,7 +2223,7 @@ describe("createTalos", () => {
       },
     });
 
-    const result = await talos.run({ agentId: "main", prompt: "hello" });
+    const result = await soulSwitch.run({ agentId: "main", prompt: "hello" });
 
     expect(result.text).toBe("fallback ok");
     expect(result.providerId).toBe("secondary");
@@ -2231,21 +2231,21 @@ describe("createTalos", () => {
   });
 
   it("emits run started/completed events", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
     const events: string[] = [];
-    talos.onEvent((event) => {
+    soulSwitch.onEvent((event) => {
       events.push(event.type);
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: { providerId: "provider", modelId: "model" },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "provider",
       async generate(request) {
         return {
@@ -2256,35 +2256,35 @@ describe("createTalos", () => {
       },
     });
 
-    await talos.run({ agentId: "main", prompt: "hello" });
+    await soulSwitch.run({ agentId: "main", prompt: "hello" });
 
     expect(events).toContain("run.started");
     expect(events).toContain("run.completed");
   });
 
   it("emits run failed event", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
     const events: string[] = [];
-    talos.onEvent((event) => {
+    soulSwitch.onEvent((event) => {
       events.push(event.type);
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: { providerId: "provider", modelId: "model" },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "provider",
       async generate() {
         throw new Error("down");
       },
     });
 
-    await expect(talos.run({ agentId: "main", prompt: "hello" })).rejects.toMatchObject({
+    await expect(soulSwitch.run({ agentId: "main", prompt: "hello" })).rejects.toMatchObject({
       code: "RUN_FAILED",
     });
     expect(events).toContain("run.started");
@@ -2292,7 +2292,7 @@ describe("createTalos", () => {
   });
 
   it("executes tools and emits tool lifecycle events", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -2304,7 +2304,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerTool({
+    soulSwitch.registerTool({
       name: "sum",
       description: "sum two numbers",
       async run(args) {
@@ -2315,11 +2315,11 @@ describe("createTalos", () => {
     });
 
     const events: string[] = [];
-    talos.onEvent((event) => {
+    soulSwitch.onEvent((event) => {
       events.push(event.type);
     });
 
-    const result = await talos.executeTool({
+    const result = await soulSwitch.executeTool({
       name: "sum",
       args: { a: 2, b: 3 },
       context: { agentId: "main" },
@@ -2331,7 +2331,7 @@ describe("createTalos", () => {
   });
 
   it("runs plugin beforeTool and afterTool hooks", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -2343,7 +2343,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerTool({
+    soulSwitch.registerTool({
       name: "echo",
       description: "echo",
       async run(args) {
@@ -2352,7 +2352,7 @@ describe("createTalos", () => {
     });
 
     const calls: string[] = [];
-    await talos.registerPlugin({
+    await soulSwitch.registerPlugin({
       id: "tool-hooks",
       capabilities: ["hooks"],
       setup(api) {
@@ -2365,7 +2365,7 @@ describe("createTalos", () => {
       },
     });
 
-    const result = await talos.executeTool({
+    const result = await soulSwitch.executeTool({
       name: "echo",
       args: { value: "hello" },
       context: { agentId: "main" },
@@ -2376,7 +2376,7 @@ describe("createTalos", () => {
   });
 
   it("emits tool failed event when execution fails", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -2388,7 +2388,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerTool({
+    soulSwitch.registerTool({
       name: "fail",
       description: "fails always",
       async run() {
@@ -2397,12 +2397,12 @@ describe("createTalos", () => {
     });
 
     const events: string[] = [];
-    talos.onEvent((event) => {
+    soulSwitch.onEvent((event) => {
       events.push(event.type);
     });
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "fail",
         context: { agentId: "main" },
       }),
@@ -2413,7 +2413,7 @@ describe("createTalos", () => {
   });
 
   it("times out long-running tools", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -2428,7 +2428,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerTool({
+    soulSwitch.registerTool({
       name: "sleepy",
       description: "sleeps",
       async run() {
@@ -2438,7 +2438,7 @@ describe("createTalos", () => {
     });
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "sleepy",
         context: { agentId: "main" },
       }),
@@ -2446,7 +2446,7 @@ describe("createTalos", () => {
   });
 
   it("supports tool cancellation via AbortSignal", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -2458,7 +2458,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerTool({
+    soulSwitch.registerTool({
       name: "wait",
       description: "waits",
       async run() {
@@ -2468,7 +2468,7 @@ describe("createTalos", () => {
     });
 
     const events: string[] = [];
-    talos.onEvent((event) => {
+    soulSwitch.onEvent((event) => {
       events.push(event.type);
     });
 
@@ -2476,7 +2476,7 @@ describe("createTalos", () => {
     setTimeout(() => controller.abort(), 10);
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "wait",
         context: { agentId: "main" },
         signal: controller.signal,
@@ -2487,7 +2487,7 @@ describe("createTalos", () => {
   });
 
   it("loads plugins from path and directory", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -2499,7 +2499,7 @@ describe("createTalos", () => {
       },
     });
 
-    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-load-plugins-"));
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-load-plugins-"));
     try {
       const pluginAPath = path.join(tempDir, "plugin-a.mjs");
       const pluginBPath = path.join(tempDir, "plugin-b.mjs");
@@ -2515,14 +2515,14 @@ describe("createTalos", () => {
       );
 
       const events: string[] = [];
-      talos.onEvent((event) => {
+      soulSwitch.onEvent((event) => {
         if (event.type === "plugin.registered") {
           events.push(event.data.pluginId);
         }
       });
 
-      await talos.loadPluginFromPath(pluginAPath);
-      const loaded = await talos.loadPluginsFromDirectory(tempDir);
+      await soulSwitch.loadPluginFromPath(pluginAPath);
+      const loaded = await soulSwitch.loadPluginsFromDirectory(tempDir);
 
       expect(events).toContain("loaded-a");
       expect(events).toContain("loaded-b");
@@ -2534,7 +2534,7 @@ describe("createTalos", () => {
   });
 
   it("enforces tool denylist", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -2550,7 +2550,7 @@ describe("createTalos", () => {
     });
 
     expect(() =>
-      talos.registerTool({
+      soulSwitch.registerTool({
         name: "dangerous",
         description: "blocked",
         async run() {
@@ -2561,7 +2561,7 @@ describe("createTalos", () => {
   });
 
   it("enforces tool allowlist", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -2577,7 +2577,7 @@ describe("createTalos", () => {
     });
 
     expect(() =>
-      talos.registerTool({
+      soulSwitch.registerTool({
         name: "other",
         description: "blocked",
         async run() {
@@ -2588,7 +2588,7 @@ describe("createTalos", () => {
   });
 
   it("enforces agent-level tool policy", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -2600,14 +2600,14 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "restricted",
       tools: {
         allow: ["safe"],
       },
     });
 
-    talos.registerTool({
+    soulSwitch.registerTool({
       name: "unsafe",
       description: "unsafe",
       async run() {
@@ -2616,7 +2616,7 @@ describe("createTalos", () => {
     });
 
     await expect(
-      talos.executeTool({
+      soulSwitch.executeTool({
         name: "unsafe",
         context: { agentId: "restricted" },
       }),
@@ -2624,7 +2624,7 @@ describe("createTalos", () => {
   });
 
   it("enforces run-level tool policy during run tool loops", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
@@ -2633,18 +2633,18 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: { providerId: "provider", modelId: "m" },
     });
-    talos.registerTool({
+    soulSwitch.registerTool({
       name: "sum",
       description: "sum",
       async run(args) {
         return { content: String(Number(args.a ?? 0) + Number(args.b ?? 0)) };
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "provider",
       async generate() {
         return {
@@ -2656,7 +2656,7 @@ describe("createTalos", () => {
     });
 
     await expect(
-      talos.run({
+      soulSwitch.run({
         agentId: "main",
         prompt: "Compute",
         tools: { deny: ["sum"] },
@@ -2665,13 +2665,13 @@ describe("createTalos", () => {
   });
 
   it("applies beforeModel hook overrides", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: {
         providerId: "provider-a",
@@ -2679,14 +2679,14 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "provider-a",
       async generate() {
         throw new Error("should be overridden");
       },
     });
 
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "provider-b",
       async generate(request) {
         return {
@@ -2697,7 +2697,7 @@ describe("createTalos", () => {
       },
     });
 
-    await talos.registerPlugin({
+    await soulSwitch.registerPlugin({
       id: "model-override",
       capabilities: ["hooks"],
       setup(api) {
@@ -2709,7 +2709,7 @@ describe("createTalos", () => {
       },
     });
 
-    const result = await talos.run({ agentId: "main", prompt: "hello" });
+    const result = await soulSwitch.run({ agentId: "main", prompt: "hello" });
 
     expect(result.text).toBe("from-provider-b-model-b");
     expect(result.providerId).toBe("provider-b");
@@ -2717,20 +2717,20 @@ describe("createTalos", () => {
   });
 
   it("applies beforePersonaLoad hooks", async () => {
-    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-hook-"));
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-persona-hook-"));
     try {
       await fs.writeFile(path.join(workspace, "SOUL.md"), "original soul", "utf8");
 
-      const talos = createTalos({
+      const soulSwitch = createSoulSwitch({
         providers: {
           openaiCompatible: [],
         },
       });
 
-      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      soulSwitch.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
 
       let seenSystem = "";
-      talos.registerModelProvider({
+      soulSwitch.registerModelProvider({
         id: "provider",
         async generate(request) {
           seenSystem = request.system ?? "";
@@ -2742,7 +2742,7 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.registerPlugin({
+      await soulSwitch.registerPlugin({
         id: "persona-hook",
         capabilities: ["hooks"],
         setup(api) {
@@ -2759,7 +2759,7 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.run({
+      await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
@@ -2773,18 +2773,18 @@ describe("createTalos", () => {
   });
 
   it("passes run context to beforePersonaLoad hooks", async () => {
-    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-hook-context-"));
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-persona-hook-context-"));
     try {
       await fs.writeFile(path.join(workspace, "SOUL.md"), "original soul", "utf8");
 
-      const talos = createTalos({
+      const soulSwitch = createSoulSwitch({
         providers: {
           openaiCompatible: [],
         },
       });
 
-      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
-      talos.registerModelProvider({
+      soulSwitch.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      soulSwitch.registerModelProvider({
         id: "provider",
         async generate(request) {
           return {
@@ -2805,7 +2805,7 @@ describe("createTalos", () => {
       };
       const seen: PersonaHookContextCapture[] = [];
 
-      await talos.registerPlugin({
+      await soulSwitch.registerPlugin({
         id: "persona-hook-context",
         capabilities: ["hooks"],
         setup(api) {
@@ -2823,7 +2823,7 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.run({
+      await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
@@ -2844,20 +2844,20 @@ describe("createTalos", () => {
   });
 
   it("ignores malformed bootstrap file paths from beforePersonaLoad hooks", async () => {
-    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-hook-path-"));
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-persona-hook-path-"));
     try {
       await fs.writeFile(path.join(workspace, "SOUL.md"), "original soul", "utf8");
 
-      const talos = createTalos({
+      const soulSwitch = createSoulSwitch({
         providers: {
           openaiCompatible: [],
         },
       });
 
-      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      soulSwitch.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
 
       let seenSystem = "";
-      talos.registerModelProvider({
+      soulSwitch.registerModelProvider({
         id: "provider",
         async generate(request) {
           seenSystem = request.system ?? "";
@@ -2869,7 +2869,7 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.registerPlugin({
+      await soulSwitch.registerPlugin({
         id: "persona-malformed-path",
         capabilities: ["hooks"],
         setup(api) {
@@ -2882,7 +2882,7 @@ describe("createTalos", () => {
         },
       });
 
-      const result = await talos.run({
+      const result = await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
@@ -2900,18 +2900,18 @@ describe("createTalos", () => {
   });
 
   it("trims bootstrap file paths from beforePersonaLoad hooks", async () => {
-    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-hook-trim-"));
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-persona-hook-trim-"));
     try {
-      const talos = createTalos({
+      const soulSwitch = createSoulSwitch({
         providers: {
           openaiCompatible: [],
         },
       });
 
-      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      soulSwitch.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
 
       let seenSystem = "";
-      talos.registerModelProvider({
+      soulSwitch.registerModelProvider({
         id: "provider",
         async generate(request) {
           seenSystem = request.system ?? "";
@@ -2923,7 +2923,7 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.registerPlugin({
+      await soulSwitch.registerPlugin({
         id: "persona-trimmed-path",
         capabilities: ["hooks"],
         setup(api) {
@@ -2941,7 +2941,7 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.run({
+      await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
@@ -2955,20 +2955,20 @@ describe("createTalos", () => {
   });
 
   it("infers cron/subagent session kinds from canonical session ids", async () => {
-    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-session-"));
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-persona-session-"));
     try {
       await fs.writeFile(path.join(workspace, "MEMORY.md"), "main memory", "utf8");
       await fs.writeFile(path.join(workspace, "AGENTS.md"), "agents", "utf8");
 
-      const talos = createTalos({
+      const soulSwitch = createSoulSwitch({
         providers: {
           openaiCompatible: [],
         },
       });
-      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      soulSwitch.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
 
       const systems: string[] = [];
-      talos.registerModelProvider({
+      soulSwitch.registerModelProvider({
         id: "provider",
         async generate(request) {
           systems.push(request.system ?? "");
@@ -2980,19 +2980,19 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.run({
+      await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
         sessionId: "agent:main:main",
       });
-      await talos.run({
+      await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
         sessionId: "agent:main:subagent:child-1",
       });
-      await talos.run({
+      await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
@@ -3008,19 +3008,19 @@ describe("createTalos", () => {
   });
 
   it("caches persona snapshots by session id", async () => {
-    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-cache-"));
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-persona-cache-"));
     try {
       await fs.writeFile(path.join(workspace, "SOUL.md"), "v1", "utf8");
 
-      const talos = createTalos({
+      const soulSwitch = createSoulSwitch({
         providers: {
           openaiCompatible: [],
         },
       });
-      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      soulSwitch.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
 
       const systems: string[] = [];
-      talos.registerModelProvider({
+      soulSwitch.registerModelProvider({
         id: "provider",
         async generate(request) {
           systems.push(request.system ?? "");
@@ -3032,7 +3032,7 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.run({
+      await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
@@ -3041,13 +3041,13 @@ describe("createTalos", () => {
 
       await fs.writeFile(path.join(workspace, "SOUL.md"), "v2", "utf8");
 
-      await talos.run({
+      await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
         sessionId: "agent:main:main",
       });
-      await talos.run({
+      await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
@@ -3064,19 +3064,19 @@ describe("createTalos", () => {
   });
 
   it("does not cache persona snapshots when session id is missing", async () => {
-    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-cacheless-"));
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-persona-cacheless-"));
     try {
       await fs.writeFile(path.join(workspace, "SOUL.md"), "v1", "utf8");
 
-      const talos = createTalos({
+      const soulSwitch = createSoulSwitch({
         providers: {
           openaiCompatible: [],
         },
       });
-      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      soulSwitch.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
 
       const systems: string[] = [];
-      talos.registerModelProvider({
+      soulSwitch.registerModelProvider({
         id: "provider",
         async generate(request) {
           systems.push(request.system ?? "");
@@ -3088,7 +3088,7 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.run({
+      await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
@@ -3096,7 +3096,7 @@ describe("createTalos", () => {
 
       await fs.writeFile(path.join(workspace, "SOUL.md"), "v2", "utf8");
 
-      await talos.run({
+      await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
@@ -3110,13 +3110,13 @@ describe("createTalos", () => {
   });
 
   it("loads configured extra persona files into system context", async () => {
-    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-extra-"));
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-persona-extra-"));
     try {
       await fs.mkdir(path.join(workspace, "nested"), { recursive: true });
       await fs.writeFile(path.join(workspace, "SOUL.md"), "root soul", "utf8");
       await fs.writeFile(path.join(workspace, "nested", "SOUL.md"), "nested soul", "utf8");
 
-      const talos = createTalos({
+      const soulSwitch = createSoulSwitch({
         providers: {
           openaiCompatible: [],
         },
@@ -3125,10 +3125,10 @@ describe("createTalos", () => {
         },
       });
 
-      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      soulSwitch.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
 
       let seenSystem = "";
-      talos.registerModelProvider({
+      soulSwitch.registerModelProvider({
         id: "provider",
         async generate(request) {
           seenSystem = request.system ?? "";
@@ -3140,7 +3140,7 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.run({
+      await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
@@ -3154,20 +3154,20 @@ describe("createTalos", () => {
   });
 
   it("supports lightweight persona context mode for heartbeat runs", async () => {
-    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-lightweight-heartbeat-"));
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-persona-lightweight-heartbeat-"));
     try {
       await fs.writeFile(path.join(workspace, "SOUL.md"), "soul", "utf8");
       await fs.writeFile(path.join(workspace, "HEARTBEAT.md"), "heartbeat", "utf8");
 
-      const talos = createTalos({
+      const soulSwitch = createSoulSwitch({
         providers: {
           openaiCompatible: [],
         },
       });
-      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      soulSwitch.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
 
       let seenSystem = "";
-      talos.registerModelProvider({
+      soulSwitch.registerModelProvider({
         id: "provider",
         async generate(request) {
           seenSystem = request.system ?? "";
@@ -3179,7 +3179,7 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.run({
+      await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
@@ -3195,20 +3195,20 @@ describe("createTalos", () => {
   });
 
   it("supports lightweight persona context mode for cron/default runs", async () => {
-    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-persona-lightweight-cron-"));
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-persona-lightweight-cron-"));
     try {
       await fs.writeFile(path.join(workspace, "SOUL.md"), "soul", "utf8");
       await fs.writeFile(path.join(workspace, "HEARTBEAT.md"), "heartbeat", "utf8");
 
-      const talos = createTalos({
+      const soulSwitch = createSoulSwitch({
         providers: {
           openaiCompatible: [],
         },
       });
-      talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      soulSwitch.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
 
       let seenSystem = "unset";
-      talos.registerModelProvider({
+      soulSwitch.registerModelProvider({
         id: "provider",
         async generate(request) {
           seenSystem = request.system ?? "";
@@ -3220,7 +3220,7 @@ describe("createTalos", () => {
         },
       });
 
-      await talos.run({
+      await soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         workspaceDir: workspace,
@@ -3235,13 +3235,13 @@ describe("createTalos", () => {
   });
 
   it("emits model lifecycle events", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: {
         providerId: "provider",
@@ -3249,7 +3249,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "provider",
       async generate(request) {
         return {
@@ -3261,31 +3261,31 @@ describe("createTalos", () => {
     });
 
     const events: string[] = [];
-    talos.onEvent((event) => {
+    soulSwitch.onEvent((event) => {
       events.push(event.type);
     });
 
-    await talos.run({ agentId: "main", prompt: "hello" });
+    await soulSwitch.run({ agentId: "main", prompt: "hello" });
 
     expect(events).toContain("model.started");
     expect(events).toContain("model.completed");
   });
 
   it("returns runId and includes it in run/model events", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: {
         providerId: "provider",
         modelId: "model",
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "provider",
       async generate(request) {
         return {
@@ -3297,7 +3297,7 @@ describe("createTalos", () => {
     });
 
     const runIds = new Set<string>();
-    talos.onEvent((event) => {
+    soulSwitch.onEvent((event) => {
       if (
         event.type === "run.started" ||
         event.type === "model.started" ||
@@ -3308,7 +3308,7 @@ describe("createTalos", () => {
       }
     });
 
-    const result = await talos.run({ agentId: "main", prompt: "hello" });
+    const result = await soulSwitch.run({ agentId: "main", prompt: "hello" });
 
     expect(result.runId.length).toBeGreaterThan(0);
     expect(runIds.size).toBe(1);
@@ -3316,20 +3316,20 @@ describe("createTalos", () => {
   });
 
   it("lists recent events and run-specific events", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: {
         providerId: "provider",
         modelId: "model",
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "provider",
       async generate(request) {
         return {
@@ -3340,9 +3340,9 @@ describe("createTalos", () => {
       },
     });
 
-    const result = await talos.run({ agentId: "main", prompt: "hello" });
-    const recent = talos.listEvents(5);
-    const runEvents = talos.listRunEvents(result.runId);
+    const result = await soulSwitch.run({ agentId: "main", prompt: "hello" });
+    const recent = soulSwitch.listEvents(5);
+    const runEvents = soulSwitch.listRunEvents(result.runId);
 
     expect(recent.length).toBeGreaterThan(0);
     expect(runEvents.length).toBeGreaterThan(0);
@@ -3350,7 +3350,7 @@ describe("createTalos", () => {
   });
 
   it("includes runId in tool events when provided in context", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [
           {
@@ -3362,7 +3362,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerTool({
+    soulSwitch.registerTool({
       name: "echo",
       description: "echo",
       async run(args) {
@@ -3371,7 +3371,7 @@ describe("createTalos", () => {
     });
 
     const seenRunIds: string[] = [];
-    talos.onEvent((event) => {
+    soulSwitch.onEvent((event) => {
       if (event.type === "tool.started" || event.type === "tool.completed") {
         if (event.data.runId) {
           seenRunIds.push(event.data.runId);
@@ -3379,7 +3379,7 @@ describe("createTalos", () => {
       }
     });
 
-    await talos.executeTool({
+    await soulSwitch.executeTool({
       name: "echo",
       args: { value: "v" },
       context: { agentId: "main", runId: "run-123" },
@@ -3389,20 +3389,20 @@ describe("createTalos", () => {
   });
 
   it("cancels run before model execution when signal already aborted", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: {
         providerId: "provider",
         modelId: "model",
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "provider",
       async generate(request) {
         return {
@@ -3417,7 +3417,7 @@ describe("createTalos", () => {
     controller.abort();
 
     await expect(
-      talos.run({
+      soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         signal: controller.signal,
@@ -3426,7 +3426,7 @@ describe("createTalos", () => {
   });
 
   it("emits run.cancelled when a run is aborted", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
@@ -3435,14 +3435,14 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: {
         providerId: "slow",
         modelId: "model",
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "slow",
       async generate() {
         await new Promise((resolve) => setTimeout(resolve, 200));
@@ -3455,7 +3455,7 @@ describe("createTalos", () => {
     });
 
     const events: string[] = [];
-    talos.onEvent((event) => {
+    soulSwitch.onEvent((event) => {
       events.push(event.type);
     });
 
@@ -3463,7 +3463,7 @@ describe("createTalos", () => {
     setTimeout(() => controller.abort(), 10);
 
     await expect(
-      talos.run({
+      soulSwitch.run({
         agentId: "main",
         prompt: "hello",
         signal: controller.signal,
@@ -3475,7 +3475,7 @@ describe("createTalos", () => {
 
   it("retries model requests before failing over", async () => {
     let primaryCalls = 0;
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
@@ -3484,7 +3484,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: {
         providerId: "primary",
@@ -3492,7 +3492,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "primary",
       async generate(request) {
         primaryCalls += 1;
@@ -3507,14 +3507,14 @@ describe("createTalos", () => {
       },
     });
 
-    const result = await talos.run({ agentId: "main", prompt: "hello" });
+    const result = await soulSwitch.run({ agentId: "main", prompt: "hello" });
 
     expect(primaryCalls).toBe(2);
     expect(result.text).toBe("ok-after-retry");
   });
 
   it("times out slow models and falls back", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
@@ -3523,7 +3523,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: {
         providerId: "slow",
@@ -3532,7 +3532,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "slow",
       async generate() {
         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -3544,7 +3544,7 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "fast",
       async generate(request) {
         return {
@@ -3555,14 +3555,14 @@ describe("createTalos", () => {
       },
     });
 
-    const result = await talos.run({ agentId: "main", prompt: "hello" });
+    const result = await soulSwitch.run({ agentId: "main", prompt: "hello" });
 
     expect(result.text).toBe("fallback-fast");
     expect(result.providerId).toBe("fast");
   });
 
   it("tracks active runs and supports cancellation by runId", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
@@ -3571,14 +3571,14 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: {
         providerId: "slow",
         modelId: "m",
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "slow",
       async generate() {
         await new Promise((resolve) => setTimeout(resolve, 200));
@@ -3590,29 +3590,29 @@ describe("createTalos", () => {
       },
     });
 
-    const runPromise = talos.run({ agentId: "main", prompt: "hello" });
+    const runPromise = soulSwitch.run({ agentId: "main", prompt: "hello" });
     await new Promise((resolve) => setTimeout(resolve, 10));
 
-    const active = talos.listActiveRuns();
+    const active = soulSwitch.listActiveRuns();
     expect(active.length).toBe(1);
     const runId = active[0]?.runId;
     expect(runId).toBeTruthy();
-    expect(talos.cancelRun(runId ?? "")).toBe(true);
+    expect(soulSwitch.cancelRun(runId ?? "")).toBe(true);
     await expect(runPromise).rejects.toMatchObject({ code: "RUN_CANCELLED" });
-    expect(talos.listActiveRuns()).toHaveLength(0);
+    expect(soulSwitch.listActiveRuns()).toHaveLength(0);
   });
 
   it("stores run summaries for completed runs", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: { providerId: "provider", modelId: "model" },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "provider",
       async generate(request) {
         return {
@@ -3623,26 +3623,26 @@ describe("createTalos", () => {
       },
     });
 
-    const result = await talos.run({ agentId: "main", prompt: "hello" });
-    const summary = talos.getRun(result.runId);
+    const result = await soulSwitch.run({ agentId: "main", prompt: "hello" });
+    const summary = soulSwitch.getRun(result.runId);
 
     expect(summary?.status).toBe("completed");
     expect(summary?.providerId).toBe("provider");
     expect(summary?.modelId).toBe("model");
-    expect(talos.listRuns(1)[0]?.runId).toBe(result.runId);
+    expect(soulSwitch.listRuns(1)[0]?.runId).toBe(result.runId);
   });
 
   it("stores run summaries for cancelled runs", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "main",
       model: { providerId: "slow", modelId: "model" },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "slow",
       async generate() {
         await new Promise((resolve) => setTimeout(resolve, 200));
@@ -3654,19 +3654,19 @@ describe("createTalos", () => {
       },
     });
 
-    const runPromise = talos.run({ agentId: "main", prompt: "hello" });
+    const runPromise = soulSwitch.run({ agentId: "main", prompt: "hello" });
     await new Promise((resolve) => setTimeout(resolve, 10));
-    const runId = talos.listActiveRuns()[0]?.runId ?? "";
-    talos.cancelRun(runId);
+    const runId = soulSwitch.listActiveRuns()[0]?.runId ?? "";
+    soulSwitch.cancelRun(runId);
     await expect(runPromise).rejects.toMatchObject({ code: "RUN_CANCELLED" });
 
-    const summary = talos.getRun(runId);
+    const summary = soulSwitch.getRun(runId);
     expect(summary?.status).toBe("cancelled");
     expect(summary?.finishedAt).toBeTruthy();
   });
 
   it("reports run status statistics", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
@@ -3675,11 +3675,11 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "ok",
       model: { providerId: "ok-provider", modelId: "m" },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "ok-provider",
       async generate(request) {
         return {
@@ -3690,22 +3690,22 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "fail",
       model: { providerId: "fail-provider", modelId: "m" },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "fail-provider",
       async generate() {
         throw new Error("boom");
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "cancel",
       model: { providerId: "slow-provider", modelId: "m" },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "slow-provider",
       async generate() {
         await new Promise((resolve) => setTimeout(resolve, 200));
@@ -3717,18 +3717,18 @@ describe("createTalos", () => {
       },
     });
 
-    await talos.run({ agentId: "ok", prompt: "hello" });
-    await expect(talos.run({ agentId: "fail", prompt: "hello" })).rejects.toMatchObject({
+    await soulSwitch.run({ agentId: "ok", prompt: "hello" });
+    await expect(soulSwitch.run({ agentId: "fail", prompt: "hello" })).rejects.toMatchObject({
       code: "RUN_FAILED",
     });
 
-    const cancelPromise = talos.run({ agentId: "cancel", prompt: "hello" });
+    const cancelPromise = soulSwitch.run({ agentId: "cancel", prompt: "hello" });
     await new Promise((resolve) => setTimeout(resolve, 10));
-    const cancelRunId = talos.listActiveRuns()[0]?.runId ?? "";
-    talos.cancelRun(cancelRunId);
+    const cancelRunId = soulSwitch.listActiveRuns()[0]?.runId ?? "";
+    soulSwitch.cancelRun(cancelRunId);
     await expect(cancelPromise).rejects.toMatchObject({ code: "RUN_CANCELLED" });
 
-    const stats = talos.getRunStats();
+    const stats = soulSwitch.getRunStats();
     expect(stats.total).toBeGreaterThanOrEqual(3);
     expect(stats.completed).toBeGreaterThanOrEqual(1);
     expect(stats.failed).toBeGreaterThanOrEqual(1);
@@ -3736,21 +3736,21 @@ describe("createTalos", () => {
   });
 
   it("returns diagnostics snapshot with counts and recent events", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
 
-    talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
-    talos.registerTool({
+    soulSwitch.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+    soulSwitch.registerTool({
       name: "echo",
       description: "echo",
       async run(args) {
         return { content: String(args.value ?? "") };
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "provider",
       async generate(request) {
         return {
@@ -3761,10 +3761,10 @@ describe("createTalos", () => {
       },
     });
 
-    await talos.run({ agentId: "main", prompt: "hello" });
-    await talos.executeTool({ name: "echo", args: { value: "v" }, context: { agentId: "main" } });
+    await soulSwitch.run({ agentId: "main", prompt: "hello" });
+    await soulSwitch.executeTool({ name: "echo", args: { value: "v" }, context: { agentId: "main" } });
 
-    const snapshot = talos.getDiagnostics({ recentEventsLimit: 5 });
+    const snapshot = soulSwitch.getDiagnostics({ recentEventsLimit: 5 });
 
     expect(snapshot.generatedAt.length).toBeGreaterThan(0);
     expect(snapshot.counts.agents).toBe(1);
@@ -3775,14 +3775,14 @@ describe("createTalos", () => {
   });
 
   it("resets diagnostics history and run summaries", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
 
-    talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
-    talos.registerModelProvider({
+    soulSwitch.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+    soulSwitch.registerModelProvider({
       id: "provider",
       async generate(request) {
         return {
@@ -3793,23 +3793,23 @@ describe("createTalos", () => {
       },
     });
 
-    await talos.run({ agentId: "main", prompt: "hello" });
+    await soulSwitch.run({ agentId: "main", prompt: "hello" });
 
-    const before = talos.getDiagnostics();
+    const before = soulSwitch.getDiagnostics();
     expect(before.runStats.total).toBeGreaterThan(0);
     expect(before.recentEvents.length).toBeGreaterThan(0);
 
-    const reset = talos.resetDiagnostics();
+    const reset = soulSwitch.resetDiagnostics();
     expect(reset.clearedRuns).toBeGreaterThan(0);
     expect(reset.clearedEvents).toBeGreaterThan(0);
 
-    const after = talos.getDiagnostics();
+    const after = soulSwitch.getDiagnostics();
     expect(after.runStats.total).toBe(0);
     expect(after.recentEvents).toHaveLength(0);
   });
 
   it("queries runs by agent and status", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
@@ -3818,16 +3818,16 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "alpha",
       model: { providerId: "ok", modelId: "m" },
     });
-    talos.registerAgent({
+    soulSwitch.registerAgent({
       id: "beta",
       model: { providerId: "bad", modelId: "m" },
     });
 
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "ok",
       async generate(request) {
         return {
@@ -3837,20 +3837,20 @@ describe("createTalos", () => {
         };
       },
     });
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "bad",
       async generate() {
         throw new Error("boom");
       },
     });
 
-    await talos.run({ agentId: "alpha", prompt: "hello" });
-    await expect(talos.run({ agentId: "beta", prompt: "hello" })).rejects.toMatchObject({
+    await soulSwitch.run({ agentId: "alpha", prompt: "hello" });
+    await expect(soulSwitch.run({ agentId: "beta", prompt: "hello" })).rejects.toMatchObject({
       code: "RUN_FAILED",
     });
 
-    const alphaCompleted = talos.queryRuns({ agentId: "alpha", status: "completed" });
-    const betaFailed = talos.queryRuns({ agentId: "beta", status: "failed" });
+    const alphaCompleted = soulSwitch.queryRuns({ agentId: "alpha", status: "completed" });
+    const betaFailed = soulSwitch.queryRuns({ agentId: "beta", status: "failed" });
 
     expect(alphaCompleted.length).toBeGreaterThanOrEqual(1);
     expect(alphaCompleted.every((run) => run.agentId === "alpha")).toBe(true);
@@ -3862,22 +3862,22 @@ describe("createTalos", () => {
 
     const before = new Date(Date.now() - 1_000).toISOString();
     const after = new Date(Date.now() + 1_000).toISOString();
-    const inWindow = talos.queryRuns({ since: before, until: after });
+    const inWindow = soulSwitch.queryRuns({ since: before, until: after });
     expect(inWindow.length).toBeGreaterThanOrEqual(2);
 
-    const futureOnly = talos.queryRuns({ since: new Date(Date.now() + 60_000).toISOString() });
+    const futureOnly = soulSwitch.queryRuns({ since: new Date(Date.now() + 60_000).toISOString() });
     expect(futureOnly).toHaveLength(0);
   });
 
   it("queries events by type and runId", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
     });
 
-    talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
-    talos.registerModelProvider({
+    soulSwitch.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+    soulSwitch.registerModelProvider({
       id: "provider",
       async generate(request) {
         return {
@@ -3888,12 +3888,12 @@ describe("createTalos", () => {
       },
     });
 
-    const result = await talos.run({ agentId: "main", prompt: "hello" });
+    const result = await soulSwitch.run({ agentId: "main", prompt: "hello" });
 
-    const completed = talos.queryEvents({ type: "run.completed" });
+    const completed = soulSwitch.queryEvents({ type: "run.completed" });
     expect(completed.length).toBeGreaterThanOrEqual(1);
 
-    const byRun = talos.queryEvents({ runId: result.runId });
+    const byRun = soulSwitch.queryEvents({ runId: result.runId });
     expect(byRun.length).toBeGreaterThan(0);
     expect(byRun.every((event) => ("runId" in event ? event.runId === result.runId : true))).toBe(
       true,
@@ -3901,10 +3901,10 @@ describe("createTalos", () => {
 
     const before = new Date(Date.now() - 1_000).toISOString();
     const after = new Date(Date.now() + 1_000).toISOString();
-    const inRange = talos.queryEvents({ runId: result.runId, since: before, until: after });
+    const inRange = soulSwitch.queryEvents({ runId: result.runId, since: before, until: after });
     expect(inRange.length).toBeGreaterThan(0);
 
-    const futureRange = talos.queryEvents({
+    const futureRange = soulSwitch.queryEvents({
       runId: result.runId,
       since: new Date(Date.now() + 60_000).toISOString(),
     });
@@ -3912,7 +3912,7 @@ describe("createTalos", () => {
   });
 
   it("executes tool loop rounds when model returns JSON tool calls", async () => {
-    const talos = createTalos({
+    const soulSwitch = createSoulSwitch({
       providers: {
         openaiCompatible: [],
       },
@@ -3921,8 +3921,8 @@ describe("createTalos", () => {
       },
     });
 
-    talos.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
-    talos.registerTool({
+    soulSwitch.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+    soulSwitch.registerTool({
       name: "sum",
       description: "sum",
       async run(args) {
@@ -3931,7 +3931,7 @@ describe("createTalos", () => {
     });
 
     let calls = 0;
-    talos.registerModelProvider({
+    soulSwitch.registerModelProvider({
       id: "provider",
       async generate() {
         calls += 1;
@@ -3950,22 +3950,22 @@ describe("createTalos", () => {
       },
     });
 
-    const result = await talos.run({ agentId: "main", prompt: "What is 2+3?" });
+    const result = await soulSwitch.run({ agentId: "main", prompt: "What is 2+3?" });
     expect(result.text).toBe("The answer is 5.");
     expect(calls).toBe(2);
   });
 
   it("saves and loads state snapshots", async () => {
-    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-state-"));
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-state-"));
     const statePath = path.join(stateDir, "state.json");
     try {
-      const talosA = createTalos({
+      const soulSwitchA = createSoulSwitch({
         providers: {
           openaiCompatible: [],
         },
       });
-      talosA.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
-      talosA.registerModelProvider({
+      soulSwitchA.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      soulSwitchA.registerModelProvider({
         id: "provider",
         async generate(request) {
           return {
@@ -3975,21 +3975,21 @@ describe("createTalos", () => {
           };
         },
       });
-      talosA.registerSessionTools();
-      await talosA.run({ agentId: "main", prompt: "hello", sessionId: "main" });
-      await talosA.saveState(statePath);
+      soulSwitchA.registerSessionTools();
+      await soulSwitchA.run({ agentId: "main", prompt: "hello", sessionId: "main" });
+      await soulSwitchA.saveState(statePath);
 
-      const talosB = createTalos({
+      const soulSwitchB = createSoulSwitch({
         providers: {
           openaiCompatible: [],
         },
       });
-      talosB.registerSessionTools();
-      const loadedPath = await talosB.loadState(statePath);
+      soulSwitchB.registerSessionTools();
+      const loadedPath = await soulSwitchB.loadState(statePath);
       expect(loadedPath.endsWith("state.json")).toBe(true);
-      expect(talosB.getRunStats().total).toBeGreaterThanOrEqual(1);
-      expect(talosB.listEvents(10).length).toBeGreaterThan(0);
-      const sessions = await talosB.executeTool({
+      expect(soulSwitchB.getRunStats().total).toBeGreaterThanOrEqual(1);
+      expect(soulSwitchB.listEvents(10).length).toBeGreaterThan(0);
+      const sessions = await soulSwitchB.executeTool({
         name: "sessions_list",
         args: {},
         context: { agentId: "main" },
@@ -4001,10 +4001,10 @@ describe("createTalos", () => {
   });
 
   it("redacts configured keys when saving state snapshots", async () => {
-    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-redact-state-"));
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-redact-state-"));
     const statePath = path.join(stateDir, "state.json");
     try {
-      const talos = createTalos({
+      const soulSwitch = createSoulSwitch({
         security: {
           redactKeys: ["authorization"],
         },
@@ -4013,7 +4013,7 @@ describe("createTalos", () => {
         },
       });
 
-      talos.onEvent((event) => {
+      soulSwitch.onEvent((event) => {
         if (event.type === "run.failed") {
           Object.assign(event.data, {
             authorization: "secret-token",
@@ -4021,21 +4021,21 @@ describe("createTalos", () => {
         }
       });
 
-      talos.registerAgent({
+      soulSwitch.registerAgent({
         id: "main",
         model: { providerId: "bad", modelId: "m" },
       });
-      talos.registerModelProvider({
+      soulSwitch.registerModelProvider({
         id: "bad",
         async generate() {
           throw new Error("authorization=secret-token");
         },
       });
 
-      await expect(talos.run({ agentId: "main", prompt: "x" })).rejects.toMatchObject({
+      await expect(soulSwitch.run({ agentId: "main", prompt: "x" })).rejects.toMatchObject({
         code: "RUN_FAILED",
       });
-      await talos.saveState(statePath);
+      await soulSwitch.saveState(statePath);
 
       const raw = await fs.readFile(statePath, "utf8");
       expect(raw.includes('"authorization": "[REDACTED]"')).toBe(true);
@@ -4045,7 +4045,7 @@ describe("createTalos", () => {
   });
 
   it("auto-persists and auto-loads state when runtime.stateFile is configured", async () => {
-    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-auto-state-"));
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-auto-state-"));
     const statePath = path.join(stateDir, "state.json");
 
     const waitFor = async (predicate: () => boolean | Promise<boolean>, timeoutMs = 2_000) => {
@@ -4060,7 +4060,7 @@ describe("createTalos", () => {
     };
 
     try {
-      const talosA = createTalos({
+      const soulSwitchA = createSoulSwitch({
         runtime: {
           stateFile: statePath,
         },
@@ -4068,8 +4068,8 @@ describe("createTalos", () => {
           openaiCompatible: [],
         },
       });
-      talosA.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
-      talosA.registerModelProvider({
+      soulSwitchA.registerAgent({ id: "main", model: { providerId: "provider", modelId: "m" } });
+      soulSwitchA.registerModelProvider({
         id: "provider",
         async generate(request) {
           return {
@@ -4079,7 +4079,7 @@ describe("createTalos", () => {
           };
         },
       });
-      await talosA.run({ agentId: "main", prompt: "hello" });
+      await soulSwitchA.run({ agentId: "main", prompt: "hello" });
 
       await waitFor(async () => {
         try {
@@ -4090,7 +4090,7 @@ describe("createTalos", () => {
         }
       });
 
-      const talosB = createTalos({
+      const soulSwitchB = createSoulSwitch({
         runtime: {
           stateFile: statePath,
         },
@@ -4099,8 +4099,8 @@ describe("createTalos", () => {
         },
       });
 
-      await waitFor(() => talosB.getRunStats().total > 0);
-      expect(talosB.getRunStats().total).toBeGreaterThanOrEqual(1);
+      await waitFor(() => soulSwitchB.getRunStats().total > 0);
+      expect(soulSwitchB.getRunStats().total).toBeGreaterThanOrEqual(1);
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });
     }

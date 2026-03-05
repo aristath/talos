@@ -1,5 +1,5 @@
 import type { ToolDefinition, ToolResult } from "../types.js";
-import { TalosError } from "../errors.js";
+import { SoulSwitchError } from "../errors.js";
 
 export class ToolRegistry {
   private readonly tools = new Map<string, ToolDefinition>();
@@ -7,7 +7,7 @@ export class ToolRegistry {
   register(tool: ToolDefinition): void {
     const name = tool.name.trim();
     if (!name) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "PLUGIN_INVALID",
         message: "Tool name is required.",
       });
@@ -38,7 +38,7 @@ export class ToolRegistry {
   ): Promise<ToolResult> {
     const tool = this.tools.get(name);
     if (!tool) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "PLUGIN_INVALID",
         message: `Unknown tool: ${name}`,
       });

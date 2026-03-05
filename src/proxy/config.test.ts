@@ -6,7 +6,7 @@ import { loadOpenAIProxyOptionsFromFile, loadOpenAIProxyServerOptionsFromFile } 
 
 describe("loadOpenAIProxyOptionsFromFile", () => {
   it("loads proxy options and inbound auth map from JSON", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-config-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-config-"));
     await fs.writeFile(
       path.join(workspaceDir, "proxy.json"),
       JSON.stringify(
@@ -39,7 +39,7 @@ describe("loadOpenAIProxyOptionsFromFile", () => {
   });
 
   it("loads server options including CORS and maxRequestBytes", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-config-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-server-config-"));
     await fs.writeFile(
       path.join(workspaceDir, "proxy.json"),
       JSON.stringify(

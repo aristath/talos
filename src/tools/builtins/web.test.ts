@@ -47,7 +47,7 @@ describe("web builtins", () => {
       },
     });
 
-    const result = await tool.run({ query: "talos", provider: "gemini" }, { agentId: "main" });
+    const result = await tool.run({ query: "soulSwitch", provider: "gemini" }, { agentId: "main" });
     const urls = (result.data as { results: Array<{ url: string }> }).results.map((entry) => entry.url);
     expect(urls).toContain("https://example.com/a");
     expect((result.data as { citations?: string[] }).citations).toContain("https://example.com/a");
@@ -59,7 +59,7 @@ describe("web builtins", () => {
       defaultProvider: "gemini",
     });
 
-    await expect(tool.run({ query: "talos", provider: "gemini" }, { agentId: "main" })).rejects.toMatchObject({
+    await expect(tool.run({ query: "soulSwitch", provider: "gemini" }, { agentId: "main" })).rejects.toMatchObject({
       code: "TOOL_FAILED",
     });
   });
@@ -70,7 +70,7 @@ describe("web builtins", () => {
       defaultProvider: "brave",
     });
 
-    await expect(tool.run({ query: "talos" }, { agentId: "main" })).rejects.toMatchObject({
+    await expect(tool.run({ query: "soulSwitch" }, { agentId: "main" })).rejects.toMatchObject({
       code: "TOOL_FAILED",
     });
   });

@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { TalosError } from "../errors.js";
+import { SoulSwitchError } from "../errors.js";
 import type { OpenAIProxyOptions } from "./openai-compatible-proxy.js";
 import type { OpenAIProxyServerOptions } from "./server.js";
 
@@ -38,14 +38,14 @@ export async function loadOpenAIProxyOptionsFromFile(params: {
 }): Promise<OpenAIProxyOptions> {
   const workspaceDir = params.workspaceDir.trim();
   if (!workspaceDir) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: "workspaceDir is required.",
     });
   }
   const configPath = path.resolve(workspaceDir, params.configPath?.trim() || "proxy.json");
   const raw = await fs.readFile(configPath, "utf8").catch((error) => {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: `Unable to read proxy config: ${configPath}`,
       cause: error,
@@ -55,7 +55,7 @@ export async function loadOpenAIProxyOptionsFromFile(params: {
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: `Invalid proxy JSON: ${configPath}`,
       cause: error,
@@ -63,7 +63,7 @@ export async function loadOpenAIProxyOptionsFromFile(params: {
   }
   const validated = PROXY_CONFIG_FILE_SCHEMA.safeParse(parsed);
   if (!validated.success) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: `Invalid proxy config schema: ${configPath}`,
       details: {
@@ -106,7 +106,7 @@ export async function loadOpenAIProxyServerOptionsFromFile(params: {
   const base = await loadOpenAIProxyOptionsFromFile(params);
   const configPath = path.resolve(params.workspaceDir.trim(), params.configPath?.trim() || "proxy.json");
   const raw = await fs.readFile(configPath, "utf8").catch((error) => {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: `Unable to read proxy config: ${configPath}`,
       cause: error,
@@ -116,7 +116,7 @@ export async function loadOpenAIProxyServerOptionsFromFile(params: {
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: `Invalid proxy JSON: ${configPath}`,
       cause: error,
@@ -124,7 +124,7 @@ export async function loadOpenAIProxyServerOptionsFromFile(params: {
   }
   const validatedResult = PROXY_CONFIG_FILE_SCHEMA.safeParse(parsed);
   if (!validatedResult.success) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: `Invalid proxy config schema: ${configPath}`,
       details: {

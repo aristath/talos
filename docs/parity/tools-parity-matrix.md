@@ -1,6 +1,6 @@
 # Tools Parity Matrix
 
-This matrix tracks Talos parity against OpenClaw tool semantics.
+This matrix tracks SoulSwitch parity against OpenClaw tool semantics.
 
 Parity requires matching:
 

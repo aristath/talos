@@ -1,6 +1,6 @@
-export { createTalos } from "./talos.js";
-export { TalosError } from "./errors.js";
-export { TALOS_PLUGIN_API_VERSION, definePlugin, assertPluginCompatibility } from "./plugin-sdk.js";
+export { createSoulSwitch } from "./soulSwitch.js";
+export { SoulSwitchError } from "./errors.js";
+export { SOULSWITCH_PLUGIN_API_VERSION, definePlugin, assertPluginCompatibility } from "./plugin-sdk.js";
 export { createWebSearchTool, createWebFetchTool } from "./tools/builtins/web.js";
 export { createImageTool, createPdfTool } from "./tools/builtins/media.js";
 export { createBrowserTool, createCanvasTool } from "./tools/builtins/browser-ui.js";
@@ -18,8 +18,8 @@ export { redactValue } from "./security/redaction.js";
 export { discoverPluginEntryPaths, loadPluginFromPath } from "./plugins/loader.js";
 export { seedPersonaWorkspace } from "./persona/bootstrap.js";
 export type {
-  Talos,
-  TalosConfig,
+  SoulSwitch,
+  SoulSwitchConfig,
   RunInput,
   RunResult,
   AgentDefinition,
@@ -38,8 +38,8 @@ export type {
   SessionToolsCallbacks,
   SessionToolsOptions,
   LlmTaskToolOptions,
-  TalosPlugin,
-  TalosErrorCode,
+  SoulSwitchPlugin,
+  SoulSwitchErrorCode,
   RunLifecycleEvent,
   RunLifecycleListener,
   RunLifecycleUnsubscribe,
@@ -50,8 +50,8 @@ export type {
   EventQuery,
   RunStats,
   PluginSummary,
-  TalosDiagnostics,
-  TalosStateSnapshot,
+  SoulSwitchDiagnostics,
+  SoulSwitchStateSnapshot,
   DiagnosticsResetResult,
   PluginCapability,
 } from "./types.js";

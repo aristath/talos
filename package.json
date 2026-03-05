@@ -1,7 +1,7 @@
 {
-  "name": "talos",
+  "name": "@aristath/soulswitch",
   "version": "0.1.0",
-  "description": "Talos core agent orchestration library",
+  "description": "SoulSwitch core agent orchestration library",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

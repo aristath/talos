@@ -1,6 +1,6 @@
-# Talos Architecture
+# SoulSwitch Architecture
 
-Talos is a library-only runtime with six core planes:
+SoulSwitch is a library-only runtime with six core planes:
 
 1. `config`
 2. `persona`
@@ -11,7 +11,7 @@ Talos is a library-only runtime with six core planes:
 
 ## Runtime flow
 
-`createTalos(config)` creates and wires registries.
+`createSoulSwitch(config)` creates and wires registries.
 
 `run(input)` executes the orchestration pipeline:
 
@@ -24,13 +24,13 @@ Talos is a library-only runtime with six core planes:
 
 ## State and diagnostics
 
-Talos keeps diagnostics in memory by default:
+SoulSwitch keeps diagnostics in memory by default:
 
 - lifecycle event history
 - run summaries and run stats
 - active run index
 
-If `runtime.stateFile` is configured, Talos auto-loads state at startup and auto-persists updates.
+If `runtime.stateFile` is configured, SoulSwitch auto-loads state at startup and auto-persists updates.
 
 Persona snapshots are cached per `sessionId` to keep bootstrap context stable across turns in the same session.
 

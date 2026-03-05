@@ -1,6 +1,6 @@
-# talos
+# soulSwitch
 
-Talos is a TypeScript runtime for persona-driven agents, with a production-focused OpenAI-compatible proxy layer.
+SoulSwitch is a TypeScript runtime for persona-driven agents, with a production-focused OpenAI-compatible proxy layer.
 
 In practice, this project is used in two ways:
 
@@ -11,7 +11,7 @@ This repository intentionally excludes channel integrations, UI apps, and CLI su
 
 ## What This Project Is
 
-Talos is not an orchestration SaaS. It is a local/library runtime that gives you:
+SoulSwitch is not an orchestration SaaS. It is a local/library runtime that gives you:
 
 - Persona file loading from workspace folders (`agents/<agentId>/...`)
 - Configurable model/provider execution with retries and timeouts
@@ -23,7 +23,7 @@ The proxy mode is designed for compatibility with clients that already speak Ope
 
 ## How The Proxy Works
 
-For each inbound request, Talos proxy does the following:
+For each inbound request, SoulSwitch proxy does the following:
 
 1. Resolve the target agent (`X-Agent-Id`, `model: "agent:<id>"`, or token mapping default).
 2. Load and cache agent persona files from `agents/<agentId>/`:
@@ -34,9 +34,9 @@ For each inbound request, Talos proxy does the following:
 5. Transform request payload for endpoint type (`chat/completions`, `responses`, etc.) and inject persona.
 6. Forward to upstream OpenAI-compatible endpoint.
 7. On upstream `5xx`, try configured model fallbacks (if present).
-8. Return upstream payload with Talos trace headers.
+8. Return upstream payload with SoulSwitch trace headers.
 
-Talos keeps a profile cache and exposes reload APIs to invalidate all or single-agent cache entries.
+SoulSwitch keeps a profile cache and exposes reload APIs to invalidate all or single-agent cache entries.
 
 ## Supported OpenAI-Compatible Endpoints
 
@@ -137,7 +137,7 @@ pnpm install
 ## 2) Start a proxy server from config file
 
 ```ts
-import { startOpenAICompatibleProxyServerFromFile } from "talos";
+import { startOpenAICompatibleProxyServerFromFile } from "@aristath/soulswitch";
 
 const started = await startOpenAICompatibleProxyServerFromFile({
   workspaceDir: "/absolute/path/to/workspace",
@@ -181,17 +181,17 @@ Agent selection options:
 ## Trace Headers Returned By Proxy
 
 - `x-request-id`
-- `x-talos-agent-id`
-- `x-talos-model`
-- `x-talos-model-attempt` (when fallbacks are active)
-- `x-talos-model-candidates` (when fallbacks are active)
-- `x-talos-model-fallback` (when fallback was used)
+- `x-soulswitch-agent-id`
+- `x-soulswitch-model`
+- `x-soulswitch-model-attempt` (when fallbacks are active)
+- `x-soulswitch-model-candidates` (when fallbacks are active)
+- `x-soulswitch-model-fallback` (when fallback was used)
 
 ## Library API (Non-Proxy)
 
 Core runtime entry points include:
 
-- `createTalos(config)`
+- `createSoulSwitch(config)`
 - `registerAgent(...)`, `registerTool(...)`, `registerPlugin(...)`, `registerModelProvider(...)`
 - `run(input)`
 - diagnostics/run/event/query/state APIs
@@ -217,7 +217,7 @@ Default checks:
 Live E2E (real upstream credentials, opt-in):
 
 1. Copy `.env.e2e.example` to `.env.e2e.local`
-2. Fill `TALOS_E2E_BASE_URL`, `TALOS_E2E_API_KEY`, and `TALOS_E2E_MODEL`
+2. Fill `SOULSWITCH_E2E_BASE_URL`, `SOULSWITCH_E2E_API_KEY`, and `SOULSWITCH_E2E_MODEL`
 3. Run `pnpm test:e2e:live`
 
 Live suite file: `src/proxy/live.e2e.test.ts`.
@@ -231,7 +231,7 @@ Live suite file: `src/proxy/live.e2e.test.ts`.
 - **Fallback policy**: define `model.fallbacks` only where needed and monitor fallback rates via response headers.
 - **Readiness gating**: start with `verifyReady: true` so deployments fail fast on broken default agent config.
 - **Cache operations**: use `/reloadz?agentId=<id>` for targeted refreshes after persona/config updates.
-- **Observability**: scrape `/metricsz`, collect `x-request-id` and Talos trace headers in logs, and alert on 5xx/401 spikes.
+- **Observability**: scrape `/metricsz`, collect `x-request-id` and SoulSwitch trace headers in logs, and alert on 5xx/401 spikes.
 - **CORS**: set explicit `cors.allowOrigin`, `cors.allowHeaders`, and `cors.allowMethods` in internet-facing deployments.
 
 ## Additional Docs

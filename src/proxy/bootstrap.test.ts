@@ -9,7 +9,7 @@ import {
 } from "./bootstrap.js";
 
 async function setupWorkspace(): Promise<string> {
-  const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-bootstrap-"));
+  const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-bootstrap-"));
   const agentDir = path.join(workspaceDir, "agents", "designer");
   await fs.mkdir(agentDir, { recursive: true });
   await fs.writeFile(path.join(agentDir, "SOUL.md"), "Designer soul", "utf8");
@@ -103,7 +103,7 @@ describe("proxy bootstrap helpers", () => {
   });
 
   it("fails fast when verifyReady is enabled and agent profile is invalid", async () => {
-    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-bootstrap-not-ready-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-proxy-bootstrap-not-ready-"));
     await fs.writeFile(
       path.join(workspaceDir, "proxy.json"),
       JSON.stringify(

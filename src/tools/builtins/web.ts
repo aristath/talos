@@ -1,4 +1,4 @@
-import { TalosError } from "../../errors.js";
+import { SoulSwitchError } from "../../errors.js";
 import type {
   ToolDefinition,
   WebFetchToolOptions,
@@ -19,7 +19,7 @@ const SEARCH_PROVIDERS = new Set(["brave", "perplexity", "gemini", "grok", "kimi
 function requireString(value: unknown, field: string): string {
   const normalized = typeof value === "string" ? value.trim() : "";
   if (!normalized) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: `web tool requires a non-empty '${field}' string.`,
     });
@@ -43,19 +43,19 @@ function normalizeUrl(rawUrl: string, allowPrivateNetwork: boolean): string {
   try {
     parsed = new URL(rawUrl);
   } catch {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: `Invalid URL: ${rawUrl}`,
     });
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: `web_fetch only supports http/https URLs: ${rawUrl}`,
     });
   }
   if (!allowPrivateNetwork && PRIVATE_HOSTNAME_PATTERN.test(parsed.hostname)) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: `Blocked private/internal hostname for web_fetch: ${parsed.hostname}`,
     });
@@ -72,7 +72,7 @@ function normalizeCountry(value: unknown): string | undefined {
     return undefined;
   }
   if (!/^([A-Z]{2}|ALL)$/.test(normalized)) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: "country must be a 2-letter code or ALL.",
     });
@@ -89,7 +89,7 @@ function normalizeSearchLang(value: unknown): string | undefined {
     return undefined;
   }
   if (!/^[a-z]{2}$/.test(normalized)) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: "search_lang must be a 2-letter ISO language code like 'en'.",
     });
@@ -106,7 +106,7 @@ function normalizeUiLang(value: unknown): string | undefined {
     return undefined;
   }
   if (!/^[a-z]{2}-[A-Z]{2}$/.test(normalized)) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: "ui_lang must be a language-region locale like 'en-US'.",
     });
@@ -128,7 +128,7 @@ function normalizeFreshness(value: unknown): string | undefined {
   if (/^\d{4}-\d{2}-\d{2}to\d{4}-\d{2}-\d{2}$/.test(normalized)) {
     return normalized;
   }
-  throw new TalosError({
+  throw new SoulSwitchError({
     code: "TOOL_FAILED",
     message: "freshness must be one of pd/pw/pm/py or YYYY-MM-DDtoYYYY-MM-DD.",
   });
@@ -143,7 +143,7 @@ function normalizeProvider(value: unknown): "brave" | "perplexity" | "gemini" | 
     return undefined;
   }
   if (!SEARCH_PROVIDERS.has(normalized)) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: `Unsupported web_search provider: ${normalized}`,
     });
@@ -338,7 +338,7 @@ async function providerModelSearch(params: {
     }),
   });
   if (!response.ok) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: `${params.provider} web_search failed (${response.status}).`,
     });
@@ -359,7 +359,7 @@ async function providerModelSearch(params: {
       url,
     }));
   }
-  throw new TalosError({
+  throw new SoulSwitchError({
     code: "TOOL_FAILED",
     message: `${params.provider} web_search returned no usable results.`,
   });
@@ -378,7 +378,7 @@ async function defaultWebSearch(params: {
   const provider = params.provider ?? "brave";
   if (provider === "brave") {
     if (!params.providerApiKey) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_FAILED",
         message: "web_search provider 'brave' requires BRAVE_API_KEY (or providerApiKeys.brave).",
       });
@@ -405,7 +405,7 @@ async function defaultWebSearch(params: {
       },
     });
     if (!response.ok) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_FAILED",
         message: `Brave web_search failed (${response.status}).`,
       });
@@ -431,7 +431,7 @@ async function defaultWebSearch(params: {
   }
 
   if (!params.providerApiKey) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: `web_search provider '${provider}' requires a provider API key.`,
     });
@@ -462,7 +462,7 @@ async function defaultFirecrawlFallback(params: {
 }> {
   const apiKey = process.env.FIRECRAWL_API_KEY?.trim();
   if (!apiKey) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: "FIRECRAWL_API_KEY is required for web_fetch Firecrawl fallback.",
     });
@@ -483,7 +483,7 @@ async function defaultFirecrawlFallback(params: {
       }),
     });
     if (!response.ok) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_FAILED",
         message: `Firecrawl fallback failed (${response.status}).`,
       });
@@ -494,7 +494,7 @@ async function defaultFirecrawlFallback(params: {
     };
     const markdown = payload.data?.markdown?.trim() ?? "";
     if (!markdown) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "TOOL_FAILED",
         message: "Firecrawl fallback returned empty content.",
       });
@@ -557,14 +557,14 @@ async function defaultFetchContent(params: {
       const isRedirect = response.status >= 300 && response.status < 400;
       if (isRedirect) {
         if (redirectCount >= params.maxRedirects) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: `web_fetch exceeded max redirects (${params.maxRedirects}): ${params.url}`,
           });
         }
         const location = response.headers.get("location");
         if (!location) {
-          throw new TalosError({
+          throw new SoulSwitchError({
             code: "TOOL_FAILED",
             message: `web_fetch redirect missing Location header: ${currentUrl}`,
           });
@@ -574,7 +574,7 @@ async function defaultFetchContent(params: {
         continue;
       }
       if (!response.ok) {
-        throw new TalosError({
+        throw new SoulSwitchError({
           code: "TOOL_FAILED",
           message: `web_fetch request failed (${response.status}): ${currentUrl}`,
         });
@@ -627,7 +627,7 @@ async function defaultFetchContent(params: {
         truncated,
       };
     }
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "TOOL_FAILED",
       message: `web_fetch could not fetch URL: ${params.url}`,
     });

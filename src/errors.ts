@@ -1,17 +1,17 @@
-import type { TalosErrorCode, TalosErrorDetails } from "./types.js";
+import type { SoulSwitchErrorCode, SoulSwitchErrorDetails } from "./types.js";
 
-export class TalosError extends Error {
-  readonly code: TalosErrorCode;
-  readonly details?: TalosErrorDetails;
+export class SoulSwitchError extends Error {
+  readonly code: SoulSwitchErrorCode;
+  readonly details?: SoulSwitchErrorDetails;
 
   constructor(params: {
-    code: TalosErrorCode;
+    code: SoulSwitchErrorCode;
     message: string;
     cause?: unknown;
-    details?: TalosErrorDetails;
+    details?: SoulSwitchErrorDetails;
   }) {
     super(params.message, { cause: params.cause });
-    this.name = "TalosError";
+    this.name = "SoulSwitchError";
     this.code = params.code;
     if (params.details !== undefined) {
       this.details = params.details;
@@ -19,8 +19,8 @@ export class TalosError extends Error {
   }
 }
 
-export function toTalosErrorLike(error: unknown): { name: string; message: string; code?: string } {
-  if (error instanceof TalosError) {
+export function toSoulSwitchErrorLike(error: unknown): { name: string; message: string; code?: string } {
+  if (error instanceof SoulSwitchError) {
     return {
       name: error.name,
       message: error.message,

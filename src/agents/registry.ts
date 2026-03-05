@@ -1,5 +1,5 @@
 import type { AgentDefinition } from "../types.js";
-import { TalosError } from "../errors.js";
+import { SoulSwitchError } from "../errors.js";
 
 export class AgentRegistry {
   private readonly agents = new Map<string, AgentDefinition>();
@@ -7,7 +7,7 @@ export class AgentRegistry {
   register(agent: AgentDefinition): void {
     const id = agent.id.trim();
     if (!id) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "AGENT_INVALID",
         message: "Agent id is required.",
       });
@@ -18,7 +18,7 @@ export class AgentRegistry {
   resolve(id: string): AgentDefinition {
     const resolved = this.agents.get(id);
     if (!resolved) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "AGENT_NOT_FOUND",
         message: `Unknown agent: ${id}`,
       });

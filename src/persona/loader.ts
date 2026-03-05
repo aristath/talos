@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import syncFs from "node:fs";
 import path from "node:path";
-import { TalosError } from "../errors.js";
+import { SoulSwitchError } from "../errors.js";
 import type {
   PersonaBootstrapFile,
   PersonaContextMode,
@@ -381,7 +381,7 @@ export async function loadExtraPersonaFilesWithDiagnostics(params: {
       files.push(loaded.file);
     } catch (error) {
       const reason: PersonaLoadDiagnosticCode =
-        error instanceof TalosError && error.code === "PERSONA_FILE_UNSAFE" ? "security" : "io";
+        error instanceof SoulSwitchError && error.code === "PERSONA_FILE_UNSAFE" ? "security" : "io";
       diagnostics.push({
         path: absolutePath,
         reason,
@@ -406,7 +406,7 @@ export async function loadPersonaSnapshot(
 ): Promise<PersonaSnapshot> {
   const normalizedWorkspace = workspaceDir.trim();
   if (!normalizedWorkspace) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PERSONA_INVALID_WORKSPACE",
       message: "Workspace directory is required.",
     });
@@ -414,7 +414,7 @@ export async function loadPersonaSnapshot(
 
   const workspaceRealPath = await fs.realpath(normalizedWorkspace).catch(() => null);
   if (!workspaceRealPath) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PERSONA_INVALID_WORKSPACE",
       message: `Workspace directory does not exist: ${normalizedWorkspace}`,
     });
@@ -422,7 +422,7 @@ export async function loadPersonaSnapshot(
 
   const workspaceStat = await fs.stat(workspaceRealPath);
   if (!workspaceStat.isDirectory()) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PERSONA_INVALID_WORKSPACE",
       message: `Workspace path is not a directory: ${normalizedWorkspace}`,
     });

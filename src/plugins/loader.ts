@@ -1,15 +1,15 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { TalosError } from "../errors.js";
-import type { TalosPlugin } from "../types.js";
+import { SoulSwitchError } from "../errors.js";
+import type { SoulSwitchPlugin } from "../types.js";
 
 type PluginModuleShape = {
   default?: unknown;
   plugin?: unknown;
 };
 
-function isPlugin(value: unknown): value is TalosPlugin {
+function isPlugin(value: unknown): value is SoulSwitchPlugin {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -20,7 +20,7 @@ function isPlugin(value: unknown): value is TalosPlugin {
 export async function discoverPluginEntryPaths(directoryPath: string): Promise<string[]> {
   const normalizedPath = directoryPath.trim();
   if (!normalizedPath) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PLUGIN_LOAD_FAILED",
       message: "Plugin directory path is required.",
     });
@@ -28,7 +28,7 @@ export async function discoverPluginEntryPaths(directoryPath: string): Promise<s
 
   const realDirectory = await fs.realpath(normalizedPath).catch(() => null);
   if (!realDirectory) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PLUGIN_LOAD_FAILED",
       message: `Plugin directory does not exist: ${normalizedPath}`,
     });
@@ -36,7 +36,7 @@ export async function discoverPluginEntryPaths(directoryPath: string): Promise<s
 
   const stat = await fs.stat(realDirectory);
   if (!stat.isDirectory()) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PLUGIN_LOAD_FAILED",
       message: `Plugin path is not a directory: ${normalizedPath}`,
     });
@@ -52,10 +52,10 @@ export async function discoverPluginEntryPaths(directoryPath: string): Promise<s
   return files.map((name) => path.join(realDirectory, name));
 }
 
-export async function loadPluginFromPath(filePath: string): Promise<TalosPlugin> {
+export async function loadPluginFromPath(filePath: string): Promise<SoulSwitchPlugin> {
   const normalizedPath = filePath.trim();
   if (!normalizedPath) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PLUGIN_LOAD_FAILED",
       message: "Plugin file path is required.",
     });
@@ -63,7 +63,7 @@ export async function loadPluginFromPath(filePath: string): Promise<TalosPlugin>
 
   const realPath = await fs.realpath(normalizedPath).catch(() => null);
   if (!realPath) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PLUGIN_LOAD_FAILED",
       message: `Plugin file does not exist: ${normalizedPath}`,
     });
@@ -71,7 +71,7 @@ export async function loadPluginFromPath(filePath: string): Promise<TalosPlugin>
 
   const stat = await fs.stat(realPath);
   if (!stat.isFile()) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PLUGIN_LOAD_FAILED",
       message: `Plugin path is not a file: ${normalizedPath}`,
     });
@@ -81,7 +81,7 @@ export async function loadPluginFromPath(filePath: string): Promise<TalosPlugin>
   try {
     mod = (await import(pathToFileURL(realPath).href)) as PluginModuleShape;
   } catch (error) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PLUGIN_LOAD_FAILED",
       message: `Failed to import plugin module: ${realPath}`,
       cause: error,
@@ -90,7 +90,7 @@ export async function loadPluginFromPath(filePath: string): Promise<TalosPlugin>
 
   const candidate = isPlugin(mod.default) ? mod.default : mod.plugin;
   if (!isPlugin(candidate)) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PLUGIN_LOAD_FAILED",
       message:
         `Plugin module must export a plugin as default export or named export 'plugin': ${realPath}`,

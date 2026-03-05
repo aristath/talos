@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { TalosError } from "../errors.js";
+import { SoulSwitchError } from "../errors.js";
 
 const AGENT_AUTH_SCHEMA = z.object({
   type: z.literal("static").optional(),
@@ -72,7 +72,7 @@ async function readAgentJson(filePath: string): Promise<z.infer<typeof AGENT_JSO
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: `Invalid JSON in agent config: ${filePath}`,
       cause: error,
@@ -80,7 +80,7 @@ async function readAgentJson(filePath: string): Promise<z.infer<typeof AGENT_JSO
   }
   const validated = AGENT_JSON_SCHEMA.safeParse(parsed);
   if (!validated.success) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: `Invalid agent config schema: ${filePath}`,
       details: {
@@ -117,7 +117,7 @@ export async function loadAgentRuntimeProfile(params: {
   }
   const agentDirRealPath = await fs.realpath(agentDir);
   if (!isWithinRoot(workspaceRealPath, agentDirRealPath)) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "PERSONA_FILE_UNSAFE",
       message: `Agent persona directory escapes workspace boundary: ${params.agentId}`,
     });
@@ -125,7 +125,7 @@ export async function loadAgentRuntimeProfile(params: {
   const soulPath = path.join(agentDirRealPath, "SOUL.md");
   const soulStat = await fs.stat(soulPath).catch(() => null);
   if (!soulStat?.isFile()) {
-    throw new TalosError({
+    throw new SoulSwitchError({
       code: "CONFIG_INVALID",
       message: `Agent persona is missing required file: ${soulPath}`,
     });

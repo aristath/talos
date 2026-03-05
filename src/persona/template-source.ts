@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { PersonaFileName } from "./types.js";
 import { DEFAULT_PERSONA_TEMPLATES, PERSONA_LOAD_ORDER } from "./templates.js";
 
-const DOCS_TEMPLATE_ENV = "TALOS_PERSONA_TEMPLATE_DIR";
+const DOCS_TEMPLATE_ENV = "SOULSWITCH_PERSONA_TEMPLATE_DIR";
 
 export function stripLeadingMarkdownFrontmatter(raw: string): string {
   if (!raw.startsWith("---\n")) {

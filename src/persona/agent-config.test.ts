@@ -6,7 +6,7 @@ import { loadAgentRuntimeProfile } from "./agent-config.js";
 
 describe("loadAgentRuntimeProfile", () => {
   it("loads per-agent persona profile and static auth", async () => {
-    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-agent-profile-"));
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-agent-profile-"));
     const agentDir = path.join(workspace, "agents", "designer");
     await fs.mkdir(agentDir, { recursive: true });
     await fs.writeFile(path.join(agentDir, "SOUL.md"), "Designer soul", "utf8");
@@ -54,7 +54,7 @@ describe("loadAgentRuntimeProfile", () => {
   });
 
   it("returns null when no agent directory exists", async () => {
-    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "talos-agent-profile-"));
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "soulSwitch-agent-profile-"));
     const profile = await loadAgentRuntimeProfile({
       workspaceDir: workspace,
       agentId: "missing",

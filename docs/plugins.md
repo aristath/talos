@@ -1,6 +1,6 @@
 # Plugin Authoring
 
-Talos exposes a lightweight plugin contract:
+SoulSwitch exposes a lightweight plugin contract:
 
 - `id` (required)
 - `apiVersion` (optional, defaults to current SDK version)
@@ -11,12 +11,12 @@ Use SDK helpers:
 
 - `definePlugin(...)`
 - `assertPluginCompatibility(...)`
-- `TALOS_PLUGIN_API_VERSION`
+- `SOULSWITCH_PLUGIN_API_VERSION`
 
 ## Example
 
 ```ts
-import { definePlugin } from "talos"
+import { definePlugin } from "@aristath/soulswitch"
 
 export default definePlugin({
   id: "example-plugin",
@@ -31,7 +31,7 @@ export default definePlugin({
 
 ## Teardown
 
-`setup(api)` may return a teardown function (sync or async). Talos executes teardown when `removePlugin(pluginId)` is called.
+`setup(api)` may return a teardown function (sync or async). SoulSwitch executes teardown when `removePlugin(pluginId)` is called.
 
 ## Hooks
 
@@ -51,11 +51,11 @@ Hook-capable plugins (`capabilities: ["hooks"]`) can register:
 - `agentId`
 - optional `sessionKey` / `sessionId`
 - `sessionKind`
-- full resolved Talos `config`
+- full resolved SoulSwitch `config`
 
 ## Metadata
 
-Talos can expose plugin metadata through:
+SoulSwitch can expose plugin metadata through:
 
 - `listPluginSummaries()`
 - `getPluginSummary(pluginId)`

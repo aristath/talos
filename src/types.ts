@@ -7,7 +7,7 @@ import type {
 } from "./persona/types.js";
 import type { PersonaBootstrapResult } from "./persona/bootstrap.js";
 
-export type TalosConfig = {
+export type SoulSwitchConfig = {
   authProfiles?: Record<
     string,
     {
@@ -390,7 +390,7 @@ export type AuthProfile = {
   headers?: Record<string, string>;
 };
 
-export type TalosErrorCode =
+export type SoulSwitchErrorCode =
   | "CONFIG_INVALID"
   | "AGENT_INVALID"
   | "AGENT_NOT_FOUND"
@@ -414,13 +414,13 @@ export type TalosErrorCode =
   | "PERSONA_INVALID_WORKSPACE"
   | "PERSONA_FILE_UNSAFE";
 
-export type TalosErrorLike = {
+export type SoulSwitchErrorLike = {
   name: string;
   message: string;
   code?: string;
 };
 
-export type TalosErrorDetails = {
+export type SoulSwitchErrorDetails = {
   [key: string]: unknown;
 };
 
@@ -436,7 +436,7 @@ export type PluginHooks = {
       sessionKey?: string;
       sessionId?: string;
       sessionKind: PersonaSessionKind;
-      config: TalosConfig;
+      config: SoulSwitchConfig;
     },
   ) =>
     | Promise<PersonaSnapshot | void>
@@ -472,7 +472,7 @@ export type RunLifecycleEvent =
       type: "run.failed";
       at: string;
       data: {
-        error: TalosErrorLike;
+        error: SoulSwitchErrorLike;
       };
       runId: string;
     }
@@ -522,7 +522,7 @@ export type RunLifecycleEvent =
       data: {
         providerId: string;
         modelId: string;
-        error: TalosErrorLike;
+        error: SoulSwitchErrorLike;
       };
       runId: string;
     }
@@ -554,7 +554,7 @@ export type RunLifecycleEvent =
         agentId: string;
         sessionId?: string;
         runId?: string;
-        error: TalosErrorLike;
+        error: SoulSwitchErrorLike;
       };
     }
   | {
@@ -590,7 +590,7 @@ export type RunSummary = {
   finishedAt?: string;
   providerId?: string;
   modelId?: string;
-  error?: TalosErrorLike;
+  error?: SoulSwitchErrorLike;
 };
 
 export type RunQuery = {
@@ -626,7 +626,7 @@ export type PluginSummary = {
   hooks: Array<keyof PluginHooks>;
 };
 
-export type TalosDiagnostics = {
+export type SoulSwitchDiagnostics = {
   generatedAt: string;
   counts: {
     agents: number;
@@ -639,7 +639,7 @@ export type TalosDiagnostics = {
   recentEvents: RunLifecycleEvent[];
 };
 
-export type TalosStateSnapshot = {
+export type SoulSwitchStateSnapshot = {
   events: RunLifecycleEvent[];
   runs: RunSummary[];
   sessions?: SessionRecord[];
@@ -650,26 +650,26 @@ export type DiagnosticsResetResult = {
   clearedRuns: number;
 };
 
-export type TalosPluginApi = {
+export type SoulSwitchPluginApi = {
   apiVersion: number;
   registerTool: (tool: ToolDefinition) => void;
   registerModelProvider: (provider: ModelProviderAdapter) => void;
   on: <K extends keyof PluginHooks>(hook: K, handler: PluginHooks[K]) => void;
 };
 
-export type TalosPlugin = {
+export type SoulSwitchPlugin = {
   id: string;
   apiVersion?: number;
   capabilities?: PluginCapability[];
   setup: (
-    api: TalosPluginApi,
+    api: SoulSwitchPluginApi,
   ) =>
     | void
     | (() => void | Promise<void>)
     | Promise<void | (() => void | Promise<void>)>;
 };
 
-export type Talos = {
+export type SoulSwitch = {
   registerAgent: (agent: AgentDefinition) => void;
   listAgents: () => AgentDefinition[];
   hasAgent: (agentId: string) => boolean;
@@ -700,7 +700,7 @@ export type Talos = {
   listTools: () => ToolDefinition[];
   hasTool: (toolName: string) => boolean;
   removeTool: (toolName: string) => boolean;
-  registerPlugin: (plugin: TalosPlugin) => Promise<void>;
+  registerPlugin: (plugin: SoulSwitchPlugin) => Promise<void>;
   removePlugin: (pluginId: string) => Promise<boolean>;
   listPlugins: () => string[];
   listPluginSummaries: () => PluginSummary[];
@@ -722,7 +722,7 @@ export type Talos = {
   queryRuns: (query?: RunQuery) => RunSummary[];
   getRun: (runId: string) => RunSummary | undefined;
   getRunStats: () => RunStats;
-  getDiagnostics: (options?: { recentEventsLimit?: number }) => TalosDiagnostics;
+  getDiagnostics: (options?: { recentEventsLimit?: number }) => SoulSwitchDiagnostics;
   resetDiagnostics: () => DiagnosticsResetResult;
   saveState: (filePath?: string) => Promise<string>;
   loadState: (filePath?: string) => Promise<string>;

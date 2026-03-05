@@ -1,7 +1,7 @@
 import { loadOpenAIProxyOptionsFromFile, loadOpenAIProxyServerOptionsFromFile } from "./config.js";
 import { createOpenAICompatibleProxy } from "./openai-compatible-proxy.js";
 import { createOpenAICompatibleProxyServer, type OpenAIProxyServer } from "./server.js";
-import { TalosError } from "../errors.js";
+import { SoulSwitchError } from "../errors.js";
 
 export async function createOpenAICompatibleProxyFromFile(params: {
   workspaceDir: string;
@@ -27,7 +27,7 @@ export async function createOpenAICompatibleProxyFromFile(params: {
   if (params.verifyReady) {
     const readiness = await proxy.ready();
     if (!readiness.ok) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "CONFIG_INVALID",
         message: readiness.error ?? `Proxy readiness failed for agent: ${readiness.agentId}`,
       });
@@ -46,7 +46,7 @@ export async function createOpenAICompatibleProxyServerFromFile(params: {
     const readinessProxy = createOpenAICompatibleProxy(options);
     const readiness = await readinessProxy.ready();
     if (!readiness.ok) {
-      throw new TalosError({
+      throw new SoulSwitchError({
         code: "CONFIG_INVALID",
         message: readiness.error ?? `Proxy readiness failed for agent: ${readiness.agentId}`,
       });
