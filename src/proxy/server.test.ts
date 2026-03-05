@@ -92,6 +92,60 @@ describe("createOpenAICompatibleProxyServer", () => {
     }
   });
 
+  it("strips mismatched upstream compression headers", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-encoding-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi.fn(async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const target = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (target.startsWith("http://127.0.0.1:")) {
+        return await originalFetch(input, init);
+      }
+      return new Response(JSON.stringify({ id: "chatcmpl_1", choices: [] }), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          "content-encoding": "gzip",
+          "content-length": "999",
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proxyServer = createOpenAICompatibleProxyServer({
+      workspaceDir,
+      defaultAgentId: "designer",
+    });
+    const listening = await proxyServer.listen();
+
+    try {
+      const response = await fetch(`http://${listening.host}:${listening.port}/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-encoding")).toBeNull();
+      expect(response.headers.get("content-length")).toBeNull();
+      const payload = (await response.json()) as { id?: string };
+      expect(payload.id).toBe("chatcmpl_1");
+    } finally {
+      await proxyServer.close();
+    }
+  });
+
   it("supports CORS preflight and response headers", async () => {
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-cors-"));
     await setupAgent({

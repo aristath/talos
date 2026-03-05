@@ -1,92 +1,79 @@
 # talos
 
-Talos is a TypeScript library for building agent systems with:
+Talos is a TypeScript runtime for persona-driven agents, with a production-focused OpenAI-compatible proxy layer.
 
-- agent definitions and orchestration
-- persona/bootstrap files (`AGENTS.md`, `SOUL.md`, `TOOLS.md`, `IDENTITY.md`, `USER.md`, `HEARTBEAT.md`, `BOOTSTRAP.md`, `MEMORY.md`)
-- OpenAI-compatible model connectivity
-- tool runtime
-- plugin runtime
+In practice, this project is used in two ways:
 
-Model execution supports per-agent primary model configuration and ordered fallback attempts.
-Model runtime supports request timeout and retry policy (`models.requestTimeoutMs`, `models.retriesPerModel`, `models.retryDelayMs`).
-Model runtime supports optional tool-call loops (`models.toolLoopMaxSteps`) using JSON tool directives.
-Tool execution supports config-level allow/deny policy (`tools.allow`, `tools.deny`).
-Tool runtime supports `tools.executionTimeoutMs` and `executeTool(..., signal)` cancellation.
-Plugin hooks include `beforePersonaLoad`, `beforeModel`, and `afterModel` for persona/model interception.
-OpenAI-compatible providers can resolve credentials from `authProfiles` via `authProfileId`.
-State snapshots can be persisted automatically by setting `runtime.stateFile`.
-State snapshot serialization can redact sensitive fields via `security.redactKeys`.
-
-Current core API:
-
-- `createTalos(config)`
-- `registerAgent(agent)`
-- `listAgents()`, `hasAgent(agentId)`, and `removeAgent(agentId)`
-- `registerTool(tool)`
-- `registerWebTools({ search, fetch? })` to register `web_search` and `web_fetch`
-- `registerMediaTools({ image, pdf })` to register media understanding tools
-- `registerBrowserTools(options)` to register `browser` UI automation tool
-- `registerCanvasTools(options)` to register `canvas` UI automation tool
-- `registerSessionTools()` to register session orchestration tools
-- `registerLlmTaskTool(options?)` to register JSON-only `llm_task`
-- `listTools()`, `hasTool(toolName)`, and `removeTool(toolName)`
-- `registerPlugin(plugin)` with capability declarations (`tools`, `providers`, `hooks`)
-- plugins can declare `apiVersion` (current supported version: `1`)
-- plugin SDK exports: `definePlugin`, `assertPluginCompatibility`, `TALOS_PLUGIN_API_VERSION`
-- `removePlugin(pluginId)` to unload a registered plugin
-- plugin `setup()` may return a teardown function executed during `removePlugin`
-- `listPlugins()` and `hasPlugin(pluginId)`
-- `listPluginSummaries()` and `getPluginSummary(pluginId)` for plugin metadata (api version, owned tool/provider counts, registered hooks)
-- `loadPluginFromPath(filePath)` and `loadPluginsFromDirectory(directoryPath)`
-- `registerModelProvider(provider)`
-- `listModelProviders()`, `hasModelProvider(providerId)`, and `removeModelProvider(providerId)`
-- `registerAuthProfile(profile)`, `listAuthProfiles()`, `hasAuthProfile(profileId)`, and `removeAuthProfile(profileId)`
-- `onEvent(listener)` for lifecycle events (returns unsubscribe function)
-- `listEvents(limit?)` and `listRunEvents(runId)` for in-memory event diagnostics
-- `queryEvents({ type?, runId?, since?, until?, limit? })` for event filtering
-- `listRuns(limit?)` and `getRun(runId)` for run status summaries
-- `queryRuns({ status?, agentId?, since?, until?, limit? })` for filtered run queries
-- `getRunStats()` for aggregate run state metrics
-- `getDiagnostics({ recentEventsLimit? })` for a compact runtime snapshot
-- `resetDiagnostics()` to clear in-memory event/run telemetry
-- `saveState(filePath?)` and `loadState(filePath?)` for persisted run/event state snapshots
-- `listActiveRuns()` and `cancelRun(runId)` for runtime run control
-- `executeTool(input)` for direct tool execution
-- `seedPersonaWorkspace(workspaceDir, options?)` to initialize persona files
-- `run(input)`
-- `createOpenAICompatibleProxy(options)` for Fetch-compatible OpenAI proxy handling
-- `createOpenAICompatibleProxyServer(options)` for Node HTTP server adapter
-- `loadOpenAIProxyOptionsFromFile({ workspaceDir, configPath? })` to load proxy options from JSON
-- `loadOpenAIProxyServerOptionsFromFile({ workspaceDir, configPath? })` to load server+proxy options from JSON
-- `createOpenAICompatibleProxyFromFile({ workspaceDir, configPath? })` to bootstrap proxy directly from JSON
-- `createOpenAICompatibleProxyServerFromFile({ workspaceDir, configPath? })` to bootstrap server directly from JSON
-- `startOpenAICompatibleProxyServerFromFile({ workspaceDir, configPath?, verifyReady?, port?, host? })` to bootstrap + listen in one step
-
-The start helper returns `{ server, address, url }` for immediate integration.
-
-Both bootstrap helpers support `verifyReady: true` to fail fast when the default agent profile cannot be loaded.
-
-`run(input)` returns a `runId` and lifecycle events include that same `runId` for correlation.
-`run(input)` also supports cancellation via `AbortSignal` (`input.signal`).
-Persona loading follows session semantics: main sessions load full persona context, while subagent/cron sessions load a minimal allowlist.
-Persona context can also include extra bootstrap files via `persona.extraFiles` and prompt budgets via
-`persona.bootstrapMaxChars` / `persona.bootstrapTotalMaxChars`.
-Persona context mode supports OpenClaw-style lightweight runs (`contextMode: "lightweight"` + `runKind`).
+- **Agent runtime library**: build and run agents with tools, plugins, model providers, and lifecycle hooks.
+- **OpenAI-compatible persona proxy**: expose `/v1/*` OpenAI-style endpoints that inject agent persona and forward to upstream providers.
 
 This repository intentionally excludes channel integrations, UI apps, and CLI surfaces.
 
-## OpenAI-Compatible Persona Proxy
+## What This Project Is
 
-Talos can run as a middleware/proxy in front of OpenAI-compatible providers.
+Talos is not an orchestration SaaS. It is a local/library runtime that gives you:
 
-- Endpoints: `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/completions`, `POST /v1/embeddings`, `GET/HEAD /v1/models`, `GET/HEAD /v1/models/:id`
-- Agent persona files are loaded from `agents/<agentId>/`.
-- Required per-agent file: `SOUL.md`
-- Optional per-agent files: `STYLE.md`, `RULES.md`
-- Optional per-agent config: `agent.json` for upstream routing/model/auth headers
+- Persona file loading from workspace folders (`agents/<agentId>/...`)
+- Configurable model/provider execution with retries and timeouts
+- Tool runtime (web/media/browser/session/task tools)
+- Plugin system with lifecycle hooks
+- OpenAI-compatible middleware/proxy for existing agent clients
 
-Minimal `agent.json` example:
+The proxy mode is designed for compatibility with clients that already speak OpenAI APIs and need persona routing + policy injection in front of upstream providers.
+
+## How The Proxy Works
+
+For each inbound request, Talos proxy does the following:
+
+1. Resolve the target agent (`X-Agent-Id`, `model: "agent:<id>"`, or token mapping default).
+2. Load and cache agent persona files from `agents/<agentId>/`:
+   - required: `SOUL.md`
+   - optional: `STYLE.md`, `RULES.md`
+3. Build the persona prompt (optional global `platformPrompt` + agent files).
+4. Resolve upstream/model/auth from `agents/<agentId>/agent.json`.
+5. Transform request payload for endpoint type (`chat/completions`, `responses`, etc.) and inject persona.
+6. Forward to upstream OpenAI-compatible endpoint.
+7. On upstream `5xx`, try configured model fallbacks (if present).
+8. Return upstream payload with Talos trace headers.
+
+Talos keeps a profile cache and exposes reload APIs to invalidate all or single-agent cache entries.
+
+## Supported OpenAI-Compatible Endpoints
+
+- `POST /v1/chat/completions`
+- `POST /v1/responses`
+- `POST /v1/completions`
+- `POST /v1/embeddings`
+- `GET/HEAD /v1/models`
+- `GET/HEAD /v1/models/:id`
+
+Operational endpoints (server adapter):
+
+- `GET/HEAD /healthz`
+- `GET/HEAD /readyz`
+- `GET/HEAD /metricsz`
+- `POST /metricsz/reset` (when `adminToken` is set)
+- `GET/POST /reloadz` (when `adminToken` is set)
+- `GET /reloadz?agentId=<id>` reloads one cached agent
+
+Operational responses include `cache-control: no-store`.
+
+## Workspace Layout
+
+Typical proxy workspace:
+
+```text
+workspace/
+  proxy.json
+  agents/
+    designer/
+      SOUL.md
+      STYLE.md        # optional
+      RULES.md        # optional
+      agent.json
+```
+
+### Example `agents/designer/agent.json`
 
 ```json
 {
@@ -112,36 +99,142 @@ Minimal `agent.json` example:
 }
 ```
 
-When an incoming request omits `model`, the proxy uses the agent `model.default` and will retry with `model.fallbacks` on upstream `5xx` responses.
-Set `platformPrompt` in `proxy.json` when you need a global system policy prepended before each agent persona.
+### Example `proxy.json`
 
-Agent selection supports:
+```json
+{
+  "defaultAgentId": "designer",
+  "platformPrompt": "Global platform policy",
+  "allowModelAlias": true,
+  "cacheTtlMs": 60000,
+  "upstreamTimeoutMs": 45000,
+  "maxRequestBytes": 2097152,
+  "maxConcurrentRequests": 200,
+  "adminToken": "admin-secret",
+  "cors": {
+    "allowOrigin": "*",
+    "allowHeaders": "authorization,content-type,x-agent-id",
+    "allowMethods": "GET,POST,OPTIONS"
+  },
+  "inboundAuth": [
+    {
+      "token": "client-key",
+      "defaultAgentId": "designer",
+      "allowedAgentIds": ["designer"]
+    }
+  ]
+}
+```
 
-- `X-Agent-Id` request header
-- `model: "agent:<agentId>"` alias
+## How To Use It
 
-Set `allowModelAlias: false` in `proxy.json` to disable model-alias-based routing.
+## 1) Install
 
-When `inboundAuth` is configured, bearer tokens are mapped to allowed agent ids and access is enforced.
-Inbound auth accepts `Authorization: Bearer <token>`, `x-api-key`, or `api-key` headers.
-Proxy responses include `x-request-id`, `x-talos-agent-id`, and `x-talos-model` headers for traceability.
-When model fallback chains are configured, responses also include `x-talos-model-attempt` and `x-talos-model-candidates`.
-The proxy exposes `ready()` and `reload(agentId?)` methods for operational checks and cache refresh.
-It also exposes `stats()` for cache/default-agent and upstream attempt/error observability.
+```bash
+pnpm install
+```
 
-`createOpenAICompatibleProxyServer` supports optional CORS handling (`cors.allowOrigin`, `cors.allowHeaders`, `cors.allowMethods`) and responds to `OPTIONS` preflight requests.
-It exposes `GET/HEAD /healthz` for liveness/uptime checks (including active/concurrency counters).
-It exposes `GET/HEAD /readyz` for readiness checks against the configured default agent persona.
-It exposes `GET/HEAD /metricsz` for request/response counters and health metrics.
-If `adminToken` is configured, `POST /metricsz/reset` is enabled for authenticated metrics resets.
-If `adminToken` is configured, `GET/POST /reloadz` is enabled for authenticated cache refresh (`x-admin-token` or Bearer auth). `GET /reloadz?agentId=<id>` refreshes a single cached agent.
-Operational endpoints return `cache-control: no-store`.
-You can set `maxRequestBytes` to cap inbound body size (default: 2MB).
-You can set `maxConcurrentRequests` to cap in-flight requests (default: 200).
+## 2) Start a proxy server from config file
 
-You can keep inbound auth keys hardcoded in `proxy.json` and load them with `loadOpenAIProxyOptionsFromFile`.
+```ts
+import { startOpenAICompatibleProxyServerFromFile } from "talos";
 
-Further docs:
+const started = await startOpenAICompatibleProxyServerFromFile({
+  workspaceDir: "/absolute/path/to/workspace",
+  verifyReady: true
+});
+
+console.log(started.url);
+```
+
+`startOpenAICompatibleProxyServerFromFile(...)` returns:
+
+- `server`: close/listen control
+- `address`: `{ host, port }`
+- `url`: ready-to-use base URL
+
+## 3) Call it like OpenAI
+
+```bash
+curl http://127.0.0.1:3000/v1/chat/completions \
+  -H 'authorization: Bearer client-key' \
+  -H 'content-type: application/json' \
+  -d '{
+    "model": "agent:designer",
+    "messages": [{"role": "user", "content": "Design a modern hero section."}]
+  }'
+```
+
+Agent selection options:
+
+- `X-Agent-Id: <id>` header
+- `model: "agent:<id>"` alias (disable with `allowModelAlias: false`)
+- inbound token default agent mapping (`inboundAuth`)
+
+## 4) Observe and operate
+
+- Liveness: `GET /healthz`
+- Readiness: `GET /readyz`
+- Metrics: `GET /metricsz`
+- Reload cache: `GET /reloadz` or `GET /reloadz?agentId=<id>` (requires `adminToken`)
+
+## Trace Headers Returned By Proxy
+
+- `x-request-id`
+- `x-talos-agent-id`
+- `x-talos-model`
+- `x-talos-model-attempt` (when fallbacks are active)
+- `x-talos-model-candidates` (when fallbacks are active)
+- `x-talos-model-fallback` (when fallback was used)
+
+## Library API (Non-Proxy)
+
+Core runtime entry points include:
+
+- `createTalos(config)`
+- `registerAgent(...)`, `registerTool(...)`, `registerPlugin(...)`, `registerModelProvider(...)`
+- `run(input)`
+- diagnostics/run/event/query/state APIs
+- `seedPersonaWorkspace(workspaceDir, options?)`
+
+Proxy-related exports:
+
+- `createOpenAICompatibleProxy(options)`
+- `createOpenAICompatibleProxyServer(options)`
+- `loadOpenAIProxyOptionsFromFile(...)`
+- `loadOpenAIProxyServerOptionsFromFile(...)`
+- `createOpenAICompatibleProxyFromFile(...)`
+- `createOpenAICompatibleProxyServerFromFile(...)`
+- `startOpenAICompatibleProxyServerFromFile(...)`
+
+## Testing
+
+Default checks:
+
+- `pnpm check`
+- `pnpm test`
+
+Live E2E (real upstream credentials, opt-in):
+
+1. Copy `.env.e2e.example` to `.env.e2e.local`
+2. Fill `TALOS_E2E_BASE_URL`, `TALOS_E2E_API_KEY`, and `TALOS_E2E_MODEL`
+3. Run `pnpm test:e2e:live`
+
+Live suite file: `src/proxy/live.e2e.test.ts`.
+
+## Production Checklist
+
+- **Auth**: configure `inboundAuth` for client access control and set `adminToken` for `/reloadz` and `/metricsz/reset`.
+- **Upstream creds**: keep upstream keys in per-agent `agent.json` and restrict file access at the OS/repo level.
+- **Timeouts**: set `upstreamTimeoutMs` and per-agent `limits.timeoutMs` to prevent hung upstream requests.
+- **Concurrency and body limits**: tune `maxConcurrentRequests` and `maxRequestBytes` for your workload profile.
+- **Fallback policy**: define `model.fallbacks` only where needed and monitor fallback rates via response headers.
+- **Readiness gating**: start with `verifyReady: true` so deployments fail fast on broken default agent config.
+- **Cache operations**: use `/reloadz?agentId=<id>` for targeted refreshes after persona/config updates.
+- **Observability**: scrape `/metricsz`, collect `x-request-id` and Talos trace headers in logs, and alert on 5xx/401 spikes.
+- **CORS**: set explicit `cors.allowOrigin`, `cors.allowHeaders`, and `cors.allowMethods` in internet-facing deployments.
+
+## Additional Docs
 
 - `docs/architecture.md`
 - `docs/plugins.md`

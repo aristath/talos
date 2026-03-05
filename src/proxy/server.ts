@@ -153,6 +153,9 @@ function isHeadOrGet(req: IncomingMessage, route: string): boolean {
 async function writeFetchResponse(response: Response, res: ServerResponse): Promise<void> {
   res.statusCode = response.status;
   response.headers.forEach((value, key) => {
+    if (key === "content-encoding" || key === "content-length") {
+      return;
+    }
     res.setHeader(key, value);
   });
   if (!response.body) {
