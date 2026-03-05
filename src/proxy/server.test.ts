@@ -76,12 +76,14 @@ describe("createOpenAICompatibleProxyServer", () => {
         method: "POST",
         headers: {
           "content-type": "application/json",
+          "x-request-id": "req-server-1",
         },
         body: JSON.stringify({
           messages: [{ role: "user", content: "hello" }],
         }),
       });
       expect(response.status).toBe(200);
+      expect(response.headers.get("x-request-id")).toBe("req-server-1");
       const calls = fetchMock.mock.calls as unknown as Array<[unknown, unknown?]>;
       const upstreamCall = calls.find((entry) => String(entry[0]).startsWith("https://openrouter.ai"));
       expect(String(upstreamCall?.[0] ?? "")).toBe("https://openrouter.ai/api/v1/chat/completions");
@@ -126,6 +128,7 @@ describe("createOpenAICompatibleProxyServer", () => {
       });
       expect(preflight.status).toBe(204);
       expect(preflight.headers.get("access-control-allow-origin")).toBe("*");
+      expect(preflight.headers.get("x-request-id")).toBeTruthy();
 
       const response = await fetch(`http://${listening.host}:${listening.port}/v1/chat/completions`, {
         method: "POST",
@@ -138,6 +141,7 @@ describe("createOpenAICompatibleProxyServer", () => {
       });
       expect(response.status).toBe(200);
       expect(response.headers.get("access-control-allow-origin")).toBe("*");
+      expect(response.headers.get("x-request-id")).toBeTruthy();
     } finally {
       await proxyServer.close();
     }
@@ -162,6 +166,7 @@ describe("createOpenAICompatibleProxyServer", () => {
     try {
       const response = await fetch(`http://${listening.host}:${listening.port}/healthz`);
       expect(response.status).toBe(200);
+      expect(response.headers.get("x-request-id")).toBeTruthy();
       const payload = (await response.json()) as { status?: string; uptimeMs?: number };
       expect(payload.status).toBe("ok");
       expect(typeof payload.uptimeMs).toBe("number");
@@ -198,6 +203,7 @@ describe("createOpenAICompatibleProxyServer", () => {
         }),
       });
       expect(response.status).toBe(413);
+      expect(response.headers.get("x-request-id")).toBeTruthy();
       const payload = (await response.json()) as { error?: { message?: string } };
       expect(payload.error?.message).toContain("exceeds limit");
     } finally {
@@ -279,6 +285,7 @@ describe("createOpenAICompatibleProxyServer", () => {
         }),
       });
       expect(secondResponse.status).toBe(429);
+      expect(secondResponse.headers.get("x-request-id")).toBeTruthy();
 
       releaseFirst?.();
       const firstResponse = await firstPromise;

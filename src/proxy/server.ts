@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { randomUUID } from "node:crypto";
 import { createOpenAICompatibleProxy, type OpenAIProxyOptions } from "./openai-compatible-proxy.js";
 
 export type OpenAIProxyServerCorsOptions = {
@@ -55,6 +56,16 @@ function toFetchHeaders(req: IncomingMessage): Headers {
   return headers;
 }
 
+function resolveRequestId(headers: Headers): string {
+  const existing = headers.get("x-request-id")?.trim();
+  if (existing) {
+    return existing;
+  }
+  const generated = randomUUID();
+  headers.set("x-request-id", generated);
+  return generated;
+}
+
 async function writeFetchResponse(response: Response, res: ServerResponse): Promise<void> {
   res.statusCode = response.status;
   response.headers.forEach((value, key) => {
@@ -86,6 +97,10 @@ function applyCorsHeaders(res: ServerResponse, cors?: OpenAIProxyServerCorsOptio
   res.setHeader("access-control-allow-methods", cors.allowMethods ?? "GET,POST,OPTIONS");
 }
 
+function applyRequestIdHeader(res: ServerResponse, requestId: string): void {
+  res.setHeader("x-request-id", requestId);
+}
+
 export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOptions): OpenAIProxyServer {
   const proxy = createOpenAICompatibleProxy(options);
   const startedAt = Date.now();
@@ -99,9 +114,12 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
   }
   let activeRequests = 0;
   const server = createServer(async (req, res) => {
+    const fetchHeaders = toFetchHeaders(req);
+    const requestId = resolveRequestId(fetchHeaders);
     if (activeRequests >= Math.floor(maxConcurrentRequests)) {
       res.statusCode = 429;
       applyCorsHeaders(res, options.cors);
+      applyRequestIdHeader(res, requestId);
       res.setHeader("content-type", "application/json");
       res.end(
         JSON.stringify({
@@ -118,6 +136,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
       if (req.method === "GET" && req.url === "/healthz") {
         res.statusCode = 200;
         applyCorsHeaders(res, options.cors);
+        applyRequestIdHeader(res, requestId);
         res.setHeader("content-type", "application/json");
         res.end(
           JSON.stringify({
@@ -130,13 +149,14 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
       if (req.method === "OPTIONS") {
         res.statusCode = 204;
         applyCorsHeaders(res, options.cors);
+        applyRequestIdHeader(res, requestId);
         res.end();
         return;
       }
       const body = await readRequestBody(req, Math.floor(maxRequestBytes));
       const requestInit: RequestInit = {
         method: req.method ?? "GET",
-        headers: toFetchHeaders(req),
+        headers: fetchHeaders,
       };
       if (body.length > 0) {
         requestInit.body = Buffer.from(body);
@@ -144,11 +164,13 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
       const request = new Request(requestUrl(req), requestInit);
       const response = await proxy.handle(request);
       applyCorsHeaders(res, options.cors);
+      applyRequestIdHeader(res, requestId);
       await writeFetchResponse(response, res);
     } catch (error) {
       if (error instanceof Error && /Request body exceeds limit/.test(error.message)) {
         res.statusCode = 413;
         applyCorsHeaders(res, options.cors);
+        applyRequestIdHeader(res, requestId);
         res.setHeader("content-type", "application/json");
         res.end(
           JSON.stringify({
@@ -162,6 +184,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
       }
       res.statusCode = 500;
       applyCorsHeaders(res, options.cors);
+      applyRequestIdHeader(res, requestId);
       res.setHeader("content-type", "application/json");
       res.end(
         JSON.stringify({
