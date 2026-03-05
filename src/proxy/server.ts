@@ -146,6 +146,21 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
         );
         return;
       }
+      if (req.method === "GET" && req.url === "/readyz") {
+        const readiness = await proxy.ready();
+        res.statusCode = readiness.ok ? 200 : 503;
+        applyCorsHeaders(res, options.cors);
+        applyRequestIdHeader(res, requestId);
+        res.setHeader("content-type", "application/json");
+        res.end(
+          JSON.stringify({
+            status: readiness.ok ? "ready" : "not_ready",
+            agentId: readiness.agentId,
+            ...(readiness.error ? { error: readiness.error } : {}),
+          }),
+        );
+        return;
+      }
       if (req.method === "OPTIONS") {
         res.statusCode = 204;
         applyCorsHeaders(res, options.cors);

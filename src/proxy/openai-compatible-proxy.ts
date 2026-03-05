@@ -19,6 +19,12 @@ export type OpenAIProxyOptions = {
   cacheTtlMs?: number;
 };
 
+export type OpenAIProxyReadyState = {
+  ok: boolean;
+  agentId: string;
+  error?: string;
+};
+
 type CachedAgentProfile = {
   expiresAt: number;
   profile: ResolvedAgentProfile;
@@ -270,6 +276,7 @@ async function listAgentIds(workspaceDir: string, agentsDir: string): Promise<st
 
 export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
   handle: (request: Request) => Promise<Response>;
+  ready: () => Promise<OpenAIProxyReadyState>;
 } {
   const workspaceDir = options.workspaceDir.trim();
   const defaultAgentId = options.defaultAgentId.trim();
@@ -498,6 +505,21 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
   };
 
   return {
+    ready: async (): Promise<OpenAIProxyReadyState> => {
+      try {
+        await resolveProfile(defaultAgentId);
+        return {
+          ok: true,
+          agentId: defaultAgentId,
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          agentId: defaultAgentId,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
     handle: async (request: Request): Promise<Response> => {
       const url = new URL(request.url);
       const requestId = request.headers.get("x-request-id")?.trim() || randomUUID();

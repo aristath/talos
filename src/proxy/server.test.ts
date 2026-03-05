@@ -175,6 +175,52 @@ describe("createOpenAICompatibleProxyServer", () => {
     }
   });
 
+  it("exposes readiness endpoint", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-ready-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const proxyServer = createOpenAICompatibleProxyServer({
+      workspaceDir,
+      defaultAgentId: "designer",
+    });
+    const listening = await proxyServer.listen();
+    try {
+      const response = await fetch(`http://${listening.host}:${listening.port}/readyz`);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("x-request-id")).toBeTruthy();
+      const payload = (await response.json()) as { status?: string; agentId?: string };
+      expect(payload.status).toBe("ready");
+      expect(payload.agentId).toBe("designer");
+    } finally {
+      await proxyServer.close();
+    }
+  });
+
+  it("returns 503 on readiness failures", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-not-ready-"));
+    const proxyServer = createOpenAICompatibleProxyServer({
+      workspaceDir,
+      defaultAgentId: "designer",
+    });
+    const listening = await proxyServer.listen();
+    try {
+      const response = await fetch(`http://${listening.host}:${listening.port}/readyz`);
+      expect(response.status).toBe(503);
+      const payload = (await response.json()) as { status?: string; error?: string };
+      expect(payload.status).toBe("not_ready");
+      expect(payload.error).toBeTruthy();
+    } finally {
+      await proxyServer.close();
+    }
+  });
+
   it("returns 413 when request body exceeds configured maxRequestBytes", async () => {
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-limit-"));
     await setupAgent({
@@ -273,7 +319,11 @@ describe("createOpenAICompatibleProxyServer", () => {
         }),
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      const waitStart = Date.now();
+      while (!releaseFirst && Date.now() - waitStart < 1000) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      expect(releaseFirst).toBeTruthy();
 
       const secondResponse = await fetch(`http://${listening.host}:${listening.port}/v1/chat/completions`, {
         method: "POST",

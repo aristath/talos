@@ -5,7 +5,10 @@ import { createOpenAICompatibleProxyServer, type OpenAIProxyServer } from "./ser
 export async function createOpenAICompatibleProxyFromFile(params: {
   workspaceDir: string;
   configPath?: string;
-}): Promise<{ handle: (request: Request) => Promise<Response> }> {
+}): Promise<{
+  handle: (request: Request) => Promise<Response>;
+  ready: () => Promise<{ ok: boolean; agentId: string; error?: string }>;
+}> {
   const options = await loadOpenAIProxyOptionsFromFile(params);
   return createOpenAICompatibleProxy(options);
 }

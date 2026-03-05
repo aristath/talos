@@ -116,6 +116,7 @@ Proxy responses include `x-request-id` and `x-talos-agent-id` headers for tracea
 
 `createOpenAICompatibleProxyServer` supports optional CORS handling (`cors.allowOrigin`, `cors.allowHeaders`, `cors.allowMethods`) and responds to `OPTIONS` preflight requests.
 It also exposes `GET /healthz` for liveness/uptime checks.
+It exposes `GET /readyz` for readiness checks against the configured default agent persona.
 You can set `maxRequestBytes` to cap inbound body size (default: 2MB).
 You can set `maxConcurrentRequests` to cap in-flight requests (default: 200).
 

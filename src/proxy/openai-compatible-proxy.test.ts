@@ -79,6 +79,10 @@ describe("createOpenAICompatibleProxy", () => {
       },
     });
 
+    const ready = await proxy.ready();
+    expect(ready.ok).toBe(true);
+    expect(ready.agentId).toBe("designer");
+
     const response = await proxy.handle(
       new Request("http://localhost/v1/chat/completions", {
         method: "POST",
@@ -112,6 +116,19 @@ describe("createOpenAICompatibleProxy", () => {
     expect(body.model).toBe("openai/gpt-4.1");
     expect(body.messages?.[0]?.role).toBe("system");
     expect(body.messages?.[0]?.content).toContain("You are a premium web designer.");
+  });
+
+  it("reports not_ready when default agent profile cannot be resolved", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-not-ready-"));
+    const proxy = createOpenAICompatibleProxy({
+      workspaceDir,
+      defaultAgentId: "missing",
+    });
+
+    const ready = await proxy.ready();
+    expect(ready.ok).toBe(false);
+    expect(ready.agentId).toBe("missing");
+    expect(ready.error).toBeTruthy();
   });
 
   it("injects persona as instructions for responses endpoint", async () => {
