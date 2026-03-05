@@ -84,6 +84,7 @@ describe("createOpenAICompatibleProxy", () => {
         headers: {
           authorization: "Bearer client-key",
           "content-type": "application/json",
+          "x-request-id": "req-123",
         },
         body: JSON.stringify({
           messages: [{ role: "user", content: "hello" }],
@@ -92,6 +93,8 @@ describe("createOpenAICompatibleProxy", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("x-request-id")).toBe("req-123");
+    expect(response.headers.get("x-talos-agent-id")).toBe("designer");
     const calls = fetchMock.mock.calls as unknown as Array<[unknown, unknown?]>;
     expect(String(calls[0]?.[0])).toBe("https://openrouter.ai/api/v1/chat/completions");
     const init = (calls[0]?.[1] ?? {}) as {
@@ -104,6 +107,7 @@ describe("createOpenAICompatibleProxy", () => {
     };
     expect(init.headers?.authorization).toBe("Bearer sk-designer");
     expect(init.headers?.["x-agent"]).toBe("designer");
+    expect(init.headers?.["x-request-id"]).toBe("req-123");
     expect(body.model).toBe("openai/gpt-4.1");
     expect(body.messages?.[0]?.role).toBe("system");
     expect(body.messages?.[0]?.content).toContain("You are a premium web designer.");
@@ -411,6 +415,7 @@ describe("createOpenAICompatibleProxy", () => {
       }),
     );
     expect(conflict.status).toBe(400);
+    expect(conflict.headers.get("x-request-id")).toBeTruthy();
   });
 
   it("passes through upstream streaming responses", async () => {

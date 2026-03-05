@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { TalosError } from "../errors.js";
 import { loadAgentRuntimeProfile, type AgentRuntimeProfile } from "../persona/agent-config.js";
 
@@ -32,7 +33,12 @@ function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
-function openAIError(status: number, message: string, type = "invalid_request_error"): Response {
+function openAIError(
+  status: number,
+  message: string,
+  type = "invalid_request_error",
+  extraHeaders?: Record<string, string>,
+): Response {
   return new Response(
     JSON.stringify({
       error: {
@@ -44,6 +50,7 @@ function openAIError(status: number, message: string, type = "invalid_request_er
       status,
       headers: {
         "content-type": "application/json",
+        ...(extraHeaders ?? {}),
       },
     },
   );
@@ -188,11 +195,15 @@ function ensureModel(payload: Record<string, unknown>, modelId?: string): Record
 function buildProxyHeaders(params: {
   apiKey?: string;
   extraHeaders?: Record<string, string>;
+  requestId?: string;
 }): Record<string, string> {
   const headers: Record<string, string> = {
     "content-type": "application/json",
     ...(params.extraHeaders ?? {}),
   };
+  if (params.requestId?.trim()) {
+    headers["x-request-id"] = params.requestId.trim();
+  }
   if (params.apiKey?.trim()) {
     headers.authorization = `Bearer ${params.apiKey.trim()}`;
   }
@@ -279,6 +290,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
     endpoint: "/chat/completions" | "/responses" | "/completions" | "/embeddings";
     payload: Record<string, unknown>;
     profile: ResolvedAgentProfile;
+    requestId: string;
   }): Promise<Response> => {
     const baseUrl = trimTrailingSlash(params.profile.baseUrl ?? "");
     if (!baseUrl) {
@@ -288,6 +300,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
     const headers = buildProxyHeaders({
       ...(params.profile.apiKey ? { apiKey: params.profile.apiKey } : {}),
       ...(params.profile.headers ? { extraHeaders: params.profile.headers } : {}),
+      requestId: params.requestId,
     });
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), upstreamTimeoutMs);
@@ -300,13 +313,21 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
       });
       return new Response(upstream.body, {
         status: upstream.status,
-        headers: upstream.headers,
+        headers: {
+          ...Object.fromEntries(upstream.headers.entries()),
+          "x-request-id": params.requestId,
+          "x-talos-agent-id": params.profile.agentId,
+        },
       });
     } catch (error) {
       return openAIError(
         502,
         error instanceof Error ? `Upstream request failed: ${error.message}` : "Upstream request failed.",
         "api_error",
+        {
+          "x-request-id": params.requestId,
+          "x-talos-agent-id": params.profile.agentId,
+        },
       );
     } finally {
       clearTimeout(timeout);
@@ -368,6 +389,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
   return {
     handle: async (request: Request): Promise<Response> => {
       const url = new URL(request.url);
+      const requestId = request.headers.get("x-request-id")?.trim() || randomUUID();
       if (request.method === "GET" && url.pathname === "/v1/models") {
         if (!options.inboundAuth) {
           return await listModels();
@@ -386,7 +408,9 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
       if (request.method === "GET" && url.pathname.startsWith("/v1/models/")) {
         const modelId = decodeURIComponent(url.pathname.slice("/v1/models/".length));
         if (!modelId.trim()) {
-          return openAIError(404, "Model not found.");
+          return openAIError(404, "Model not found.", "invalid_request_error", {
+            "x-request-id": requestId,
+          });
         }
         if (!options.inboundAuth) {
           return await getModel(modelId);
@@ -403,7 +427,9 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         return await getModel(modelId, allowed.map((entry) => entry.trim()).filter(Boolean));
       }
       if (request.method !== "POST") {
-        return openAIError(405, "Method not allowed.");
+        return openAIError(405, "Method not allowed.", "invalid_request_error", {
+          "x-request-id": requestId,
+        });
       }
       const rawBody = await request.text();
       let payload: Record<string, unknown>;
@@ -415,7 +441,9 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
       const headerAgentId = extractRequestedAgentId(request);
       const modelAliasAgentId = extractAgentIdFromModelAlias(payload);
       if (headerAgentId && modelAliasAgentId && headerAgentId !== modelAliasAgentId) {
-        return openAIError(400, "x-agent-id conflicts with model alias agent.");
+        return openAIError(400, "x-agent-id conflicts with model alias agent.", "invalid_request_error", {
+          "x-request-id": requestId,
+        });
       }
       const requestedAgentId = headerAgentId ?? modelAliasAgentId ?? undefined;
       const resolvedAgentId = resolveAgentId(request, requestedAgentId);
@@ -429,6 +457,10 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         return openAIError(
           404,
           error instanceof Error ? error.message : `Agent not found: ${resolvedAgentId}`,
+          "invalid_request_error",
+          {
+            "x-request-id": requestId,
+          },
         );
       }
       const payloadWithoutAgentModelAlias = stripAgentModelAlias(payload);
@@ -439,6 +471,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           endpoint: "/chat/completions",
           payload: withModel,
           profile,
+          requestId,
         });
       }
       if (url.pathname === "/v1/responses") {
@@ -448,6 +481,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           endpoint: "/responses",
           payload: withModel,
           profile,
+          requestId,
         });
       }
       if (url.pathname === "/v1/completions") {
@@ -457,6 +491,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           endpoint: "/completions",
           payload: withModel,
           profile,
+          requestId,
         });
       }
       if (url.pathname === "/v1/embeddings") {
@@ -465,9 +500,12 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           endpoint: "/embeddings",
           payload: withModel,
           profile,
+          requestId,
         });
       }
-      return openAIError(404, `Unsupported endpoint: ${url.pathname}`);
+      return openAIError(404, `Unsupported endpoint: ${url.pathname}`, "invalid_request_error", {
+        "x-request-id": requestId,
+      });
     },
   };
 }
