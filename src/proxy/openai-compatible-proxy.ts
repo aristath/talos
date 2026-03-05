@@ -402,7 +402,9 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
     delete payloadBase.model;
     try {
       let lastResponse: Response | undefined;
+      let lastModel = modelCandidates[0] ?? "";
       for (const [index, model] of modelCandidates.entries()) {
+        lastModel = model;
         const upstream = await fetch(url, {
           method: "POST",
           headers,
@@ -419,6 +421,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
               ...Object.fromEntries(upstream.headers.entries()),
               "x-request-id": params.requestId,
               "x-talos-agent-id": params.profile.agentId,
+              "x-talos-model": model,
               ...(index > 0 ? { "x-talos-model-fallback": "true" } : {}),
             },
           });
@@ -430,6 +433,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
               ...Object.fromEntries(upstream.headers.entries()),
               "x-request-id": params.requestId,
               "x-talos-agent-id": params.profile.agentId,
+              "x-talos-model": model,
             },
           });
         }
@@ -442,6 +446,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
             ...Object.fromEntries(lastResponse.headers.entries()),
             "x-request-id": params.requestId,
             "x-talos-agent-id": params.profile.agentId,
+            ...(lastModel ? { "x-talos-model": lastModel } : {}),
           },
         });
       }

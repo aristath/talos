@@ -100,6 +100,7 @@ describe("createOpenAICompatibleProxy", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("x-request-id")).toBe("req-123");
     expect(response.headers.get("x-talos-agent-id")).toBe("designer");
+    expect(response.headers.get("x-talos-model")).toBe("openai/gpt-4.1");
     const calls = fetchMock.mock.calls as unknown as Array<[unknown, unknown?]>;
     expect(String(calls[0]?.[0])).toBe("https://openrouter.ai/api/v1/chat/completions");
     const init = (calls[0]?.[1] ?? {}) as {
@@ -775,6 +776,7 @@ describe("createOpenAICompatibleProxy", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-talos-model-fallback")).toBe("true");
+    expect(response.headers.get("x-talos-model")).toBe("fallback-model");
     const calls = fetchMock.mock.calls as unknown as Array<[unknown, unknown?]>;
     const firstBody = JSON.parse(((calls[0]?.[1] as { body?: string } | undefined)?.body ?? "{}")) as {
       model?: string;
