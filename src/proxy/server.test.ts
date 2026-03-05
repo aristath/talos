@@ -355,6 +355,17 @@ describe("createOpenAICompatibleProxyServer", () => {
       expect(payload.status).toBe("ok");
       expect(payload.cleared).toBeGreaterThanOrEqual(0);
       expect(payload.agentId).toBe("designer");
+
+      const getReload = await fetch(`http://${listening.host}:${listening.port}/reloadz`, {
+        method: "GET",
+        headers: {
+          authorization: "Bearer admin-secret",
+        },
+      });
+      expect(getReload.status).toBe(200);
+      const getPayload = (await getReload.json()) as { status?: string; cleared?: number };
+      expect(getPayload.status).toBe("ok");
+      expect(typeof getPayload.cleared).toBe("number");
     } finally {
       await proxyServer.close();
     }

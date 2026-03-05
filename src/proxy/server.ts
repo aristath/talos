@@ -271,7 +271,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
         recordStatus(metrics, res.statusCode);
         return;
       }
-      if (req.method === "POST" && req.url === "/reloadz") {
+      if ((req.method === "POST" || req.method === "GET") && req.url === "/reloadz") {
         if (!options.adminToken?.trim()) {
           res.statusCode = 404;
           applyCorsHeaders(res, options.cors);
@@ -305,7 +305,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
           recordStatus(metrics, res.statusCode);
           return;
         }
-        const body = await readRequestBody(req, Math.floor(maxRequestBytes));
+        const body = req.method === "POST" ? await readRequestBody(req, Math.floor(maxRequestBytes)) : new Uint8Array();
         const agentId = parseReloadAgentId(body);
         const reloaded = await proxy.reload(agentId);
         res.statusCode = 200;
