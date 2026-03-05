@@ -175,7 +175,7 @@ function applyRequestIdHeader(res: ServerResponse, requestId: string): void {
 export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOptions): OpenAIProxyServer {
   const proxy = createOpenAICompatibleProxy(options);
   const startedAt = Date.now();
-  const metrics = createMetrics();
+  let metrics = createMetrics();
   const maxRequestBytes = options.maxRequestBytes ?? 2 * 1024 * 1024;
   const maxConcurrentRequests = options.maxConcurrentRequests ?? 200;
   if (!Number.isFinite(maxRequestBytes) || maxRequestBytes <= 0) {
@@ -246,6 +246,54 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
             maxConcurrentRequests: Math.floor(maxConcurrentRequests),
             ...metrics,
             proxy: proxy.stats(),
+          }),
+        );
+        recordStatus(metrics, res.statusCode);
+        return;
+      }
+      if (req.method === "POST" && req.url === "/metricsz/reset") {
+        if (!options.adminToken?.trim()) {
+          res.statusCode = 404;
+          applyCorsHeaders(res, options.cors);
+          applyRequestIdHeader(res, requestId);
+          res.setHeader("content-type", "application/json");
+          res.end(
+            JSON.stringify({
+              error: {
+                message: "Not found.",
+                type: "invalid_request_error",
+              },
+            }),
+          );
+          recordStatus(metrics, res.statusCode);
+          return;
+        }
+        const inboundAdminToken = resolveAdminToken(req);
+        if (!inboundAdminToken || inboundAdminToken !== options.adminToken.trim()) {
+          res.statusCode = 401;
+          applyCorsHeaders(res, options.cors);
+          applyRequestIdHeader(res, requestId);
+          res.setHeader("content-type", "application/json");
+          res.end(
+            JSON.stringify({
+              error: {
+                message: "Unauthorized metrics reset request.",
+                type: "authentication_error",
+              },
+            }),
+          );
+          recordStatus(metrics, res.statusCode);
+          return;
+        }
+        metrics = createMetrics();
+        res.statusCode = 200;
+        applyCorsHeaders(res, options.cors);
+        applyRequestIdHeader(res, requestId);
+        res.setHeader("content-type", "application/json");
+        res.end(
+          JSON.stringify({
+            status: "ok",
+            reset: true,
           }),
         );
         recordStatus(metrics, res.statusCode);

@@ -323,6 +323,44 @@ describe("createOpenAICompatibleProxyServer", () => {
     }
   });
 
+  it("supports authenticated metrics reset endpoint", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-metrics-reset-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const proxyServer = createOpenAICompatibleProxyServer({
+      workspaceDir,
+      defaultAgentId: "designer",
+      adminToken: "admin-secret",
+    });
+    const listening = await proxyServer.listen();
+    try {
+      const unauthorized = await fetch(`http://${listening.host}:${listening.port}/metricsz/reset`, {
+        method: "POST",
+      });
+      expect(unauthorized.status).toBe(401);
+
+      const authorized = await fetch(`http://${listening.host}:${listening.port}/metricsz/reset`, {
+        method: "POST",
+        headers: {
+          "x-admin-token": "admin-secret",
+        },
+      });
+      expect(authorized.status).toBe(200);
+      const payload = (await authorized.json()) as { status?: string; reset?: boolean };
+      expect(payload.status).toBe("ok");
+      expect(payload.reset).toBe(true);
+    } finally {
+      await proxyServer.close();
+    }
+  });
+
   it("supports authenticated cache reload endpoint", async () => {
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-reload-"));
     await setupAgent({

@@ -133,6 +133,7 @@ It also exposes `stats()` for cache/default-agent observability.
 It exposes `GET/HEAD /healthz` for liveness/uptime checks (including active/concurrency counters).
 It exposes `GET/HEAD /readyz` for readiness checks against the configured default agent persona.
 It exposes `GET/HEAD /metricsz` for request/response counters and health metrics.
+If `adminToken` is configured, `POST /metricsz/reset` is enabled for authenticated metrics resets.
 If `adminToken` is configured, `GET/POST /reloadz` is enabled for authenticated cache refresh (`x-admin-token` or Bearer auth).
 You can set `maxRequestBytes` to cap inbound body size (default: 2MB).
 You can set `maxConcurrentRequests` to cap in-flight requests (default: 200).
