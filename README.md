@@ -57,6 +57,7 @@ Current core API:
 - `run(input)`
 - `createOpenAICompatibleProxy(options)` for Fetch-compatible OpenAI proxy handling
 - `createOpenAICompatibleProxyServer(options)` for Node HTTP server adapter
+- `loadOpenAIProxyOptionsFromFile({ workspaceDir, configPath? })` to load proxy options from JSON
 
 `run(input)` returns a `runId` and lifecycle events include that same `runId` for correlation.
 `run(input)` also supports cancellation via `AbortSignal` (`input.signal`).
@@ -108,6 +109,8 @@ When `inboundAuth` is configured, bearer tokens are mapped to allowed agent ids 
 
 `createOpenAICompatibleProxyServer` supports optional CORS handling (`cors.allowOrigin`, `cors.allowHeaders`, `cors.allowMethods`) and responds to `OPTIONS` preflight requests.
 It also exposes `GET /healthz` for liveness/uptime checks.
+
+You can keep inbound auth keys hardcoded in `proxy.json` and load them with `loadOpenAIProxyOptionsFromFile`.
 
 Further docs:
 

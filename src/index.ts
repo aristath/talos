@@ -8,6 +8,7 @@ export { createSessionTools } from "./tools/builtins/sessions.js";
 export { createLlmTaskTool } from "./tools/builtins/llm-task.js";
 export { createOpenAICompatibleProxy } from "./proxy/openai-compatible-proxy.js";
 export { createOpenAICompatibleProxyServer } from "./proxy/server.js";
+export { loadOpenAIProxyOptionsFromFile } from "./proxy/config.js";
 export type { OpenAIProxyOptions } from "./proxy/openai-compatible-proxy.js";
 export type { OpenAIProxyServerOptions, OpenAIProxyServerCorsOptions } from "./proxy/server.js";
 export { redactValue } from "./security/redaction.js";

@@ -22,6 +22,7 @@ describe("public API contract", () => {
       "createWebSearchTool",
       "definePlugin",
       "discoverPluginEntryPaths",
+      "loadOpenAIProxyOptionsFromFile",
       "loadPluginFromPath",
       "redactValue",
       "seedPersonaWorkspace",
