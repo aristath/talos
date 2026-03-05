@@ -595,6 +595,56 @@ describe("createOpenAICompatibleProxy", () => {
     expect(invalidBearer.headers.get("x-request-id")).toBe("req-invalid");
   });
 
+  it("accepts inbound auth tokens from x-api-key header", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-x-api-key-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: "chatcmpl_1" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proxy = createOpenAICompatibleProxy({
+      workspaceDir,
+      defaultAgentId: "designer",
+      inboundAuth: {
+        "client-key": {
+          defaultAgentId: "designer",
+          allowedAgentIds: ["designer"],
+        },
+      },
+    });
+
+    const response = await proxy.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": "client-key",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      }),
+    );
+    expect(response.status).toBe(200);
+
+    const modelsResponse = await proxy.handle(
+      new Request("http://localhost/v1/models", {
+        method: "GET",
+        headers: {
+          "x-api-key": "client-key",
+        },
+      }),
+    );
+    expect(modelsResponse.status).toBe(200);
+  });
+
   it("rejects non-json content types", async () => {
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-content-type-"));
     await setupAgent({

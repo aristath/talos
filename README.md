@@ -112,6 +112,7 @@ Agent selection supports:
 - `model: "agent:<agentId>"` alias
 
 When `inboundAuth` is configured, bearer tokens are mapped to allowed agent ids and access is enforced.
+Inbound auth accepts `Authorization: Bearer <token>`, `x-api-key`, or `api-key` headers.
 Proxy responses include `x-request-id` and `x-talos-agent-id` headers for traceability.
 
 `createOpenAICompatibleProxyServer` supports optional CORS handling (`cors.allowOrigin`, `cors.allowHeaders`, `cors.allowMethods`) and responds to `OPTIONS` preflight requests.

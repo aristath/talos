@@ -72,6 +72,22 @@ function readBearerToken(request: Request): string | undefined {
   return token || undefined;
 }
 
+function readInboundToken(request: Request): string | undefined {
+  const bearer = readBearerToken(request);
+  if (bearer) {
+    return bearer;
+  }
+  const xApiKey = request.headers.get("x-api-key")?.trim();
+  if (xApiKey) {
+    return xApiKey;
+  }
+  const apiKey = request.headers.get("api-key")?.trim();
+  if (apiKey) {
+    return apiKey;
+  }
+  return undefined;
+}
+
 function extractRequestedAgentId(request: Request): string | undefined {
   const value = request.headers.get("x-agent-id")?.trim();
   return value || undefined;
@@ -292,7 +308,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
     if (!options.inboundAuth) {
       return preferredAgentId ?? defaultAgentId;
     }
-    const token = readBearerToken(request);
+    const token = readInboundToken(request);
     if (!token) {
       return openAIError(401, "Missing bearer token.", "authentication_error", {
         ...(requestId ? { "x-request-id": requestId } : {}),
@@ -527,7 +543,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         if (!options.inboundAuth) {
           return await listModels({ requestId });
         }
-        const token = readBearerToken(request);
+        const token = readInboundToken(request);
         if (!token) {
           return openAIError(401, "Missing bearer token.", "authentication_error", {
             "x-request-id": requestId,
@@ -555,7 +571,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         if (!options.inboundAuth) {
           return await getModel({ modelId, requestId });
         }
-        const token = readBearerToken(request);
+        const token = readInboundToken(request);
         if (!token) {
           return openAIError(401, "Missing bearer token.", "authentication_error", {
             "x-request-id": requestId,
