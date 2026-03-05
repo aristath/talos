@@ -176,6 +176,8 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
           JSON.stringify({
             status: "ok",
             uptimeMs: Date.now() - startedAt,
+            activeRequests,
+            maxConcurrentRequests: Math.floor(maxConcurrentRequests),
           }),
         );
         return;

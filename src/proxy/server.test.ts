@@ -167,9 +167,16 @@ describe("createOpenAICompatibleProxyServer", () => {
       const response = await fetch(`http://${listening.host}:${listening.port}/healthz`);
       expect(response.status).toBe(200);
       expect(response.headers.get("x-request-id")).toBeTruthy();
-      const payload = (await response.json()) as { status?: string; uptimeMs?: number };
+      const payload = (await response.json()) as {
+        status?: string;
+        uptimeMs?: number;
+        activeRequests?: number;
+        maxConcurrentRequests?: number;
+      };
       expect(payload.status).toBe("ok");
       expect(typeof payload.uptimeMs).toBe("number");
+      expect(typeof payload.activeRequests).toBe("number");
+      expect(payload.maxConcurrentRequests).toBe(200);
     } finally {
       await proxyServer.close();
     }
