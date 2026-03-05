@@ -131,6 +131,10 @@ describe("createOpenAICompatibleProxy", () => {
     expect(body.messages?.[0]?.role).toBe("system");
     expect(body.messages?.[0]?.content).toContain("Global platform policy");
     expect(body.messages?.[0]?.content).toContain("You are a premium web designer.");
+    expect(proxy.stats().totalHandledRequests).toBeGreaterThanOrEqual(1);
+    expect(proxy.stats().upstreamAttempts).toBe(1);
+    expect(proxy.stats().upstreamResponses).toBe(1);
+    expect(proxy.stats().upstreamErrors).toBe(0);
   });
 
   it("reports not_ready when default agent profile cannot be resolved", async () => {
@@ -846,6 +850,9 @@ describe("createOpenAICompatibleProxy", () => {
     };
     expect(firstBody.model).toBe("primary-model");
     expect(secondBody.model).toBe("fallback-model");
+    expect(proxy.stats().upstreamAttempts).toBe(2);
+    expect(proxy.stats().upstreamResponses).toBe(2);
+    expect(proxy.stats().upstream5xxResponses).toBe(1);
   });
 
   it("uses agent-level timeout override when configured", async () => {

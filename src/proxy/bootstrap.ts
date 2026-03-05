@@ -11,7 +11,16 @@ export async function createOpenAICompatibleProxyFromFile(params: {
   handle: (request: Request) => Promise<Response>;
   ready: () => Promise<{ ok: boolean; agentId: string; error?: string }>;
   reload: (agentId?: string) => Promise<{ ok: boolean; cleared: number; agentId?: string }>;
-  stats: () => { defaultAgentId: string; cacheEntries: number; cacheTtlMs: number };
+  stats: () => {
+    defaultAgentId: string;
+    cacheEntries: number;
+    cacheTtlMs: number;
+    totalHandledRequests: number;
+    upstreamAttempts: number;
+    upstreamResponses: number;
+    upstreamErrors: number;
+    upstream5xxResponses: number;
+  };
 }> {
   const options = await loadOpenAIProxyOptionsFromFile(params);
   const proxy = createOpenAICompatibleProxy(options);

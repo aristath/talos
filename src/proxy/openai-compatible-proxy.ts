@@ -31,6 +31,11 @@ export type OpenAIProxyStats = {
   defaultAgentId: string;
   cacheEntries: number;
   cacheTtlMs: number;
+  totalHandledRequests: number;
+  upstreamAttempts: number;
+  upstreamResponses: number;
+  upstreamErrors: number;
+  upstream5xxResponses: number;
 };
 
 type CachedAgentProfile = {
@@ -321,6 +326,13 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
   const upstreamTimeoutMs = options.upstreamTimeoutMs ?? 60_000;
   const cacheTtlMs = options.cacheTtlMs ?? 5_000;
   const cache = new Map<string, CachedAgentProfile>();
+  const counters = {
+    totalHandledRequests: 0,
+    upstreamAttempts: 0,
+    upstreamResponses: 0,
+    upstreamErrors: 0,
+    upstream5xxResponses: 0,
+  };
 
   const resolveAgentId = (request: Request, params?: { requestedAgentId?: string; requestId?: string }): string | Response => {
     const requestId = params?.requestId;
@@ -428,6 +440,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
       let lastModel = modelCandidates[0] ?? "";
       for (const [index, model] of modelCandidates.entries()) {
         lastModel = model;
+        counters.upstreamAttempts += 1;
         const upstream = await fetch(url, {
           method: "POST",
           headers,
@@ -437,6 +450,10 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           }),
           signal: controller.signal,
         });
+        counters.upstreamResponses += 1;
+        if (upstream.status >= 500) {
+          counters.upstream5xxResponses += 1;
+        }
         if (upstream.ok || index >= modelCandidates.length - 1) {
           return new Response(upstream.body, {
             status: upstream.status,
@@ -481,6 +498,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
       }
       throw new Error("Upstream request did not produce a response.");
     } catch (error) {
+      counters.upstreamErrors += 1;
       return openAIError(
         502,
         error instanceof Error
@@ -562,6 +580,11 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
       defaultAgentId,
       cacheEntries: cache.size,
       cacheTtlMs,
+      totalHandledRequests: counters.totalHandledRequests,
+      upstreamAttempts: counters.upstreamAttempts,
+      upstreamResponses: counters.upstreamResponses,
+      upstreamErrors: counters.upstreamErrors,
+      upstream5xxResponses: counters.upstream5xxResponses,
     }),
     reload: async (agentId?: string): Promise<{ ok: boolean; cleared: number; agentId?: string }> => {
       if (agentId?.trim()) {
@@ -596,6 +619,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
       }
     },
     handle: async (request: Request): Promise<Response> => {
+      counters.totalHandledRequests += 1;
       const url = new URL(request.url);
       const requestId = request.headers.get("x-request-id")?.trim() || randomUUID();
       if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/v1/models") {
