@@ -149,6 +149,7 @@ describe("proxy bootstrap helpers", () => {
     });
     try {
       expect(started.address.port).toBeGreaterThan(0);
+      expect(started.url).toContain(`:${started.address.port}`);
       const response = await fetch(`http://${started.address.host}:${started.address.port}/v1/chat/completions`, {
         method: "POST",
         headers: {

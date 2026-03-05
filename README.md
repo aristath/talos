@@ -63,6 +63,8 @@ Current core API:
 - `createOpenAICompatibleProxyServerFromFile({ workspaceDir, configPath? })` to bootstrap server directly from JSON
 - `startOpenAICompatibleProxyServerFromFile({ workspaceDir, configPath?, verifyReady?, port?, host? })` to bootstrap + listen in one step
 
+The start helper returns `{ server, address, url }` for immediate integration.
+
 Both bootstrap helpers support `verifyReady: true` to fail fast when the default agent profile cannot be loaded.
 
 `run(input)` returns a `runId` and lifecycle events include that same `runId` for correlation.

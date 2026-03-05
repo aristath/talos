@@ -54,6 +54,7 @@ export async function startOpenAICompatibleProxyServerFromFile(params: {
 }): Promise<{
   server: OpenAIProxyServer;
   address: { port: number; host: string };
+  url: string;
 }> {
   const server = await createOpenAICompatibleProxyServerFromFile({
     workspaceDir: params.workspaceDir,
@@ -64,5 +65,6 @@ export async function startOpenAICompatibleProxyServerFromFile(params: {
   return {
     server,
     address,
+    url: `http://${address.host}:${address.port}`,
   };
 }
