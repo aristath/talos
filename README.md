@@ -121,6 +121,7 @@ The proxy exposes `ready()` and `reload(agentId?)` methods for operational check
 `createOpenAICompatibleProxyServer` supports optional CORS handling (`cors.allowOrigin`, `cors.allowHeaders`, `cors.allowMethods`) and responds to `OPTIONS` preflight requests.
 It also exposes `GET /healthz` for liveness/uptime checks (including active/concurrency counters).
 It exposes `GET /readyz` for readiness checks against the configured default agent persona.
+It exposes `GET /metricsz` for request/response counters and health metrics.
 If `adminToken` is configured, `POST /reloadz` is enabled for authenticated cache refresh (`x-admin-token` or Bearer auth).
 You can set `maxRequestBytes` to cap inbound body size (default: 2MB).
 You can set `maxConcurrentRequests` to cap in-flight requests (default: 200).

@@ -21,6 +21,39 @@ export type OpenAIProxyServer = {
   close: () => Promise<void>;
 };
 
+type ProxyServerMetrics = {
+  totalRequests: number;
+  totalResponses: number;
+  responses2xx: number;
+  responses4xx: number;
+  responses5xx: number;
+};
+
+function createMetrics(): ProxyServerMetrics {
+  return {
+    totalRequests: 0,
+    totalResponses: 0,
+    responses2xx: 0,
+    responses4xx: 0,
+    responses5xx: 0,
+  };
+}
+
+function recordStatus(metrics: ProxyServerMetrics, status: number): void {
+  metrics.totalResponses += 1;
+  if (status >= 200 && status < 300) {
+    metrics.responses2xx += 1;
+    return;
+  }
+  if (status >= 400 && status < 500) {
+    metrics.responses4xx += 1;
+    return;
+  }
+  if (status >= 500) {
+    metrics.responses5xx += 1;
+  }
+}
+
 async function readRequestBody(req: IncomingMessage, maxRequestBytes: number): Promise<Uint8Array> {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
@@ -138,6 +171,7 @@ function applyRequestIdHeader(res: ServerResponse, requestId: string): void {
 export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOptions): OpenAIProxyServer {
   const proxy = createOpenAICompatibleProxy(options);
   const startedAt = Date.now();
+  const metrics = createMetrics();
   const maxRequestBytes = options.maxRequestBytes ?? 2 * 1024 * 1024;
   const maxConcurrentRequests = options.maxConcurrentRequests ?? 200;
   if (!Number.isFinite(maxRequestBytes) || maxRequestBytes <= 0) {
@@ -148,6 +182,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
   }
   let activeRequests = 0;
   const server = createServer(async (req, res) => {
+    metrics.totalRequests += 1;
     const fetchHeaders = toFetchHeaders(req);
     const requestId = resolveRequestId(fetchHeaders);
     if (activeRequests >= Math.floor(maxConcurrentRequests)) {
@@ -163,6 +198,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
           },
         }),
       );
+      recordStatus(metrics, res.statusCode);
       return;
     }
     activeRequests += 1;
@@ -180,6 +216,24 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
             maxConcurrentRequests: Math.floor(maxConcurrentRequests),
           }),
         );
+        recordStatus(metrics, res.statusCode);
+        return;
+      }
+      if (req.method === "GET" && req.url === "/metricsz") {
+        res.statusCode = 200;
+        applyCorsHeaders(res, options.cors);
+        applyRequestIdHeader(res, requestId);
+        res.setHeader("content-type", "application/json");
+        res.end(
+          JSON.stringify({
+            status: "ok",
+            uptimeMs: Date.now() - startedAt,
+            activeRequests,
+            maxConcurrentRequests: Math.floor(maxConcurrentRequests),
+            ...metrics,
+          }),
+        );
+        recordStatus(metrics, res.statusCode);
         return;
       }
       if (req.method === "GET" && req.url === "/readyz") {
@@ -195,6 +249,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
             ...(readiness.error ? { error: readiness.error } : {}),
           }),
         );
+        recordStatus(metrics, res.statusCode);
         return;
       }
       if (req.method === "POST" && req.url === "/reloadz") {
@@ -211,6 +266,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
               },
             }),
           );
+          recordStatus(metrics, res.statusCode);
           return;
         }
         const inboundAdminToken = resolveAdminToken(req);
@@ -227,6 +283,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
               },
             }),
           );
+          recordStatus(metrics, res.statusCode);
           return;
         }
         const body = await readRequestBody(req, Math.floor(maxRequestBytes));
@@ -242,6 +299,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
             ...reloaded,
           }),
         );
+        recordStatus(metrics, res.statusCode);
         return;
       }
       if (req.method === "OPTIONS") {
@@ -249,6 +307,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
         applyCorsHeaders(res, options.cors);
         applyRequestIdHeader(res, requestId);
         res.end();
+        recordStatus(metrics, res.statusCode);
         return;
       }
       const body = await readRequestBody(req, Math.floor(maxRequestBytes));
@@ -264,6 +323,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
       applyCorsHeaders(res, options.cors);
       applyRequestIdHeader(res, requestId);
       await writeFetchResponse(response, res);
+      recordStatus(metrics, res.statusCode);
     } catch (error) {
       if (error instanceof Error && /Request body exceeds limit/.test(error.message)) {
         res.statusCode = 413;
@@ -278,6 +338,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
             },
           }),
         );
+        recordStatus(metrics, res.statusCode);
         return;
       }
       if (error instanceof Error && /reload endpoint|Reload body/.test(error.message)) {
@@ -293,6 +354,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
             },
           }),
         );
+        recordStatus(metrics, res.statusCode);
         return;
       }
       res.statusCode = 500;
@@ -307,6 +369,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
           },
         }),
       );
+      recordStatus(metrics, res.statusCode);
     } finally {
       activeRequests = Math.max(0, activeRequests - 1);
     }

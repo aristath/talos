@@ -228,6 +228,62 @@ describe("createOpenAICompatibleProxyServer", () => {
     }
   });
 
+  it("exposes server metrics endpoint", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-metrics-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi.fn(async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const target = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (target.startsWith("http://127.0.0.1:")) {
+        return await originalFetch(input, init);
+      }
+      return new Response(JSON.stringify({ id: "chatcmpl_1" }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proxyServer = createOpenAICompatibleProxyServer({
+      workspaceDir,
+      defaultAgentId: "designer",
+    });
+    const listening = await proxyServer.listen();
+    try {
+      const runResponse = await fetch(`http://${listening.host}:${listening.port}/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      });
+      expect(runResponse.status).toBe(200);
+
+      const metrics = await fetch(`http://${listening.host}:${listening.port}/metricsz`);
+      expect(metrics.status).toBe(200);
+      const payload = (await metrics.json()) as {
+        status?: string;
+        totalRequests?: number;
+        totalResponses?: number;
+        responses2xx?: number;
+      };
+      expect(payload.status).toBe("ok");
+      expect((payload.totalRequests ?? 0)).toBeGreaterThanOrEqual(2);
+      expect((payload.totalResponses ?? 0)).toBeGreaterThanOrEqual(1);
+      expect((payload.responses2xx ?? 0)).toBeGreaterThanOrEqual(1);
+    } finally {
+      await proxyServer.close();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("supports authenticated cache reload endpoint", async () => {
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-reload-"));
     await setupAgent({
