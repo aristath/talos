@@ -130,6 +130,44 @@ function parseJsonBody(raw: string): Record<string, unknown> {
   }
 }
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function validateChatCompletionsPayload(payload: Record<string, unknown>): string | undefined {
+  if (!Array.isArray(payload.messages) || payload.messages.length === 0) {
+    return "chat/completions requires a non-empty messages array.";
+  }
+  return undefined;
+}
+
+function validateResponsesPayload(payload: Record<string, unknown>): string | undefined {
+  const hasInput = Object.hasOwn(payload, "input");
+  const hasInstructions = isNonEmptyString(payload.instructions);
+  if (!hasInput && !hasInstructions) {
+    return "responses requires input or instructions.";
+  }
+  return undefined;
+}
+
+function validateCompletionsPayload(payload: Record<string, unknown>): string | undefined {
+  const prompt = payload.prompt;
+  if (isNonEmptyString(prompt)) {
+    return undefined;
+  }
+  if (Array.isArray(prompt) && prompt.every((entry) => typeof entry === "string") && prompt.length > 0) {
+    return undefined;
+  }
+  return "completions requires a non-empty prompt string or string array.";
+}
+
+function validateEmbeddingsPayload(payload: Record<string, unknown>): string | undefined {
+  if (!Object.hasOwn(payload, "input")) {
+    return "embeddings requires input.";
+  }
+  return undefined;
+}
+
 async function readPersonaPrompt(agentDir: string): Promise<string> {
   const sections: string[] = [];
   const fileNames = ["SOUL.md", "STYLE.md", "RULES.md"];
@@ -465,6 +503,12 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
       }
       const payloadWithoutAgentModelAlias = stripAgentModelAlias(payload);
       if (url.pathname === "/v1/chat/completions") {
+        const payloadError = validateChatCompletionsPayload(payloadWithoutAgentModelAlias);
+        if (payloadError) {
+          return openAIError(400, payloadError, "invalid_request_error", {
+            "x-request-id": requestId,
+          });
+        }
         const withPersona = mergePersonaIntoChatMessages(profile.prompt, payloadWithoutAgentModelAlias);
         const withModel = ensureModel(withPersona, profile.modelId);
         return await proxyJson({
@@ -475,6 +519,12 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         });
       }
       if (url.pathname === "/v1/responses") {
+        const payloadError = validateResponsesPayload(payloadWithoutAgentModelAlias);
+        if (payloadError) {
+          return openAIError(400, payloadError, "invalid_request_error", {
+            "x-request-id": requestId,
+          });
+        }
         const withPersona = mergePersonaIntoResponsesInput(profile.prompt, payloadWithoutAgentModelAlias);
         const withModel = ensureModel(withPersona, profile.modelId);
         return await proxyJson({
@@ -485,6 +535,12 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         });
       }
       if (url.pathname === "/v1/completions") {
+        const payloadError = validateCompletionsPayload(payloadWithoutAgentModelAlias);
+        if (payloadError) {
+          return openAIError(400, payloadError, "invalid_request_error", {
+            "x-request-id": requestId,
+          });
+        }
         const withPersona = mergePersonaIntoCompletionsPrompt(profile.prompt, payloadWithoutAgentModelAlias);
         const withModel = ensureModel(withPersona, profile.modelId);
         return await proxyJson({
@@ -495,6 +551,12 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         });
       }
       if (url.pathname === "/v1/embeddings") {
+        const payloadError = validateEmbeddingsPayload(payloadWithoutAgentModelAlias);
+        if (payloadError) {
+          return openAIError(400, payloadError, "invalid_request_error", {
+            "x-request-id": requestId,
+          });
+        }
         const withModel = ensureModel(payloadWithoutAgentModelAlias, profile.modelId);
         return await proxyJson({
           endpoint: "/embeddings",

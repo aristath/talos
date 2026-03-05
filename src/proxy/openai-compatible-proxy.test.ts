@@ -462,4 +462,62 @@ describe("createOpenAICompatibleProxy", () => {
     const payload = await response.text();
     expect(payload).toContain("chunk_1");
   });
+
+  it("validates required payload fields per endpoint", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-validate-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: "unused" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proxy = createOpenAICompatibleProxy({
+      workspaceDir,
+      defaultAgentId: "designer",
+    });
+
+    const badChat = await proxy.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+    );
+    expect(badChat.status).toBe(400);
+
+    const badResponses = await proxy.handle(
+      new Request("http://localhost/v1/responses", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: "openai/gpt-4.1" }),
+      }),
+    );
+    expect(badResponses.status).toBe(400);
+
+    const badCompletions = await proxy.handle(
+      new Request("http://localhost/v1/completions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt: [] }),
+      }),
+    );
+    expect(badCompletions.status).toBe(400);
+
+    const badEmbeddings = await proxy.handle(
+      new Request("http://localhost/v1/embeddings", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: "text-embedding-3-large" }),
+      }),
+    );
+    expect(badEmbeddings.status).toBe(400);
+
+    expect(fetchMock).toHaveBeenCalledTimes(0);
+  });
 });
