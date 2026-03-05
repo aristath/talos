@@ -191,6 +191,46 @@ describe("createOpenAICompatibleProxy", () => {
     expect(body.model).toBe("openai/gpt-4.1");
   });
 
+  it("supports embeddings endpoint with model defaults", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-embeddings-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "You are a premium web designer.",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "text-embedding-3-large",
+    });
+
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ object: "list", data: [] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proxy = createOpenAICompatibleProxy({
+      workspaceDir,
+      defaultAgentId: "designer",
+    });
+
+    const response = await proxy.handle(
+      new Request("http://localhost/v1/embeddings", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          input: "homepage hero",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const calls = fetchMock.mock.calls as unknown as Array<[unknown, unknown?]>;
+    expect(String(calls[0]?.[0])).toBe("https://openrouter.ai/api/v1/embeddings");
+    const init = (calls[0]?.[1] ?? {}) as { body?: string };
+    const body = JSON.parse(init.body ?? "{}") as { model?: string; input?: string };
+    expect(body.model).toBe("text-embedding-3-large");
+    expect(body.input).toBe("homepage hero");
+  });
+
   it("returns available agent models via /v1/models", async () => {
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-models-"));
     await setupAgent({

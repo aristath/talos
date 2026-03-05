@@ -71,7 +71,7 @@ This repository intentionally excludes channel integrations, UI apps, and CLI su
 
 Talos can run as a middleware/proxy in front of OpenAI-compatible providers.
 
-- Endpoints: `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/completions`, `GET /v1/models`
+- Endpoints: `POST /v1/chat/completions`, `POST /v1/responses`, `POST /v1/completions`, `POST /v1/embeddings`, `GET /v1/models`
 - Agent persona files are loaded from `agents/<agentId>/`.
 - Required per-agent file: `SOUL.md`
 - Optional per-agent files: `STYLE.md`, `RULES.md`

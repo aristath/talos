@@ -276,7 +276,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
   };
 
   const proxyJson = async (params: {
-    endpoint: "/chat/completions" | "/responses" | "/completions";
+    endpoint: "/chat/completions" | "/responses" | "/completions" | "/embeddings";
     payload: Record<string, unknown>;
     profile: ResolvedAgentProfile;
   }): Promise<Response> => {
@@ -419,6 +419,14 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         const withModel = ensureModel(withPersona, profile.modelId);
         return await proxyJson({
           endpoint: "/completions",
+          payload: withModel,
+          profile,
+        });
+      }
+      if (url.pathname === "/v1/embeddings") {
+        const withModel = ensureModel(payloadWithoutAgentModelAlias, profile.modelId);
+        return await proxyJson({
+          endpoint: "/embeddings",
           payload: withModel,
           profile,
         });
