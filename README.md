@@ -107,6 +107,7 @@ Agent selection supports:
 When `inboundAuth` is configured, bearer tokens are mapped to allowed agent ids and access is enforced.
 
 `createOpenAICompatibleProxyServer` supports optional CORS handling (`cors.allowOrigin`, `cors.allowHeaders`, `cors.allowMethods`) and responds to `OPTIONS` preflight requests.
+It also exposes `GET /healthz` for liveness/uptime checks.
 
 Further docs:
 

@@ -142,4 +142,31 @@ describe("createOpenAICompatibleProxyServer", () => {
       await proxyServer.close();
     }
   });
+
+  it("exposes health endpoint", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-health-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const proxyServer = createOpenAICompatibleProxyServer({
+      workspaceDir,
+      defaultAgentId: "designer",
+    });
+    const listening = await proxyServer.listen();
+    try {
+      const response = await fetch(`http://${listening.host}:${listening.port}/healthz`);
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as { status?: string; uptimeMs?: number };
+      expect(payload.status).toBe("ok");
+      expect(typeof payload.uptimeMs).toBe("number");
+    } finally {
+      await proxyServer.close();
+    }
+  });
 });

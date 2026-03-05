@@ -80,8 +80,21 @@ function applyCorsHeaders(res: ServerResponse, cors?: OpenAIProxyServerCorsOptio
 
 export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOptions): OpenAIProxyServer {
   const proxy = createOpenAICompatibleProxy(options);
+  const startedAt = Date.now();
   const server = createServer(async (req, res) => {
     try {
+      if (req.method === "GET" && req.url === "/healthz") {
+        res.statusCode = 200;
+        applyCorsHeaders(res, options.cors);
+        res.setHeader("content-type", "application/json");
+        res.end(
+          JSON.stringify({
+            status: "ok",
+            uptimeMs: Date.now() - startedAt,
+          }),
+        );
+        return;
+      }
       if (req.method === "OPTIONS") {
         res.statusCode = 204;
         applyCorsHeaders(res, options.cors);
