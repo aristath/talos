@@ -265,23 +265,30 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
   const cacheTtlMs = options.cacheTtlMs ?? 5_000;
   const cache = new Map<string, CachedAgentProfile>();
 
-  const resolveAgentId = (request: Request, requestedAgentId?: string): string | Response => {
-    const preferredAgentId = requestedAgentId ?? extractRequestedAgentId(request);
+  const resolveAgentId = (request: Request, params?: { requestedAgentId?: string; requestId?: string }): string | Response => {
+    const requestId = params?.requestId;
+    const preferredAgentId = params?.requestedAgentId ?? extractRequestedAgentId(request);
     if (!options.inboundAuth) {
       return preferredAgentId ?? defaultAgentId;
     }
     const token = readBearerToken(request);
     if (!token) {
-      return openAIError(401, "Missing bearer token.", "authentication_error");
+      return openAIError(401, "Missing bearer token.", "authentication_error", {
+        ...(requestId ? { "x-request-id": requestId } : {}),
+      });
     }
     const rule = options.inboundAuth[token];
     if (!rule) {
-      return openAIError(403, "Invalid API token.", "authentication_error");
+      return openAIError(403, "Invalid API token.", "authentication_error", {
+        ...(requestId ? { "x-request-id": requestId } : {}),
+      });
     }
     const allowedAgentIds = (rule.allowedAgentIds ?? [rule.defaultAgentId]).map((entry) => entry.trim());
     const selected = preferredAgentId ?? rule.defaultAgentId;
     if (!allowedAgentIds.includes(selected)) {
-      return openAIError(403, `Agent access denied: ${selected}`, "permission_error");
+      return openAIError(403, `Agent access denied: ${selected}`, "permission_error", {
+        ...(requestId ? { "x-request-id": requestId } : {}),
+      });
     }
     return selected;
   };
@@ -507,7 +514,10 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         });
       }
       const requestedAgentId = headerAgentId ?? modelAliasAgentId ?? undefined;
-      const resolvedAgentId = resolveAgentId(request, requestedAgentId);
+      const resolvedAgentId = resolveAgentId(request, {
+        ...(requestedAgentId ? { requestedAgentId } : {}),
+        requestId,
+      });
       if (resolvedAgentId instanceof Response) {
         return resolvedAgentId;
       }

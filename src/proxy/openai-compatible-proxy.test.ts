@@ -523,4 +523,57 @@ describe("createOpenAICompatibleProxy", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(0);
   });
+
+  it("attaches request id headers to inbound auth failures", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-auth-headers-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const proxy = createOpenAICompatibleProxy({
+      workspaceDir,
+      defaultAgentId: "designer",
+      inboundAuth: {
+        "client-key": {
+          defaultAgentId: "designer",
+        },
+      },
+    });
+
+    const missingBearer = await proxy.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-request-id": "req-missing",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      }),
+    );
+    expect(missingBearer.status).toBe(401);
+    expect(missingBearer.headers.get("x-request-id")).toBe("req-missing");
+
+    const invalidBearer = await proxy.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer wrong-key",
+          "content-type": "application/json",
+          "x-request-id": "req-invalid",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      }),
+    );
+    expect(invalidBearer.status).toBe(403);
+    expect(invalidBearer.headers.get("x-request-id")).toBe("req-invalid");
+  });
 });
