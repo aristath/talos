@@ -74,6 +74,10 @@ function requestUrl(req: IncomingMessage): string {
   return `${protocol}://${host}${req.url || "/"}`;
 }
 
+function requestPathname(req: IncomingMessage): string {
+  return new URL(requestUrl(req)).pathname;
+}
+
 function toFetchHeaders(req: IncomingMessage): Headers {
   const headers = new Headers();
   for (const [key, value] of Object.entries(req.headers)) {
@@ -133,8 +137,17 @@ function parseReloadAgentId(body: Uint8Array): string | undefined {
   return typeof candidate === "string" && candidate.trim() ? candidate.trim() : undefined;
 }
 
+function parseReloadAgentIdFromRequest(req: IncomingMessage, body: Uint8Array): string | undefined {
+  if (req.method === "GET") {
+    const url = new URL(requestUrl(req));
+    const fromQuery = url.searchParams.get("agentId")?.trim();
+    return fromQuery || undefined;
+  }
+  return parseReloadAgentId(body);
+}
+
 function isHeadOrGet(req: IncomingMessage, route: string): boolean {
-  return (req.method === "GET" || req.method === "HEAD") && req.url === route;
+  return (req.method === "GET" || req.method === "HEAD") && requestPathname(req) === route;
 }
 
 async function writeFetchResponse(response: Response, res: ServerResponse): Promise<void> {
@@ -330,7 +343,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
         recordStatus(metrics, res.statusCode);
         return;
       }
-      if ((req.method === "POST" || req.method === "GET") && req.url === "/reloadz") {
+      if ((req.method === "POST" || req.method === "GET") && requestPathname(req) === "/reloadz") {
         if (!options.adminToken?.trim()) {
           res.statusCode = 404;
           applyCorsHeaders(res, options.cors);
@@ -367,7 +380,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
           return;
         }
         const body = req.method === "POST" ? await readRequestBody(req, Math.floor(maxRequestBytes)) : new Uint8Array();
-        const agentId = parseReloadAgentId(body);
+        const agentId = parseReloadAgentIdFromRequest(req, body);
         const reloaded = await proxy.reload(agentId);
         res.statusCode = 200;
         applyCorsHeaders(res, options.cors);
