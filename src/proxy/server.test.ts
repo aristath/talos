@@ -167,6 +167,7 @@ describe("createOpenAICompatibleProxyServer", () => {
       const response = await fetch(`http://${listening.host}:${listening.port}/healthz`);
       expect(response.status).toBe(200);
       expect(response.headers.get("x-request-id")).toBeTruthy();
+      expect(response.headers.get("cache-control")).toBe("no-store");
       const payload = (await response.json()) as {
         status?: string;
         uptimeMs?: number;
@@ -202,6 +203,7 @@ describe("createOpenAICompatibleProxyServer", () => {
       const response = await fetch(`http://${listening.host}:${listening.port}/readyz`);
       expect(response.status).toBe(200);
       expect(response.headers.get("x-request-id")).toBeTruthy();
+      expect(response.headers.get("cache-control")).toBe("no-store");
       const payload = (await response.json()) as { status?: string; agentId?: string };
       expect(payload.status).toBe("ready");
       expect(payload.agentId).toBe("designer");
@@ -301,6 +303,7 @@ describe("createOpenAICompatibleProxyServer", () => {
 
       const metrics = await fetch(`http://${listening.host}:${listening.port}/metricsz`);
       expect(metrics.status).toBe(200);
+      expect(metrics.headers.get("cache-control")).toBe("no-store");
       const payload = (await metrics.json()) as {
         status?: string;
         totalRequests?: number;
@@ -353,6 +356,7 @@ describe("createOpenAICompatibleProxyServer", () => {
         },
       });
       expect(authorized.status).toBe(200);
+      expect(authorized.headers.get("cache-control")).toBe("no-store");
       const payload = (await authorized.json()) as { status?: string; reset?: boolean };
       expect(payload.status).toBe("ok");
       expect(payload.reset).toBe(true);
@@ -395,6 +399,7 @@ describe("createOpenAICompatibleProxyServer", () => {
         }),
       });
       expect(authorized.status).toBe(200);
+      expect(authorized.headers.get("cache-control")).toBe("no-store");
       const payload = (await authorized.json()) as { status?: string; cleared?: number; agentId?: string };
       expect(payload.status).toBe("ok");
       expect(payload.cleared).toBeGreaterThanOrEqual(0);

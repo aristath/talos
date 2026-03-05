@@ -172,6 +172,10 @@ function applyRequestIdHeader(res: ServerResponse, requestId: string): void {
   res.setHeader("x-request-id", requestId);
 }
 
+function applyNoStoreHeaders(res: ServerResponse): void {
+  res.setHeader("cache-control", "no-store");
+}
+
 export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOptions): OpenAIProxyServer {
   const proxy = createOpenAICompatibleProxy(options);
   const startedAt = Date.now();
@@ -211,6 +215,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
         res.statusCode = 200;
         applyCorsHeaders(res, options.cors);
         applyRequestIdHeader(res, requestId);
+        applyNoStoreHeaders(res);
         res.setHeader("content-type", "application/json");
         if (req.method === "HEAD") {
           res.end();
@@ -232,6 +237,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
         res.statusCode = 200;
         applyCorsHeaders(res, options.cors);
         applyRequestIdHeader(res, requestId);
+        applyNoStoreHeaders(res);
         res.setHeader("content-type", "application/json");
         if (req.method === "HEAD") {
           res.end();
@@ -256,6 +262,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
           res.statusCode = 404;
           applyCorsHeaders(res, options.cors);
           applyRequestIdHeader(res, requestId);
+          applyNoStoreHeaders(res);
           res.setHeader("content-type", "application/json");
           res.end(
             JSON.stringify({
@@ -273,6 +280,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
           res.statusCode = 401;
           applyCorsHeaders(res, options.cors);
           applyRequestIdHeader(res, requestId);
+          applyNoStoreHeaders(res);
           res.setHeader("content-type", "application/json");
           res.end(
             JSON.stringify({
@@ -289,6 +297,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
         res.statusCode = 200;
         applyCorsHeaders(res, options.cors);
         applyRequestIdHeader(res, requestId);
+        applyNoStoreHeaders(res);
         res.setHeader("content-type", "application/json");
         res.end(
           JSON.stringify({
@@ -304,6 +313,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
         res.statusCode = readiness.ok ? 200 : 503;
         applyCorsHeaders(res, options.cors);
         applyRequestIdHeader(res, requestId);
+        applyNoStoreHeaders(res);
         res.setHeader("content-type", "application/json");
         if (req.method === "HEAD") {
           res.end();
@@ -325,6 +335,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
           res.statusCode = 404;
           applyCorsHeaders(res, options.cors);
           applyRequestIdHeader(res, requestId);
+          applyNoStoreHeaders(res);
           res.setHeader("content-type", "application/json");
           res.end(
             JSON.stringify({
@@ -342,6 +353,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
           res.statusCode = 401;
           applyCorsHeaders(res, options.cors);
           applyRequestIdHeader(res, requestId);
+          applyNoStoreHeaders(res);
           res.setHeader("content-type", "application/json");
           res.end(
             JSON.stringify({
@@ -360,6 +372,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
         res.statusCode = 200;
         applyCorsHeaders(res, options.cors);
         applyRequestIdHeader(res, requestId);
+        applyNoStoreHeaders(res);
         res.setHeader("content-type", "application/json");
         res.end(
           JSON.stringify({
