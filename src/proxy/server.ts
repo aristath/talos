@@ -278,6 +278,21 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
         );
         return;
       }
+      if (error instanceof Error && /reload endpoint|Reload body/.test(error.message)) {
+        res.statusCode = 400;
+        applyCorsHeaders(res, options.cors);
+        applyRequestIdHeader(res, requestId);
+        res.setHeader("content-type", "application/json");
+        res.end(
+          JSON.stringify({
+            error: {
+              message: error.message,
+              type: "invalid_request_error",
+            },
+          }),
+        );
+        return;
+      }
       res.statusCode = 500;
       applyCorsHeaders(res, options.cors);
       applyRequestIdHeader(res, requestId);

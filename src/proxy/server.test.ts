@@ -290,6 +290,48 @@ describe("createOpenAICompatibleProxyServer", () => {
     }
   });
 
+  it("returns 400 for invalid reload request payloads", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-reload-invalid-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const proxyServer = createOpenAICompatibleProxyServer({
+      workspaceDir,
+      defaultAgentId: "designer",
+      adminToken: "admin-secret",
+    });
+    const listening = await proxyServer.listen();
+    try {
+      const invalidJson = await fetch(`http://${listening.host}:${listening.port}/reloadz`, {
+        method: "POST",
+        headers: {
+          "x-admin-token": "admin-secret",
+          "content-type": "application/json",
+        },
+        body: "{",
+      });
+      expect(invalidJson.status).toBe(400);
+
+      const invalidShape = await fetch(`http://${listening.host}:${listening.port}/reloadz`, {
+        method: "POST",
+        headers: {
+          "x-admin-token": "admin-secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(["designer"]),
+      });
+      expect(invalidShape.status).toBe(400);
+    } finally {
+      await proxyServer.close();
+    }
+  });
+
   it("returns 413 when request body exceeds configured maxRequestBytes", async () => {
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-limit-"));
     await setupAgent({
