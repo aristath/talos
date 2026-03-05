@@ -32,6 +32,7 @@ async function setupAgent(params: {
         },
         model: {
           default: params.model,
+          fallbacks: ["fallback-model"],
         },
       },
       null,
@@ -575,5 +576,52 @@ describe("createOpenAICompatibleProxy", () => {
     );
     expect(invalidBearer.status).toBe(403);
     expect(invalidBearer.headers.get("x-request-id")).toBe("req-invalid");
+  });
+
+  it("retries with fallback model when upstream returns 5xx", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-fallback-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "primary-model",
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () => new Response(JSON.stringify({ error: "temporary" }), { status: 503 }))
+      .mockImplementationOnce(async () => new Response(JSON.stringify({ id: "chatcmpl_fallback" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proxy = createOpenAICompatibleProxy({
+      workspaceDir,
+      defaultAgentId: "designer",
+    });
+
+    const response = await proxy.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-talos-model-fallback")).toBe("true");
+    const calls = fetchMock.mock.calls as unknown as Array<[unknown, unknown?]>;
+    const firstBody = JSON.parse(((calls[0]?.[1] as { body?: string } | undefined)?.body ?? "{}")) as {
+      model?: string;
+    };
+    const secondBody = JSON.parse(((calls[1]?.[1] as { body?: string } | undefined)?.body ?? "{}")) as {
+      model?: string;
+    };
+    expect(firstBody.model).toBe("primary-model");
+    expect(secondBody.model).toBe("fallback-model");
   });
 });

@@ -96,10 +96,13 @@ Minimal `agent.json` example:
     }
   },
   "model": {
-    "default": "openai/gpt-4.1"
+    "default": "openai/gpt-4.1",
+    "fallbacks": ["anthropic/claude-3-7-sonnet"]
   }
 }
 ```
+
+When an incoming request omits `model`, the proxy uses the agent `model.default` and will retry with `model.fallbacks` on upstream `5xx` responses.
 
 Agent selection supports:
 

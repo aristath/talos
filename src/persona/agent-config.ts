@@ -22,6 +22,7 @@ const AGENT_UPSTREAM_SCHEMA = z
 const AGENT_MODEL_SCHEMA = z
   .object({
     default: z.string().min(1).optional(),
+    fallbacks: z.array(z.string().min(1)).optional(),
   })
   .optional();
 
@@ -39,6 +40,7 @@ export type AgentRuntimeProfile = {
   personaDir: string;
   providerId?: string;
   modelId?: string;
+  fallbackModelIds?: string[];
   baseUrl?: string;
   apiKey?: string;
   headers?: Record<string, string>;
@@ -125,6 +127,7 @@ export async function loadAgentRuntimeProfile(params: {
   const providerId =
     agentConfig?.upstream?.providerId ?? agentConfig?.upstream?.provider ?? agentConfig?.providerId;
   const modelId = agentConfig?.model?.default ?? agentConfig?.modelId;
+  const fallbackModelIds = agentConfig?.model?.fallbacks?.map((entry) => entry.trim()).filter(Boolean);
   const baseUrl = agentConfig?.upstream?.baseURL ?? agentConfig?.upstream?.baseUrl;
   const apiKey = agentConfig?.upstream?.auth?.apiKey;
   const headers = agentConfig?.upstream?.headers;
@@ -132,6 +135,7 @@ export async function loadAgentRuntimeProfile(params: {
     personaDir: agentDirRealPath,
     ...(providerId ? { providerId } : {}),
     ...(modelId ? { modelId } : {}),
+    ...(fallbackModelIds && fallbackModelIds.length > 0 ? { fallbackModelIds } : {}),
     ...(baseUrl ? { baseUrl } : {}),
     ...(apiKey ? { apiKey } : {}),
     ...(headers ? { headers } : {}),

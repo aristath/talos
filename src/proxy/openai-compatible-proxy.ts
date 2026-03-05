@@ -214,22 +214,6 @@ function mergePersonaIntoResponsesInput(
   };
 }
 
-function ensureModel(payload: Record<string, unknown>, modelId?: string): Record<string, unknown> {
-  if (typeof payload.model === "string" && payload.model.trim()) {
-    return payload;
-  }
-  if (!modelId?.trim()) {
-    throw new TalosError({
-      code: "CONFIG_INVALID",
-      message: "No model resolved for upstream request.",
-    });
-  }
-  return {
-    ...payload,
-    model: modelId,
-  };
-}
-
 function buildProxyHeaders(params: {
   apiKey?: string;
   extraHeaders?: Record<string, string>;
@@ -246,6 +230,29 @@ function buildProxyHeaders(params: {
     headers.authorization = `Bearer ${params.apiKey.trim()}`;
   }
   return headers;
+}
+
+function resolveModelCandidates(params: {
+  payloadModel?: unknown;
+  defaultModel?: string;
+  fallbackModels?: string[];
+}): string[] {
+  const explicitModel = typeof params.payloadModel === "string" ? params.payloadModel.trim() : "";
+  if (explicitModel) {
+    return [explicitModel];
+  }
+  const defaultModel = params.defaultModel?.trim() ?? "";
+  const fallbackModels = (params.fallbackModels ?? []).map((entry) => entry.trim()).filter(Boolean);
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const candidate of [defaultModel, ...fallbackModels]) {
+    if (!candidate || seen.has(candidate)) {
+      continue;
+    }
+    seen.add(candidate);
+    ordered.push(candidate);
+  }
+  return ordered;
 }
 
 async function listAgentIds(workspaceDir: string, agentsDir: string): Promise<string[]> {
@@ -349,21 +356,65 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
     });
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), upstreamTimeoutMs);
+    const modelCandidates = resolveModelCandidates({
+      payloadModel: params.payload.model,
+      ...(params.profile.modelId ? { defaultModel: params.profile.modelId } : {}),
+      ...(params.profile.fallbackModelIds ? { fallbackModels: params.profile.fallbackModelIds } : {}),
+    });
+    if (modelCandidates.length === 0) {
+      return openAIError(500, "No model resolved for upstream request.", "api_error", {
+        "x-request-id": params.requestId,
+        "x-talos-agent-id": params.profile.agentId,
+      });
+    }
+    const payloadBase = { ...params.payload };
+    delete payloadBase.model;
     try {
-      const upstream = await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(params.payload),
-        signal: controller.signal,
-      });
-      return new Response(upstream.body, {
-        status: upstream.status,
-        headers: {
-          ...Object.fromEntries(upstream.headers.entries()),
-          "x-request-id": params.requestId,
-          "x-talos-agent-id": params.profile.agentId,
-        },
-      });
+      let lastResponse: Response | undefined;
+      for (const [index, model] of modelCandidates.entries()) {
+        const upstream = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            ...payloadBase,
+            model,
+          }),
+          signal: controller.signal,
+        });
+        if (upstream.ok || index >= modelCandidates.length - 1) {
+          return new Response(upstream.body, {
+            status: upstream.status,
+            headers: {
+              ...Object.fromEntries(upstream.headers.entries()),
+              "x-request-id": params.requestId,
+              "x-talos-agent-id": params.profile.agentId,
+              ...(index > 0 ? { "x-talos-model-fallback": "true" } : {}),
+            },
+          });
+        }
+        if (upstream.status < 500) {
+          return new Response(upstream.body, {
+            status: upstream.status,
+            headers: {
+              ...Object.fromEntries(upstream.headers.entries()),
+              "x-request-id": params.requestId,
+              "x-talos-agent-id": params.profile.agentId,
+            },
+          });
+        }
+        lastResponse = upstream;
+      }
+      if (lastResponse) {
+        return new Response(lastResponse.body, {
+          status: lastResponse.status,
+          headers: {
+            ...Object.fromEntries(lastResponse.headers.entries()),
+            "x-request-id": params.requestId,
+            "x-talos-agent-id": params.profile.agentId,
+          },
+        });
+      }
+      throw new Error("Upstream request did not produce a response.");
     } catch (error) {
       return openAIError(
         502,
@@ -543,10 +594,9 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           });
         }
         const withPersona = mergePersonaIntoChatMessages(profile.prompt, payloadWithoutAgentModelAlias);
-        const withModel = ensureModel(withPersona, profile.modelId);
         return await proxyJson({
           endpoint: "/chat/completions",
-          payload: withModel,
+          payload: withPersona,
           profile,
           requestId,
         });
@@ -559,10 +609,9 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           });
         }
         const withPersona = mergePersonaIntoResponsesInput(profile.prompt, payloadWithoutAgentModelAlias);
-        const withModel = ensureModel(withPersona, profile.modelId);
         return await proxyJson({
           endpoint: "/responses",
-          payload: withModel,
+          payload: withPersona,
           profile,
           requestId,
         });
@@ -575,10 +624,9 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           });
         }
         const withPersona = mergePersonaIntoCompletionsPrompt(profile.prompt, payloadWithoutAgentModelAlias);
-        const withModel = ensureModel(withPersona, profile.modelId);
         return await proxyJson({
           endpoint: "/completions",
-          payload: withModel,
+          payload: withPersona,
           profile,
           requestId,
         });
@@ -590,10 +638,9 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
             "x-request-id": requestId,
           });
         }
-        const withModel = ensureModel(payloadWithoutAgentModelAlias, profile.modelId);
         return await proxyJson({
           endpoint: "/embeddings",
-          payload: withModel,
+          payload: payloadWithoutAgentModelAlias,
           profile,
           requestId,
         });
