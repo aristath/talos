@@ -432,6 +432,8 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
               "x-request-id": params.requestId,
               "x-talos-agent-id": params.profile.agentId,
               "x-talos-model": model,
+              "x-talos-model-attempt": String(index + 1),
+              "x-talos-model-candidates": String(modelCandidates.length),
               ...(index > 0 ? { "x-talos-model-fallback": "true" } : {}),
             },
           });
@@ -444,6 +446,8 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
               "x-request-id": params.requestId,
               "x-talos-agent-id": params.profile.agentId,
               "x-talos-model": model,
+              "x-talos-model-attempt": String(index + 1),
+              "x-talos-model-candidates": String(modelCandidates.length),
             },
           });
         }
@@ -457,6 +461,8 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
             "x-request-id": params.requestId,
             "x-talos-agent-id": params.profile.agentId,
             ...(lastModel ? { "x-talos-model": lastModel } : {}),
+            "x-talos-model-attempt": String(modelCandidates.length),
+            "x-talos-model-candidates": String(modelCandidates.length),
           },
         });
       }
