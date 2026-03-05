@@ -262,6 +262,11 @@ describe("createOpenAICompatibleProxy", () => {
     const ids = (payload.data ?? []).map((entry) => entry.id);
     expect(ids).toContain("agent:designer");
     expect(ids).toContain("agent:seo");
+
+    const single = await proxy.handle(new Request("http://localhost/v1/models/agent:designer", { method: "GET" }));
+    expect(single.status).toBe(200);
+    const singlePayload = (await single.json()) as { id?: string };
+    expect(singlePayload.id).toBe("agent:designer");
   });
 
   it("protects and filters /v1/models when inbound auth is configured", async () => {
@@ -311,6 +316,16 @@ describe("createOpenAICompatibleProxy", () => {
     };
     const ids = (payload.data ?? []).map((entry) => entry.id);
     expect(ids).toEqual(["agent:designer"]);
+
+    const deniedSingle = await proxy.handle(
+      new Request("http://localhost/v1/models/agent:seo", {
+        method: "GET",
+        headers: {
+          authorization: "Bearer client-key",
+        },
+      }),
+    );
+    expect(deniedSingle.status).toBe(404);
   });
 
   it("selects agent by model alias and enforces inbound auth allowlist", async () => {

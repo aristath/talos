@@ -348,6 +348,23 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
     );
   };
 
+  const getModel = async (modelId: string, allowedAgentIds?: string[]): Promise<Response> => {
+    const list = await listModels(allowedAgentIds);
+    const payload = (await list.json()) as {
+      data?: Array<{ id?: string; object?: string; owned_by?: string; root?: string }>;
+    };
+    const model = (payload.data ?? []).find((entry) => entry.id === modelId);
+    if (!model) {
+      return openAIError(404, `Model not found: ${modelId}`);
+    }
+    return new Response(JSON.stringify(model), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+  };
+
   return {
     handle: async (request: Request): Promise<Response> => {
       const url = new URL(request.url);
@@ -365,6 +382,25 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         }
         const allowed = rule.allowedAgentIds ?? [rule.defaultAgentId];
         return await listModels(allowed.map((entry) => entry.trim()).filter(Boolean));
+      }
+      if (request.method === "GET" && url.pathname.startsWith("/v1/models/")) {
+        const modelId = decodeURIComponent(url.pathname.slice("/v1/models/".length));
+        if (!modelId.trim()) {
+          return openAIError(404, "Model not found.");
+        }
+        if (!options.inboundAuth) {
+          return await getModel(modelId);
+        }
+        const token = readBearerToken(request);
+        if (!token) {
+          return openAIError(401, "Missing bearer token.", "authentication_error");
+        }
+        const rule = options.inboundAuth[token];
+        if (!rule) {
+          return openAIError(403, "Invalid API token.", "authentication_error");
+        }
+        const allowed = rule.allowedAgentIds ?? [rule.defaultAgentId];
+        return await getModel(modelId, allowed.map((entry) => entry.trim()).filter(Boolean));
       }
       if (request.method !== "POST") {
         return openAIError(405, "Method not allowed.");
