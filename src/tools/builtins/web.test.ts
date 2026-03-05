@@ -4,6 +4,12 @@ import { createWebFetchTool, createWebSearchTool } from "./web.js";
 describe("web builtins", () => {
   const originalFirecrawl = process.env.FIRECRAWL_API_KEY;
   const originalBrave = process.env.BRAVE_API_KEY;
+  const originalPerplexity = process.env.PERPLEXITY_API_KEY;
+  const originalOpenRouter = process.env.OPENROUTER_API_KEY;
+  const originalGemini = process.env.GEMINI_API_KEY;
+  const originalXai = process.env.XAI_API_KEY;
+  const originalKimi = process.env.KIMI_API_KEY;
+  const originalMoonshot = process.env.MOONSHOT_API_KEY;
 
   afterEach(() => {
     vi.restoreAllMocks();
@@ -17,6 +23,117 @@ describe("web builtins", () => {
     } else {
       delete process.env.BRAVE_API_KEY;
     }
+    if (typeof originalPerplexity === "string") {
+      process.env.PERPLEXITY_API_KEY = originalPerplexity;
+    } else {
+      delete process.env.PERPLEXITY_API_KEY;
+    }
+    if (typeof originalOpenRouter === "string") {
+      process.env.OPENROUTER_API_KEY = originalOpenRouter;
+    } else {
+      delete process.env.OPENROUTER_API_KEY;
+    }
+    if (typeof originalGemini === "string") {
+      process.env.GEMINI_API_KEY = originalGemini;
+    } else {
+      delete process.env.GEMINI_API_KEY;
+    }
+    if (typeof originalXai === "string") {
+      process.env.XAI_API_KEY = originalXai;
+    } else {
+      delete process.env.XAI_API_KEY;
+    }
+    if (typeof originalKimi === "string") {
+      process.env.KIMI_API_KEY = originalKimi;
+    } else {
+      delete process.env.KIMI_API_KEY;
+    }
+    if (typeof originalMoonshot === "string") {
+      process.env.MOONSHOT_API_KEY = originalMoonshot;
+    } else {
+      delete process.env.MOONSHOT_API_KEY;
+    }
+  });
+
+  it("supports duckduckgo provider without API key", async () => {
+    const fetchMock = vi.fn(async () => {
+      return {
+        ok: true,
+        async text() {
+          return JSON.stringify({
+            Heading: "SoulSwitch",
+            AbstractText: "SoulSwitch is a persona runtime.",
+            AbstractURL: "https://example.com/soulswitch",
+            RelatedTopics: [
+              {
+                Text: "SoulSwitch docs - docs",
+                FirstURL: "https://example.com/docs",
+              },
+              {
+                Topics: [
+                  {
+                    Text: "SoulSwitch repo - source",
+                    FirstURL: "https://example.com/repo",
+                  },
+                ],
+              },
+            ],
+          });
+        },
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const tool = createWebSearchTool({
+      defaultProvider: "duckduckgo",
+    });
+
+    const result = await tool.run({ query: "SoulSwitch", count: 3 }, { agentId: "main" });
+    const data = result.data as {
+      provider?: string;
+      results?: Array<{ url: string }>;
+      citations?: string[];
+      details?: { provider?: string; resultCount?: number };
+    };
+    expect(data.provider).toBe("duckduckgo");
+    expect(data.results?.length).toBeGreaterThan(0);
+    expect(data.results?.[0]?.url).toBe("https://example.com/soulswitch");
+    expect(data.citations).toContain("https://example.com/docs");
+    expect(data.details?.provider).toBe("duckduckgo");
+  });
+
+  it("auto-detects duckduckgo when no provider keys are configured", async () => {
+    delete process.env.BRAVE_API_KEY;
+    delete process.env.PERPLEXITY_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.XAI_API_KEY;
+    delete process.env.KIMI_API_KEY;
+    delete process.env.MOONSHOT_API_KEY;
+
+    const fetchMock = vi.fn(async () => {
+      return {
+        ok: true,
+        async text() {
+          return JSON.stringify({
+            RelatedTopics: [
+              {
+                Text: "Result one - snippet",
+                FirstURL: "https://example.com/one",
+              },
+            ],
+          });
+        },
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const tool = createWebSearchTool({});
+    const result = await tool.run({ query: "no keys" }, { agentId: "main" });
+    const data = result.data as { provider?: string; results?: Array<{ url: string }> };
+    expect(data.provider).toBe("duckduckgo");
+    expect(data.results?.[0]?.url).toBe("https://example.com/one");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("uses provider model search for non-brave providers", async () => {

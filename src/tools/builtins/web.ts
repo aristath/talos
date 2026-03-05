@@ -14,7 +14,7 @@ const DEFAULT_WEB_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 const PRIVATE_HOSTNAME_PATTERN =
   /^(localhost|127\.|10\.|192\.168\.|169\.254\.|0\.|::1$|fc00:|fd00:|fe80:)/i;
-const SEARCH_PROVIDERS = new Set(["brave", "perplexity", "gemini", "grok", "kimi"]);
+const SEARCH_PROVIDERS = new Set(["brave", "duckduckgo", "perplexity", "gemini", "grok", "kimi"]);
 
 function requireString(value: unknown, field: string): string {
   const normalized = typeof value === "string" ? value.trim() : "";
@@ -134,7 +134,7 @@ function normalizeFreshness(value: unknown): string | undefined {
   });
 }
 
-function normalizeProvider(value: unknown): "brave" | "perplexity" | "gemini" | "grok" | "kimi" | undefined {
+function normalizeProvider(value: unknown): "brave" | "duckduckgo" | "perplexity" | "gemini" | "grok" | "kimi" | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
@@ -148,10 +148,10 @@ function normalizeProvider(value: unknown): "brave" | "perplexity" | "gemini" | 
       message: `Unsupported web_search provider: ${normalized}`,
     });
   }
-  return normalized as "brave" | "perplexity" | "gemini" | "grok" | "kimi";
+  return normalized as "brave" | "duckduckgo" | "perplexity" | "gemini" | "grok" | "kimi";
 }
 
-function autoDetectProvider(): "brave" | "perplexity" | "gemini" | "grok" | "kimi" {
+function autoDetectProvider(): "brave" | "duckduckgo" | "perplexity" | "gemini" | "grok" | "kimi" {
   if (process.env.BRAVE_API_KEY?.trim()) {
     return "brave";
   }
@@ -167,13 +167,17 @@ function autoDetectProvider(): "brave" | "perplexity" | "gemini" | "grok" | "kim
   if (process.env.XAI_API_KEY?.trim()) {
     return "grok";
   }
-  return "brave";
+  return "duckduckgo";
 }
 
-function resolveProviderApiKey(provider: "brave" | "perplexity" | "gemini" | "grok" | "kimi"): string | undefined {
+function resolveProviderApiKey(
+  provider: "brave" | "duckduckgo" | "perplexity" | "gemini" | "grok" | "kimi",
+): string | undefined {
   switch (provider) {
     case "brave":
       return process.env.BRAVE_API_KEY?.trim() || undefined;
+    case "duckduckgo":
+      return undefined;
     case "perplexity":
       return process.env.PERPLEXITY_API_KEY?.trim() || process.env.OPENROUTER_API_KEY?.trim() || undefined;
     case "gemini":
@@ -368,7 +372,7 @@ async function providerModelSearch(params: {
 async function defaultWebSearch(params: {
   query: string;
   count: number;
-  provider?: "brave" | "perplexity" | "gemini" | "grok" | "kimi";
+  provider?: "brave" | "duckduckgo" | "perplexity" | "gemini" | "grok" | "kimi";
   providerApiKey?: string;
   country?: string;
   searchLang?: string;
@@ -376,6 +380,239 @@ async function defaultWebSearch(params: {
   freshness?: string;
 }): Promise<WebSearchResultItem[]> {
   const provider = params.provider ?? "brave";
+  if (provider === "duckduckgo") {
+    const url = new URL("https://api.duckduckgo.com/");
+    url.searchParams.set("q", params.query);
+    url.searchParams.set("format", "json");
+    url.searchParams.set("no_html", "1");
+    url.searchParams.set("skip_disambig", "1");
+    const parsePayload = (raw: string) => {
+      if (!raw.trim()) {
+        return undefined;
+      }
+      try {
+        return JSON.parse(raw) as {
+          AbstractText?: string;
+          AbstractURL?: string;
+          Heading?: string;
+          RelatedTopics?: Array<
+            | {
+                Text?: string;
+                FirstURL?: string;
+              }
+            | {
+                Topics?: Array<{
+                  Text?: string;
+                  FirstURL?: string;
+                }>;
+              }
+          >;
+          Results?: Array<{
+            Text?: string;
+            FirstURL?: string;
+          }>;
+        };
+      } catch {
+        return undefined;
+      }
+    };
+    let payload:
+      | {
+          AbstractText?: string;
+          AbstractURL?: string;
+          Heading?: string;
+          RelatedTopics?: Array<
+            | {
+                Text?: string;
+                FirstURL?: string;
+              }
+            | {
+                Topics?: Array<{
+                  Text?: string;
+                  FirstURL?: string;
+                }>;
+              }
+          >;
+          Results?: Array<{
+            Text?: string;
+            FirstURL?: string;
+          }>;
+        }
+      | undefined;
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const response = await fetch(url.toString(), {
+          headers: {
+            Accept: "application/json",
+          },
+        });
+        if (!response.ok) {
+          throw new SoulSwitchError({
+            code: "TOOL_FAILED",
+            message: `DuckDuckGo web_search failed (${response.status}).`,
+          });
+        }
+        const raw = await response.text();
+        payload = parsePayload(raw);
+        break;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    const parsedPayload = (payload ?? {
+      RelatedTopics: [],
+      Results: [],
+    }) as {
+      AbstractText?: string;
+      AbstractURL?: string;
+      Heading?: string;
+      RelatedTopics?: Array<
+        | {
+            Text?: string;
+            FirstURL?: string;
+          }
+        | {
+            Topics?: Array<{
+              Text?: string;
+              FirstURL?: string;
+            }>;
+          }
+      >;
+      Results?: Array<{
+        Text?: string;
+        FirstURL?: string;
+      }>;
+    };
+    const items: WebSearchResultItem[] = [];
+    const pushResult = (entry: { text: string | undefined; url: string | undefined }, fallbackIndex: number) => {
+      const snippet = (entry.text ?? "").trim();
+      const urlValue = (entry.url ?? "").trim();
+      if (!urlValue) {
+        return;
+      }
+      const title = snippet.split(" - ")[0]?.trim() || `Result ${fallbackIndex + 1}`;
+      items.push({
+        title,
+        url: urlValue,
+        ...(snippet ? { snippet } : {}),
+      });
+    };
+    if (parsedPayload.AbstractURL?.trim()) {
+      items.push({
+        title: parsedPayload.Heading?.trim() || "DuckDuckGo Result",
+        url: parsedPayload.AbstractURL.trim(),
+        ...(parsedPayload.AbstractText?.trim() ? { snippet: parsedPayload.AbstractText.trim() } : {}),
+      });
+    }
+    const related = Array.isArray(parsedPayload.RelatedTopics) ? parsedPayload.RelatedTopics : [];
+    for (const entry of related) {
+      if (items.length >= params.count) {
+        break;
+      }
+      if (entry && typeof entry === "object" && Array.isArray((entry as { Topics?: unknown }).Topics)) {
+        const nested = (entry as { Topics: Array<{ Text?: string; FirstURL?: string }> }).Topics;
+        for (const nestedEntry of nested) {
+          if (items.length >= params.count) {
+            break;
+          }
+          pushResult(
+            {
+              text: nestedEntry.Text,
+              url: nestedEntry.FirstURL,
+            },
+            items.length,
+          );
+        }
+        continue;
+      }
+      pushResult(
+        {
+          text: (entry as { Text?: string }).Text,
+          url: (entry as { FirstURL?: string }).FirstURL,
+        },
+        items.length,
+      );
+    }
+    const directResults = Array.isArray(parsedPayload.Results) ? parsedPayload.Results : [];
+    for (const entry of directResults) {
+      if (items.length >= params.count) {
+        break;
+      }
+      pushResult(
+        {
+          text: entry.Text,
+          url: entry.FirstURL,
+        },
+        items.length,
+      );
+    }
+    const deduped: WebSearchResultItem[] = [];
+    const seen = new Set<string>();
+    for (const entry of items) {
+      const key = entry.url.trim();
+      if (!key || seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      deduped.push(entry);
+      if (deduped.length >= params.count) {
+        break;
+      }
+    }
+    if (deduped.length > 0) {
+      return deduped;
+    }
+
+    const htmlUrl = new URL("https://html.duckduckgo.com/html/");
+    htmlUrl.searchParams.set("q", params.query);
+    const htmlResponse = await fetch(htmlUrl.toString(), {
+      headers: {
+        Accept: "text/html",
+        "User-Agent": DEFAULT_WEB_USER_AGENT,
+      },
+    });
+    if (!htmlResponse.ok) {
+      throw new SoulSwitchError({
+        code: "TOOL_FAILED",
+        message: `DuckDuckGo web_search failed (${htmlResponse.status}).`,
+      });
+    }
+    const html = await htmlResponse.text();
+    const matches = html.matchAll(/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi);
+    for (const match of matches) {
+      const rawHref = (match[1] ?? "").replace(/&amp;/g, "&").trim();
+      const title = htmlToText(match[2] ?? "").trim();
+      if (!rawHref || !title) {
+        continue;
+      }
+      const withProtocol = rawHref.startsWith("//") ? `https:${rawHref}` : rawHref;
+      let resolvedUrl = withProtocol;
+      try {
+        const parsed = new URL(withProtocol);
+        if (parsed.hostname.endsWith("duckduckgo.com") && parsed.pathname === "/l/") {
+          const uddg = parsed.searchParams.get("uddg")?.trim();
+          if (uddg) {
+            resolvedUrl = uddg;
+          }
+        }
+      } catch {
+        continue;
+      }
+      if (seen.has(resolvedUrl)) {
+        continue;
+      }
+      seen.add(resolvedUrl);
+      deduped.push({
+        title,
+        url: resolvedUrl,
+      });
+      if (deduped.length >= params.count) {
+        break;
+      }
+    }
+    return deduped;
+  }
   if (provider === "brave") {
     if (!params.providerApiKey) {
       throw new SoulSwitchError({

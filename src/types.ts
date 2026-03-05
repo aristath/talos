@@ -116,12 +116,12 @@ export type WebSearchResultItem = {
 export type WebSearchToolOptions = {
   name?: string;
   description?: string;
-  defaultProvider?: "brave" | "perplexity" | "gemini" | "grok" | "kimi";
-  providerApiKeys?: Partial<Record<"brave" | "perplexity" | "gemini" | "grok" | "kimi", string>>;
+  defaultProvider?: "brave" | "duckduckgo" | "perplexity" | "gemini" | "grok" | "kimi";
+  providerApiKeys?: Partial<Record<"brave" | "duckduckgo" | "perplexity" | "gemini" | "grok" | "kimi", string>>;
   search?: (params: {
     query: string;
     count: number;
-    provider?: "brave" | "perplexity" | "gemini" | "grok" | "kimi";
+    provider?: "brave" | "duckduckgo" | "perplexity" | "gemini" | "grok" | "kimi";
     providerApiKey?: string;
     country?: string;
     searchLang?: string;
