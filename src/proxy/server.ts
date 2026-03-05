@@ -133,6 +133,10 @@ function parseReloadAgentId(body: Uint8Array): string | undefined {
   return typeof candidate === "string" && candidate.trim() ? candidate.trim() : undefined;
 }
 
+function isHeadOrGet(req: IncomingMessage, route: string): boolean {
+  return (req.method === "GET" || req.method === "HEAD") && req.url === route;
+}
+
 async function writeFetchResponse(response: Response, res: ServerResponse): Promise<void> {
   res.statusCode = response.status;
   response.headers.forEach((value, key) => {
@@ -203,11 +207,16 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
     }
     activeRequests += 1;
     try {
-      if (req.method === "GET" && req.url === "/healthz") {
+      if (isHeadOrGet(req, "/healthz")) {
         res.statusCode = 200;
         applyCorsHeaders(res, options.cors);
         applyRequestIdHeader(res, requestId);
         res.setHeader("content-type", "application/json");
+        if (req.method === "HEAD") {
+          res.end();
+          recordStatus(metrics, res.statusCode);
+          return;
+        }
         res.end(
           JSON.stringify({
             status: "ok",
@@ -219,11 +228,16 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
         recordStatus(metrics, res.statusCode);
         return;
       }
-      if (req.method === "GET" && req.url === "/metricsz") {
+      if (isHeadOrGet(req, "/metricsz")) {
         res.statusCode = 200;
         applyCorsHeaders(res, options.cors);
         applyRequestIdHeader(res, requestId);
         res.setHeader("content-type", "application/json");
+        if (req.method === "HEAD") {
+          res.end();
+          recordStatus(metrics, res.statusCode);
+          return;
+        }
         res.end(
           JSON.stringify({
             status: "ok",
@@ -236,12 +250,17 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
         recordStatus(metrics, res.statusCode);
         return;
       }
-      if (req.method === "GET" && req.url === "/readyz") {
+      if (isHeadOrGet(req, "/readyz")) {
         const readiness = await proxy.ready();
         res.statusCode = readiness.ok ? 200 : 503;
         applyCorsHeaders(res, options.cors);
         applyRequestIdHeader(res, requestId);
         res.setHeader("content-type", "application/json");
+        if (req.method === "HEAD") {
+          res.end();
+          recordStatus(metrics, res.statusCode);
+          return;
+        }
         res.end(
           JSON.stringify({
             status: readiness.ok ? "ready" : "not_ready",

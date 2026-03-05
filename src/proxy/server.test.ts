@@ -210,6 +210,39 @@ describe("createOpenAICompatibleProxyServer", () => {
     }
   });
 
+  it("supports HEAD health and readiness probes", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-head-probes-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const proxyServer = createOpenAICompatibleProxyServer({
+      workspaceDir,
+      defaultAgentId: "designer",
+    });
+    const listening = await proxyServer.listen();
+    try {
+      const healthHead = await fetch(`http://${listening.host}:${listening.port}/healthz`, {
+        method: "HEAD",
+      });
+      expect(healthHead.status).toBe(200);
+      expect(healthHead.headers.get("x-request-id")).toBeTruthy();
+
+      const readyHead = await fetch(`http://${listening.host}:${listening.port}/readyz`, {
+        method: "HEAD",
+      });
+      expect(readyHead.status).toBe(200);
+      expect(readyHead.headers.get("x-request-id")).toBeTruthy();
+    } finally {
+      await proxyServer.close();
+    }
+  });
+
   it("returns 503 on readiness failures", async () => {
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-server-not-ready-"));
     const proxyServer = createOpenAICompatibleProxyServer({

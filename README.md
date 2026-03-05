@@ -119,9 +119,9 @@ Proxy responses include `x-request-id`, `x-talos-agent-id`, and `x-talos-model` 
 The proxy exposes `ready()` and `reload(agentId?)` methods for operational checks and cache refresh.
 
 `createOpenAICompatibleProxyServer` supports optional CORS handling (`cors.allowOrigin`, `cors.allowHeaders`, `cors.allowMethods`) and responds to `OPTIONS` preflight requests.
-It also exposes `GET /healthz` for liveness/uptime checks (including active/concurrency counters).
-It exposes `GET /readyz` for readiness checks against the configured default agent persona.
-It exposes `GET /metricsz` for request/response counters and health metrics.
+It exposes `GET/HEAD /healthz` for liveness/uptime checks (including active/concurrency counters).
+It exposes `GET/HEAD /readyz` for readiness checks against the configured default agent persona.
+It exposes `GET/HEAD /metricsz` for request/response counters and health metrics.
 If `adminToken` is configured, `POST /reloadz` is enabled for authenticated cache refresh (`x-admin-token` or Bearer auth).
 You can set `maxRequestBytes` to cap inbound body size (default: 2MB).
 You can set `maxConcurrentRequests` to cap in-flight requests (default: 200).
