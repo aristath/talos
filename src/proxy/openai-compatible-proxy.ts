@@ -586,9 +586,11 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
     handle: async (request: Request): Promise<Response> => {
       const url = new URL(request.url);
       const requestId = request.headers.get("x-request-id")?.trim() || randomUUID();
-      if (request.method === "GET" && url.pathname === "/v1/models") {
+      if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/v1/models") {
+        const asHead = request.method === "HEAD";
         if (!options.inboundAuth) {
-          return await listModels({ requestId });
+          const response = await listModels({ requestId });
+          return asHead ? new Response(null, { status: response.status, headers: response.headers }) : response;
         }
         const token = readInboundToken(request);
         if (!token) {
@@ -603,12 +605,14 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           });
         }
         const allowed = rule.allowedAgentIds ?? [rule.defaultAgentId];
-        return await listModels({
+        const response = await listModels({
           requestId,
           allowedAgentIds: allowed.map((entry) => entry.trim()).filter(Boolean),
         });
+        return asHead ? new Response(null, { status: response.status, headers: response.headers }) : response;
       }
-      if (request.method === "GET" && url.pathname.startsWith("/v1/models/")) {
+      if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/v1/models/")) {
+        const asHead = request.method === "HEAD";
         const modelId = decodeURIComponent(url.pathname.slice("/v1/models/".length));
         if (!modelId.trim()) {
           return openAIError(404, "Model not found.", "invalid_request_error", {
@@ -616,7 +620,8 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           });
         }
         if (!options.inboundAuth) {
-          return await getModel({ modelId, requestId });
+          const response = await getModel({ modelId, requestId });
+          return asHead ? new Response(null, { status: response.status, headers: response.headers }) : response;
         }
         const token = readInboundToken(request);
         if (!token) {
@@ -631,11 +636,12 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           });
         }
         const allowed = rule.allowedAgentIds ?? [rule.defaultAgentId];
-        return await getModel({
+        const response = await getModel({
           modelId,
           requestId,
           allowedAgentIds: allowed.map((entry) => entry.trim()).filter(Boolean),
         });
+        return asHead ? new Response(null, { status: response.status, headers: response.headers }) : response;
       }
       if (request.method !== "POST") {
         return openAIError(405, "Method not allowed.", "invalid_request_error", {

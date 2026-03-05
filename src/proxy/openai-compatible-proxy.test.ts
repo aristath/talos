@@ -364,6 +364,16 @@ describe("createOpenAICompatibleProxy", () => {
     expect(single.headers.get("x-request-id")).toBeTruthy();
     const singlePayload = (await single.json()) as { id?: string };
     expect(singlePayload.id).toBe("agent:designer");
+
+    const listHead = await proxy.handle(new Request("http://localhost/v1/models", { method: "HEAD" }));
+    expect(listHead.status).toBe(200);
+    const listHeadBody = await listHead.text();
+    expect(listHeadBody).toBe("");
+
+    const singleHead = await proxy.handle(new Request("http://localhost/v1/models/agent:designer", { method: "HEAD" }));
+    expect(singleHead.status).toBe(200);
+    const singleHeadBody = await singleHead.text();
+    expect(singleHeadBody).toBe("");
   });
 
   it("protects and filters /v1/models when inbound auth is configured", async () => {
