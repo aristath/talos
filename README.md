@@ -217,10 +217,15 @@ Default checks:
 Live E2E (real upstream credentials, opt-in):
 
 1. Copy `.env.e2e.example` to `.env.e2e.local`
-2. Fill `SOULSWITCH_E2E_BASE_URL`, `SOULSWITCH_E2E_API_KEY`, and `SOULSWITCH_E2E_MODEL`
-3. Run `pnpm test:e2e:live`
+2. Fill `SOULSWITCH_E2E_BASE_URL`, `SOULSWITCH_E2E_API_KEY`, `SOULSWITCH_E2E_MODEL`, and `SOULSWITCH_E2E_LIVE=1`
+3. Run `pnpm test:e2e:live` (proxy live suite)
+4. Run `pnpm test:e2e:tools:live` (tools live suite)
 
-Live suite file: `src/proxy/live.e2e.test.ts`.
+E2E suite files:
+
+- `src/proxy/live.e2e.test.ts`
+- `src/tools/e2e.test.ts`
+- `src/tools/live.e2e.test.ts`
 
 ## Production Checklist
 

@@ -59,7 +59,123 @@ runLive("tools live e2e", () => {
     LIVE_TIMEOUT_MS,
   );
 
+  it(
+    "runs web_fetch against a real URL",
+    async () => {
+      const soulSwitch = createSoulSwitch({
+        providers: {
+          openaiCompatible: [
+            {
+              id: "openai",
+              baseUrl: "https://api.openai.com/v1",
+              defaultModel: "gpt-4o-mini",
+            },
+          ],
+        },
+      });
+
+      soulSwitch.registerWebTools({
+        fetch: {
+          allowPrivateNetwork: false,
+        },
+      });
+
+      const result = await soulSwitch.executeTool({
+        name: "web_fetch",
+        args: {
+          url: "https://example.com",
+          extractMode: "text",
+          maxChars: 2000,
+        },
+        context: {
+          agentId: "main",
+        },
+      });
+
+      const data = result.data as {
+        finalUrl?: string;
+        sourceUrl?: string;
+        statusCode?: number;
+        extractor?: string;
+      };
+      expect(result.content.length).toBeGreaterThan(20);
+      expect((data.finalUrl ?? "").startsWith("https://")).toBe(true);
+      expect((data.sourceUrl ?? "").startsWith("https://")).toBe(true);
+      expect(typeof data.statusCode).toBe("number");
+      expect(typeof data.extractor).toBe("string");
+    },
+    LIVE_TIMEOUT_MS,
+  );
+
   const runModelLive = modelLive ? it : it.skip;
+
+  runModelLive(
+    "runs llm_task with a real model",
+    async () => {
+      const providerId = process.env.SOULSWITCH_E2E_PROVIDER_ID?.trim() || "openrouter";
+      const baseUrl = process.env.SOULSWITCH_E2E_BASE_URL!.trim();
+      const apiKey = process.env.SOULSWITCH_E2E_API_KEY!.trim();
+      const modelId = process.env.SOULSWITCH_E2E_TOOL_MODEL?.trim() || "openai/gpt-4.1-mini";
+
+      const soulSwitch = createSoulSwitch({
+        providers: {
+          openaiCompatible: [
+            {
+              id: providerId,
+              baseUrl,
+              apiKey,
+              defaultModel: modelId,
+            },
+          ],
+        },
+        models: {
+          requestTimeoutMs: 60_000,
+        },
+      });
+
+      soulSwitch.registerLlmTaskTool({
+        defaultProviderId: providerId,
+        defaultModelId: modelId,
+      });
+
+      let completed = false;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const result = await soulSwitch.executeTool({
+            name: "llm_task",
+            args: {
+              prompt: "Return JSON object with key ok set to true.",
+              schema: {
+                type: "object",
+                required: ["ok"],
+                properties: {
+                  ok: { type: "boolean" },
+                },
+              },
+            },
+            context: {
+              agentId: "main",
+            },
+          });
+          const data = result.data as {
+            json?: { ok?: boolean };
+            providerId?: string;
+            modelId?: string;
+          };
+          expect(data.json?.ok).toBe(true);
+          expect(data.providerId).toBe(providerId);
+          expect(data.modelId).toBe(modelId);
+          completed = true;
+          break;
+        } catch {
+          // Upstream may occasionally return empty/invalid payloads; retry.
+        }
+      }
+
+      expect(completed).toBe(true);
+    },
+    LIVE_TIMEOUT_MS,
+  );
 
   runModelLive(
     "lets a real model call web_search through agent run",
