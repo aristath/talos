@@ -10,6 +10,7 @@ export { createOpenAICompatibleProxy } from "./proxy/openai-compatible-proxy.js"
 export { createOpenAICompatibleProxyServer } from "./proxy/server.js";
 export { loadOpenAIProxyOptionsFromFile } from "./proxy/config.js";
 export { loadOpenAIProxyServerOptionsFromFile } from "./proxy/config.js";
+export { createOpenAICompatibleProxyFromFile, createOpenAICompatibleProxyServerFromFile } from "./proxy/bootstrap.js";
 export type { OpenAIProxyOptions } from "./proxy/openai-compatible-proxy.js";
 export type { OpenAIProxyServerOptions, OpenAIProxyServerCorsOptions } from "./proxy/server.js";
 export { redactValue } from "./security/redaction.js";

@@ -59,6 +59,8 @@ Current core API:
 - `createOpenAICompatibleProxyServer(options)` for Node HTTP server adapter
 - `loadOpenAIProxyOptionsFromFile({ workspaceDir, configPath? })` to load proxy options from JSON
 - `loadOpenAIProxyServerOptionsFromFile({ workspaceDir, configPath? })` to load server+proxy options from JSON
+- `createOpenAICompatibleProxyFromFile({ workspaceDir, configPath? })` to bootstrap proxy directly from JSON
+- `createOpenAICompatibleProxyServerFromFile({ workspaceDir, configPath? })` to bootstrap server directly from JSON
 
 `run(input)` returns a `runId` and lifecycle events include that same `runId` for correlation.
 `run(input)` also supports cancellation via `AbortSignal` (`input.signal`).
