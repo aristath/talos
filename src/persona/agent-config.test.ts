@@ -29,6 +29,9 @@ describe("loadAgentRuntimeProfile", () => {
           default: "openai/gpt-4.1",
           fallbacks: ["anthropic/claude-3-7-sonnet"],
         },
+        limits: {
+          timeoutMs: 12345,
+        },
       },
         null,
         2,
@@ -45,6 +48,7 @@ describe("loadAgentRuntimeProfile", () => {
     expect(profile?.baseUrl).toBe("https://openrouter.ai/api/v1");
     expect(profile?.modelId).toBe("openai/gpt-4.1");
     expect(profile?.fallbackModelIds).toEqual(["anthropic/claude-3-7-sonnet"]);
+    expect(profile?.timeoutMs).toBe(12345);
     expect(profile?.apiKey).toBe("sk-openrouter-123");
     expect(profile?.headers?.["HTTP-Referer"]).toBe("https://agency.example");
   });

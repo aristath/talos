@@ -396,7 +396,11 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
       requestId: params.requestId,
     });
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), upstreamTimeoutMs);
+    const effectiveTimeoutMs =
+      typeof params.profile.timeoutMs === "number" && Number.isFinite(params.profile.timeoutMs)
+        ? params.profile.timeoutMs
+        : upstreamTimeoutMs;
+    const timeout = setTimeout(() => controller.abort(), effectiveTimeoutMs);
     const modelCandidates = resolveModelCandidates({
       payloadModel: params.payload.model,
       ...(params.profile.modelId ? { defaultModel: params.profile.modelId } : {}),
@@ -470,7 +474,9 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
     } catch (error) {
       return openAIError(
         502,
-        error instanceof Error ? `Upstream request failed: ${error.message}` : "Upstream request failed.",
+        error instanceof Error
+          ? `Upstream request failed: ${error.message} (timeout=${effectiveTimeoutMs}ms)`
+          : `Upstream request failed. (timeout=${effectiveTimeoutMs}ms)`,
         "api_error",
         {
           "x-request-id": params.requestId,

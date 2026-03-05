@@ -105,6 +105,9 @@ Minimal `agent.json` example:
   "model": {
     "default": "openai/gpt-4.1",
     "fallbacks": ["anthropic/claude-3-7-sonnet"]
+  },
+  "limits": {
+    "timeoutMs": 30000
   }
 }
 ```

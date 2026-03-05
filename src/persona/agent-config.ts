@@ -26,6 +26,12 @@ const AGENT_MODEL_SCHEMA = z
   })
   .optional();
 
+const AGENT_LIMITS_SCHEMA = z
+  .object({
+    timeoutMs: z.number().int().positive().optional(),
+  })
+  .optional();
+
 const AGENT_JSON_SCHEMA = z
   .object({
     id: z.string().min(1).optional(),
@@ -33,6 +39,7 @@ const AGENT_JSON_SCHEMA = z
     modelId: z.string().min(1).optional(),
     upstream: AGENT_UPSTREAM_SCHEMA,
     model: AGENT_MODEL_SCHEMA,
+    limits: AGENT_LIMITS_SCHEMA,
   })
   .strict();
 
@@ -41,6 +48,7 @@ export type AgentRuntimeProfile = {
   providerId?: string;
   modelId?: string;
   fallbackModelIds?: string[];
+  timeoutMs?: number;
   baseUrl?: string;
   apiKey?: string;
   headers?: Record<string, string>;
@@ -128,6 +136,7 @@ export async function loadAgentRuntimeProfile(params: {
     agentConfig?.upstream?.providerId ?? agentConfig?.upstream?.provider ?? agentConfig?.providerId;
   const modelId = agentConfig?.model?.default ?? agentConfig?.modelId;
   const fallbackModelIds = agentConfig?.model?.fallbacks?.map((entry) => entry.trim()).filter(Boolean);
+  const timeoutMs = agentConfig?.limits?.timeoutMs;
   const baseUrl = agentConfig?.upstream?.baseURL ?? agentConfig?.upstream?.baseUrl;
   const apiKey = agentConfig?.upstream?.auth?.apiKey;
   const headers = agentConfig?.upstream?.headers;
@@ -136,6 +145,7 @@ export async function loadAgentRuntimeProfile(params: {
     ...(providerId ? { providerId } : {}),
     ...(modelId ? { modelId } : {}),
     ...(fallbackModelIds && fallbackModelIds.length > 0 ? { fallbackModelIds } : {}),
+    ...(typeof timeoutMs === "number" ? { timeoutMs } : {}),
     ...(baseUrl ? { baseUrl } : {}),
     ...(apiKey ? { apiKey } : {}),
     ...(headers ? { headers } : {}),

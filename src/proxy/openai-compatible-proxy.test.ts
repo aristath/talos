@@ -11,6 +11,7 @@ async function setupAgent(params: {
   apiKey: string;
   baseURL: string;
   model: string;
+  timeoutMs?: number;
 }): Promise<void> {
   const agentDir = path.join(params.workspaceDir, "agents", params.agentId);
   await fs.mkdir(agentDir, { recursive: true });
@@ -34,6 +35,13 @@ async function setupAgent(params: {
           default: params.model,
           fallbacks: ["fallback-model"],
         },
+        ...(typeof params.timeoutMs === "number"
+          ? {
+              limits: {
+                timeoutMs: params.timeoutMs,
+              },
+            }
+          : {}),
       },
       null,
       2,
@@ -792,5 +800,54 @@ describe("createOpenAICompatibleProxy", () => {
     };
     expect(firstBody.model).toBe("primary-model");
     expect(secondBody.model).toBe("fallback-model");
+  });
+
+  it("uses agent-level timeout override when configured", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-timeout-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Designer soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+      timeoutMs: 25,
+    });
+
+    const fetchMock = vi.fn(async (_input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      await new Promise<void>((_resolve, reject) => {
+        const signal = init?.signal;
+        if (!signal) {
+          return;
+        }
+        signal.addEventListener("abort", () => {
+          reject(new Error("aborted"));
+        });
+      });
+      return new Response(JSON.stringify({ id: "never" }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proxy = createOpenAICompatibleProxy({
+      workspaceDir,
+      defaultAgentId: "designer",
+      upstreamTimeoutMs: 5000,
+    });
+
+    const response = await proxy.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(502);
+    const payload = (await response.json()) as { error?: { message?: string } };
+    expect(payload.error?.message).toContain("timeout=25ms");
   });
 });
