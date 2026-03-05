@@ -131,6 +131,66 @@ describe("createOpenAICompatibleProxy", () => {
     expect(ready.error).toBeTruthy();
   });
 
+  it("reloads cached agent persona profiles on demand", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-reload-"));
+    await setupAgent({
+      workspaceDir,
+      agentId: "designer",
+      soul: "Original soul",
+      apiKey: "sk-designer",
+      baseURL: "https://openrouter.ai/api/v1",
+      model: "openai/gpt-4.1",
+    });
+
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: "chatcmpl_1" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proxy = createOpenAICompatibleProxy({
+      workspaceDir,
+      defaultAgentId: "designer",
+      cacheTtlMs: 60_000,
+    });
+
+    await proxy.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      }),
+    );
+
+    const callsBefore = fetchMock.mock.calls as unknown as Array<[unknown, unknown?]>;
+    const bodyBefore = JSON.parse(((callsBefore[0]?.[1] as { body?: string } | undefined)?.body ?? "{}")) as {
+      messages?: Array<{ content?: string }>;
+    };
+    expect(bodyBefore.messages?.[0]?.content).toContain("Original soul");
+
+    await fs.writeFile(path.join(workspaceDir, "agents", "designer", "SOUL.md"), "Updated soul", "utf8");
+    await proxy.reload("designer");
+
+    await proxy.handle(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "hello again" }],
+        }),
+      }),
+    );
+
+    const callsAfter = fetchMock.mock.calls as unknown as Array<[unknown, unknown?]>;
+    const bodyAfter = JSON.parse(((callsAfter[1]?.[1] as { body?: string } | undefined)?.body ?? "{}")) as {
+      messages?: Array<{ content?: string }>;
+    };
+    expect(bodyAfter.messages?.[0]?.content).toContain("Updated soul");
+  });
+
   it("injects persona as instructions for responses endpoint", async () => {
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-responses-"));
     await setupAgent({

@@ -293,6 +293,7 @@ async function listAgentIds(workspaceDir: string, agentsDir: string): Promise<st
 export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
   handle: (request: Request) => Promise<Response>;
   ready: () => Promise<OpenAIProxyReadyState>;
+  reload: (agentId?: string) => Promise<{ ok: boolean; cleared: number; agentId?: string }>;
 } {
   const workspaceDir = options.workspaceDir.trim();
   const defaultAgentId = options.defaultAgentId.trim();
@@ -521,6 +522,23 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
   };
 
   return {
+    reload: async (agentId?: string): Promise<{ ok: boolean; cleared: number; agentId?: string }> => {
+      if (agentId?.trim()) {
+        const normalized = agentId.trim();
+        const deleted = cache.delete(normalized);
+        return {
+          ok: true,
+          cleared: deleted ? 1 : 0,
+          agentId: normalized,
+        };
+      }
+      const cleared = cache.size;
+      cache.clear();
+      return {
+        ok: true,
+        cleared,
+      };
+    },
     ready: async (): Promise<OpenAIProxyReadyState> => {
       try {
         await resolveProfile(defaultAgentId);
