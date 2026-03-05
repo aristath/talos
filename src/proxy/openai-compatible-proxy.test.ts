@@ -260,6 +260,7 @@ describe("createOpenAICompatibleProxy", () => {
     });
 
     const response = await proxy.handle(new Request("http://localhost/v1/models", { method: "GET" }));
+    expect(response.headers.get("x-request-id")).toBeTruthy();
     const payload = (await response.json()) as {
       data?: Array<{ id?: string; root?: string }>;
     };
@@ -269,6 +270,7 @@ describe("createOpenAICompatibleProxy", () => {
 
     const single = await proxy.handle(new Request("http://localhost/v1/models/agent:designer", { method: "GET" }));
     expect(single.status).toBe(200);
+    expect(single.headers.get("x-request-id")).toBeTruthy();
     const singlePayload = (await single.json()) as { id?: string };
     expect(singlePayload.id).toBe("agent:designer");
   });
@@ -305,6 +307,7 @@ describe("createOpenAICompatibleProxy", () => {
 
     const unauthorized = await proxy.handle(new Request("http://localhost/v1/models", { method: "GET" }));
     expect(unauthorized.status).toBe(401);
+    expect(unauthorized.headers.get("x-request-id")).toBeTruthy();
 
     const authorized = await proxy.handle(
       new Request("http://localhost/v1/models", {

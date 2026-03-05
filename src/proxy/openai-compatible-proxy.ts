@@ -372,7 +372,8 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
     }
   };
 
-  const listModels = async (allowedAgentIds?: string[]): Promise<Response> => {
+  const listModels = async (params?: { allowedAgentIds?: string[]; requestId?: string }): Promise<Response> => {
+    const allowedAgentIds = params?.allowedAgentIds;
     const allAgentIds = await listAgentIds(workspaceDir, agentsDir);
     const agentIds =
       Array.isArray(allowedAgentIds) && allowedAgentIds.length > 0
@@ -402,24 +403,31 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
         status: 200,
         headers: {
           "content-type": "application/json",
+          ...(params?.requestId ? { "x-request-id": params.requestId } : {}),
         },
       },
     );
   };
 
-  const getModel = async (modelId: string, allowedAgentIds?: string[]): Promise<Response> => {
-    const list = await listModels(allowedAgentIds);
+  const getModel = async (params: { modelId: string; allowedAgentIds?: string[]; requestId?: string }): Promise<Response> => {
+    const list = await listModels({
+      ...(params.allowedAgentIds ? { allowedAgentIds: params.allowedAgentIds } : {}),
+      ...(params.requestId ? { requestId: params.requestId } : {}),
+    });
     const payload = (await list.json()) as {
       data?: Array<{ id?: string; object?: string; owned_by?: string; root?: string }>;
     };
-    const model = (payload.data ?? []).find((entry) => entry.id === modelId);
+    const model = (payload.data ?? []).find((entry) => entry.id === params.modelId);
     if (!model) {
-      return openAIError(404, `Model not found: ${modelId}`);
+      return openAIError(404, `Model not found: ${params.modelId}`, "invalid_request_error", {
+        ...(params.requestId ? { "x-request-id": params.requestId } : {}),
+      });
     }
     return new Response(JSON.stringify(model), {
       status: 200,
       headers: {
         "content-type": "application/json",
+        ...(params.requestId ? { "x-request-id": params.requestId } : {}),
       },
     });
   };
@@ -430,18 +438,25 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
       const requestId = request.headers.get("x-request-id")?.trim() || randomUUID();
       if (request.method === "GET" && url.pathname === "/v1/models") {
         if (!options.inboundAuth) {
-          return await listModels();
+          return await listModels({ requestId });
         }
         const token = readBearerToken(request);
         if (!token) {
-          return openAIError(401, "Missing bearer token.", "authentication_error");
+          return openAIError(401, "Missing bearer token.", "authentication_error", {
+            "x-request-id": requestId,
+          });
         }
         const rule = options.inboundAuth[token];
         if (!rule) {
-          return openAIError(403, "Invalid API token.", "authentication_error");
+          return openAIError(403, "Invalid API token.", "authentication_error", {
+            "x-request-id": requestId,
+          });
         }
         const allowed = rule.allowedAgentIds ?? [rule.defaultAgentId];
-        return await listModels(allowed.map((entry) => entry.trim()).filter(Boolean));
+        return await listModels({
+          requestId,
+          allowedAgentIds: allowed.map((entry) => entry.trim()).filter(Boolean),
+        });
       }
       if (request.method === "GET" && url.pathname.startsWith("/v1/models/")) {
         const modelId = decodeURIComponent(url.pathname.slice("/v1/models/".length));
@@ -451,18 +466,26 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
           });
         }
         if (!options.inboundAuth) {
-          return await getModel(modelId);
+          return await getModel({ modelId, requestId });
         }
         const token = readBearerToken(request);
         if (!token) {
-          return openAIError(401, "Missing bearer token.", "authentication_error");
+          return openAIError(401, "Missing bearer token.", "authentication_error", {
+            "x-request-id": requestId,
+          });
         }
         const rule = options.inboundAuth[token];
         if (!rule) {
-          return openAIError(403, "Invalid API token.", "authentication_error");
+          return openAIError(403, "Invalid API token.", "authentication_error", {
+            "x-request-id": requestId,
+          });
         }
         const allowed = rule.allowedAgentIds ?? [rule.defaultAgentId];
-        return await getModel(modelId, allowed.map((entry) => entry.trim()).filter(Boolean));
+        return await getModel({
+          modelId,
+          requestId,
+          allowedAgentIds: allowed.map((entry) => entry.trim()).filter(Boolean),
+        });
       }
       if (request.method !== "POST") {
         return openAIError(405, "Method not allowed.", "invalid_request_error", {
