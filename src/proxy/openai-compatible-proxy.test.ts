@@ -91,6 +91,8 @@ describe("createOpenAICompatibleProxy", () => {
     const ready = await proxy.ready();
     expect(ready.ok).toBe(true);
     expect(ready.agentId).toBe("designer");
+    expect(proxy.stats().defaultAgentId).toBe("designer");
+    expect(proxy.stats().cacheEntries).toBe(1);
 
     const response = await proxy.handle(
       new Request("http://localhost/v1/chat/completions", {

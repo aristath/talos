@@ -306,11 +306,17 @@ describe("createOpenAICompatibleProxyServer", () => {
         totalRequests?: number;
         totalResponses?: number;
         responses2xx?: number;
+        proxy?: {
+          defaultAgentId?: string;
+          cacheEntries?: number;
+        };
       };
       expect(payload.status).toBe("ok");
       expect((payload.totalRequests ?? 0)).toBeGreaterThanOrEqual(2);
       expect((payload.totalResponses ?? 0)).toBeGreaterThanOrEqual(1);
       expect((payload.responses2xx ?? 0)).toBeGreaterThanOrEqual(1);
+      expect(payload.proxy?.defaultAgentId).toBe("designer");
+      expect(typeof payload.proxy?.cacheEntries).toBe("number");
     } finally {
       await proxyServer.close();
       vi.unstubAllGlobals();

@@ -27,6 +27,12 @@ export type OpenAIProxyReadyState = {
   error?: string;
 };
 
+export type OpenAIProxyStats = {
+  defaultAgentId: string;
+  cacheEntries: number;
+  cacheTtlMs: number;
+};
+
 type CachedAgentProfile = {
   expiresAt: number;
   profile: ResolvedAgentProfile;
@@ -304,6 +310,7 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
   handle: (request: Request) => Promise<Response>;
   ready: () => Promise<OpenAIProxyReadyState>;
   reload: (agentId?: string) => Promise<{ ok: boolean; cleared: number; agentId?: string }>;
+  stats: () => OpenAIProxyStats;
 } {
   const workspaceDir = options.workspaceDir.trim();
   const defaultAgentId = options.defaultAgentId.trim();
@@ -551,6 +558,11 @@ export function createOpenAICompatibleProxy(options: OpenAIProxyOptions): {
   };
 
   return {
+    stats: (): OpenAIProxyStats => ({
+      defaultAgentId,
+      cacheEntries: cache.size,
+      cacheTtlMs,
+    }),
     reload: async (agentId?: string): Promise<{ ok: boolean; cleared: number; agentId?: string }> => {
       if (agentId?.trim()) {
         const normalized = agentId.trim();

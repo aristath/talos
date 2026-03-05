@@ -245,6 +245,7 @@ export function createOpenAICompatibleProxyServer(options: OpenAIProxyServerOpti
             activeRequests,
             maxConcurrentRequests: Math.floor(maxConcurrentRequests),
             ...metrics,
+            proxy: proxy.stats(),
           }),
         );
         recordStatus(metrics, res.statusCode);

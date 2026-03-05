@@ -127,6 +127,7 @@ Inbound auth accepts `Authorization: Bearer <token>`, `x-api-key`, or `api-key` 
 Proxy responses include `x-request-id`, `x-talos-agent-id`, and `x-talos-model` headers for traceability.
 When model fallback chains are configured, responses also include `x-talos-model-attempt` and `x-talos-model-candidates`.
 The proxy exposes `ready()` and `reload(agentId?)` methods for operational checks and cache refresh.
+It also exposes `stats()` for cache/default-agent observability.
 
 `createOpenAICompatibleProxyServer` supports optional CORS handling (`cors.allowOrigin`, `cors.allowHeaders`, `cors.allowMethods`) and responds to `OPTIONS` preflight requests.
 It exposes `GET/HEAD /healthz` for liveness/uptime checks (including active/concurrency counters).
