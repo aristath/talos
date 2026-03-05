@@ -62,6 +62,8 @@ Current core API:
 - `createOpenAICompatibleProxyFromFile({ workspaceDir, configPath? })` to bootstrap proxy directly from JSON
 - `createOpenAICompatibleProxyServerFromFile({ workspaceDir, configPath? })` to bootstrap server directly from JSON
 
+Both bootstrap helpers support `verifyReady: true` to fail fast when the default agent profile cannot be loaded.
+
 `run(input)` returns a `runId` and lifecycle events include that same `runId` for correlation.
 `run(input)` also supports cancellation via `AbortSignal` (`input.signal`).
 Persona loading follows session semantics: main sessions load full persona context, while subagent/cron sessions load a minimal allowlist.

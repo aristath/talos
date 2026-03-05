@@ -97,4 +97,33 @@ describe("proxy bootstrap helpers", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("fails fast when verifyReady is enabled and agent profile is invalid", async () => {
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-bootstrap-not-ready-"));
+    await fs.writeFile(
+      path.join(workspaceDir, "proxy.json"),
+      JSON.stringify(
+        {
+          defaultAgentId: "designer",
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await expect(
+      createOpenAICompatibleProxyFromFile({
+        workspaceDir,
+        verifyReady: true,
+      }),
+    ).rejects.toMatchObject({ code: "CONFIG_INVALID" });
+
+    await expect(
+      createOpenAICompatibleProxyServerFromFile({
+        workspaceDir,
+        verifyReady: true,
+      }),
+    ).rejects.toMatchObject({ code: "CONFIG_INVALID" });
+  });
 });
