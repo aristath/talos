@@ -58,6 +58,7 @@ Current core API:
 - `createOpenAICompatibleProxy(options)` for Fetch-compatible OpenAI proxy handling
 - `createOpenAICompatibleProxyServer(options)` for Node HTTP server adapter
 - `loadOpenAIProxyOptionsFromFile({ workspaceDir, configPath? })` to load proxy options from JSON
+- `loadOpenAIProxyServerOptionsFromFile({ workspaceDir, configPath? })` to load server+proxy options from JSON
 
 `run(input)` returns a `runId` and lifecycle events include that same `runId` for correlation.
 `run(input)` also supports cancellation via `AbortSignal` (`input.signal`).

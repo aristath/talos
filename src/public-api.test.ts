@@ -23,6 +23,7 @@ describe("public API contract", () => {
       "definePlugin",
       "discoverPluginEntryPaths",
       "loadOpenAIProxyOptionsFromFile",
+      "loadOpenAIProxyServerOptionsFromFile",
       "loadPluginFromPath",
       "redactValue",
       "seedPersonaWorkspace",
