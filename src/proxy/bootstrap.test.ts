@@ -2,7 +2,11 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { createOpenAICompatibleProxyFromFile, createOpenAICompatibleProxyServerFromFile } from "./bootstrap.js";
+import {
+  createOpenAICompatibleProxyFromFile,
+  createOpenAICompatibleProxyServerFromFile,
+  startOpenAICompatibleProxyServerFromFile,
+} from "./bootstrap.js";
 
 async function setupWorkspace(): Promise<string> {
   const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "talos-proxy-bootstrap-"));
@@ -125,5 +129,39 @@ describe("proxy bootstrap helpers", () => {
         verifyReady: true,
       }),
     ).rejects.toMatchObject({ code: "CONFIG_INVALID" });
+  });
+
+  it("starts proxy server from file and returns bound address", async () => {
+    const workspaceDir = await setupWorkspace();
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi.fn(async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const target = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (target.startsWith("http://127.0.0.1:")) {
+        return await originalFetch(input, init);
+      }
+      return new Response(JSON.stringify({ id: "chatcmpl_1" }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const started = await startOpenAICompatibleProxyServerFromFile({
+      workspaceDir,
+      verifyReady: true,
+    });
+    try {
+      expect(started.address.port).toBeGreaterThan(0);
+      const response = await fetch(`http://${started.address.host}:${started.address.port}/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      });
+      expect(response.status).toBe(200);
+    } finally {
+      await started.server.close();
+      vi.unstubAllGlobals();
+    }
   });
 });

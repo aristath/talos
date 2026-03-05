@@ -29,6 +29,7 @@ describe("public API contract", () => {
       "loadPluginFromPath",
       "redactValue",
       "seedPersonaWorkspace",
+      "startOpenAICompatibleProxyServerFromFile",
     ]);
   });
 

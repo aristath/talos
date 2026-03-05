@@ -61,6 +61,7 @@ Current core API:
 - `loadOpenAIProxyServerOptionsFromFile({ workspaceDir, configPath? })` to load server+proxy options from JSON
 - `createOpenAICompatibleProxyFromFile({ workspaceDir, configPath? })` to bootstrap proxy directly from JSON
 - `createOpenAICompatibleProxyServerFromFile({ workspaceDir, configPath? })` to bootstrap server directly from JSON
+- `startOpenAICompatibleProxyServerFromFile({ workspaceDir, configPath?, verifyReady?, port?, host? })` to bootstrap + listen in one step
 
 Both bootstrap helpers support `verifyReady: true` to fail fast when the default agent profile cannot be loaded.
 

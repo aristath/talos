@@ -44,3 +44,25 @@ export async function createOpenAICompatibleProxyServerFromFile(params: {
   }
   return createOpenAICompatibleProxyServer(options);
 }
+
+export async function startOpenAICompatibleProxyServerFromFile(params: {
+  workspaceDir: string;
+  configPath?: string;
+  verifyReady?: boolean;
+  port?: number;
+  host?: string;
+}): Promise<{
+  server: OpenAIProxyServer;
+  address: { port: number; host: string };
+}> {
+  const server = await createOpenAICompatibleProxyServerFromFile({
+    workspaceDir: params.workspaceDir,
+    ...(params.configPath ? { configPath: params.configPath } : {}),
+    ...(typeof params.verifyReady === "boolean" ? { verifyReady: params.verifyReady } : {}),
+  });
+  const address = await server.listen(params.port, params.host);
+  return {
+    server,
+    address,
+  };
+}
